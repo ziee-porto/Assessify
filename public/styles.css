@@ -2257,23 +2257,25 @@ table tbody tr:hover {
   }
   .top-actions {
     gap: 8px;
-  }
-
   /* Admin Shell & Mobile Tab Bar */
   .admin-shell {
     flex-direction: column;
+    min-height: auto;
   }
   .admin-sidebar {
     width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    padding: 12px 16px;
-    gap: 12px;
+    padding: 10px 14px;
+    gap: 8px;
     background: #ffffff;
     position: sticky;
     top: 62px;
     z-index: 90;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
   }
   .sidebar-title {
     display: none;
