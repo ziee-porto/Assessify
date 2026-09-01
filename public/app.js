@@ -281,12 +281,18 @@ function renderTeacher(test, user) {
             <div class="device-preview-box">
               <video id="diag-camera-preview" autoplay muted playsinline></video>
               <div id="diag-camera-overlay" style="position:absolute;top:10px;left:10px;background:rgba(15,23,42,0.85);color:#fff;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:5px">
-                ${ICONS.video} Camera Preview
+                ${ICONS.video} Live Camera Preview
               </div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12.5px">
-              <span id="diag-cam-status" style="color:#16a34a;font-weight:600">Checking camera…</span>
-              <button type="button" id="diag-retry-cam-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;display:inline-flex;align-items:center;gap:4px">${ICONS.refresh} Retest Device</button>
+            <div class="device-status-bar">
+              <div class="device-status-indicator" id="diag-cam-status-wrap">
+                <span class="status-pulse-dot is-testing" id="diag-cam-dot"></span>
+                <span id="diag-cam-status">Checking camera…</span>
+              </div>
+              <button type="button" class="btn-retest-device" id="diag-retry-cam-btn" title="Re-initialize and verify camera and microphone">
+                ${ICONS.refresh}
+                <span>Retest Device</span>
+              </button>
             </div>
           </div>
 
@@ -307,12 +313,12 @@ function renderTeacher(test, user) {
             </div>
 
             <!-- Quick 3-Second Audio/Video Sample Recording Test -->
-            <div style="background:#f8fafc;border:1px dashed var(--line);padding:14px;border-radius:10px;text-align:center">
+            <div class="device-sample-box">
               <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px">Sound & Video Playback Test</div>
               <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Record a 3-second test clip to verify your voice can be recorded and heard clearly.</p>
               
-              <button type="button" class="button button-sm" id="diag-sample-btn" style="padding:8px 16px;font-size:12.5px;margin:0 auto">
-                <span class="rec-dot" style="margin-right:6px"></span> Record 3s Test Sample
+              <button type="button" class="button button-sm" id="diag-sample-btn" style="padding:8px 18px;font-size:12.5px;margin:0 auto">
+                <span class="rec-dot" style="margin-right:6px"></span> <span>Record 3s Test Sample</span>
               </button>
 
               <div id="diag-playback-container" style="margin-top:12px;display:none">
@@ -343,10 +349,20 @@ function renderTeacher(test, user) {
   let diagAnalyser = null;
   let diagAnimId = null;
 
-  async function startDiagnosticCheck() {
+  async function startDiagnosticCheck(isUserRetry = false) {
     const previewEl = document.querySelector('#diag-camera-preview');
     const camStatus = document.querySelector('#diag-cam-status');
+    const camDot = document.querySelector('#diag-cam-dot');
+    const retryBtn = document.querySelector('#diag-retry-cam-btn');
     const overallBadge = document.querySelector('#device-overall-badge');
+
+    if (retryBtn) {
+      retryBtn.classList.add('is-retesting');
+      const btnSpan = retryBtn.querySelector('span');
+      if (btnSpan) btnSpan.textContent = 'Testing…';
+    }
+    if (camDot) camDot.className = 'status-pulse-dot is-testing';
+    if (camStatus) camStatus.textContent = 'Verifying camera & audio…';
 
     try {
       if (diagStream) {
@@ -358,10 +374,14 @@ function renderTeacher(test, user) {
       });
 
       if (previewEl) previewEl.srcObject = diagStream;
-      if (camStatus) camStatus.textContent = '✓ Camera Active (Ready)';
+      if (camStatus) camStatus.textContent = 'Camera & Audio Active (Ready)';
+      if (camDot) camDot.className = 'status-pulse-dot';
       if (overallBadge) {
         overallBadge.className = 'device-status-badge ok';
         overallBadge.textContent = '✓ Camera & Mic Ready';
+      }
+      if (isUserRetry) {
+        showToast('✓ Camera and Microphone retested and verified successfully!', 'success');
       }
 
       // Audio Meter
@@ -406,10 +426,22 @@ function renderTeacher(test, user) {
       }
     } catch (err) {
       console.warn('Diagnostic media check error:', err);
-      if (camStatus) camStatus.textContent = '⚠️ Camera/Mic permission blocked';
+      if (camStatus) camStatus.textContent = 'Camera/Mic permission blocked';
+      if (camDot) camDot.className = 'status-pulse-dot is-error';
       if (overallBadge) {
         overallBadge.className = 'device-status-badge error';
         overallBadge.textContent = '⚠️ Check Permissions';
+      }
+      if (isUserRetry) {
+        showToast('⚠️ Unable to access camera/mic. Please check browser permissions.', 'error');
+      }
+    } finally {
+      if (retryBtn) {
+        setTimeout(() => {
+          retryBtn.classList.remove('is-retesting');
+          const btnSpan = retryBtn.querySelector('span');
+          if (btnSpan) btnSpan.textContent = 'Retest Device';
+        }, 400);
       }
     }
   }
@@ -417,7 +449,7 @@ function renderTeacher(test, user) {
   startDiagnosticCheck();
 
   document.querySelector('#diag-retry-cam-btn')?.addEventListener('click', () => {
-    startDiagnosticCheck();
+    startDiagnosticCheck(true);
   });
 
   // 3-Second Sample Recording Test
