@@ -1117,14 +1117,36 @@ function renderSectionFlow(test, expiresAt, attemptId) {
   draw();
 }
 
+const getStoredAdminTab = () => {
+  const hash = window.location.hash.replace('#', '').trim();
+  if (['results', 'questions', 'rubrics'].includes(hash)) return hash;
+  const stored = localStorage.getItem('assessify_admin_tab');
+  if (['results', 'questions', 'rubrics'].includes(stored)) return stored;
+  return 'results';
+};
+
 const adminState = {
-  activeTab: 'results',
+  activeTab: getStoredAdminTab(),
   stagedQuestions: null,
   stagedRubrics: null
 };
 
-async function renderAdmin(tab = adminState.activeTab) {
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.replace('#', '').trim();
+  if (['results', 'questions', 'rubrics'].includes(hash) && adminState.activeTab !== hash) {
+    renderAdmin(hash);
+  }
+});
+
+async function renderAdmin(tab) {
+  if (!tab || !['results', 'questions', 'rubrics'].includes(tab)) {
+    tab = getStoredAdminTab();
+  }
   adminState.activeTab = tab;
+  localStorage.setItem('assessify_admin_tab', tab);
+  if (window.location.hash !== `#${tab}`) {
+    history.replaceState(null, '', `#${tab}`);
+  }
 
   // Render base shell with sidebar
   app.innerHTML = `
@@ -2280,6 +2302,8 @@ function closeGradingModal() {
 document.querySelector('#logout').onclick = async () => {
   await request('/api/auth/logout', { method: 'POST' });
   document.querySelector('#logout').hidden = true;
+  localStorage.removeItem('assessify_admin_tab');
+  history.replaceState(null, '', window.location.pathname);
   renderLogin();
 };
 
