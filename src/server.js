@@ -247,7 +247,7 @@ const rubricLevel = (criteria) => {
   return { criteria: criteria || {}, total, level };
 };
 const cefrDescriptor = (level) => ({ A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate', B2: 'Upper-Intermediate' }[level] || level);
-const cefrColor = (level) => ({ A1: '#c0392b', A2: '#d68910', B1: '#2b5da8', B2: '#1a7a4a' }[level] || '#555555');
+const cefrColor = (_level) => '#1e3a8a';
 
 const performanceAnalysis = (row) => {
   if (!row.overall) return 'This assessment is still in progress. CEFR placement will be available after submission and manual review of Writing and Speaking.';
@@ -289,124 +289,119 @@ const sendCenteredPdf = (response, results) => {
     if (index > 0) doc.addPage();
 
     // ── Header bar ──────────────────────────────────────────────────
-    doc.rect(0, 0, 595, 100).fill('#173f7a');
+    doc.rect(0, 0, 595, 100).fill('#0f274a');
     doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('Assessify.', 0, 28, { width: 595, align: 'center' });
     doc.fontSize(10).font('Helvetica').text('CEFR English Placement Result · Karya Bangsa School', 0, 58, { width: 595, align: 'center' });
 
     // ── Teacher info ─────────────────────────────────────────────────
-    doc.fillColor('#17252a').fontSize(20).font('Helvetica-Bold').text(row.teacher, 0, 122, { width: 595, align: 'center' });
-    doc.fontSize(9).font('Helvetica').fillColor('#6e7d7c')
+    doc.fillColor('#0f172a').fontSize(20).font('Helvetica-Bold').text(row.teacher, 0, 122, { width: 595, align: 'center' });
+    doc.fontSize(9).font('Helvetica').fillColor('#64748b')
       .text(`${row.email}  |  Started ${new Date(row.started).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 0, 148, { width: 595, align: 'center' });
-    doc.font('Helvetica-Bold').fillColor('#214d91').text(`Certificate No. ${certificateNumber(row)}`, 0, 163, { width: 595, align: 'center' });
+    doc.font('Helvetica-Bold').fillColor('#1e3a8a').text(`Certificate No. ${certificateNumber(row)}`, 0, 163, { width: 595, align: 'center' });
 
-    // ── Overall CEFR badge ───────────────────────────────────────────
+    // ── Overall CEFR badge (Monochromatic / Deep Navy) ───────────────
     const overallLevel = row.overallBand;
-    const badgeColor = cefrColor(overallLevel);
-    const badgeW = 153;
-    const badgeH = 68;
-    const badgeX = (595 - badgeW) / 2; // = 221
-    const badgeY = 180;
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 6).fill(badgeColor);
-    doc.fillColor('#ffffff').fontSize(8).font('Helvetica-Bold').text('OVERALL CEFR LEVEL', badgeX, badgeY + 12, { width: badgeW, align: 'center' });
-    doc.fontSize(28).text(overallLevel || 'Pending', badgeX, badgeY + 24, { width: badgeW, align: 'center' });
+    const badgeW = 164;
+    const badgeH = 72;
+    const badgeX = (595 - badgeW) / 2; // = 215.5
+    const badgeY = 182;
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 6).fill('#0f274a');
+    doc.fillColor('#94a3b8').fontSize(8.5).font('Helvetica-Bold').text('OVERALL CEFR LEVEL', badgeX, badgeY + 12, { width: badgeW, align: 'center' });
+    doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold').text(overallLevel || 'Pending', badgeX, badgeY + 24, { width: badgeW, align: 'center' });
     if (overallLevel) {
-      doc.fontSize(8).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
+      doc.fillColor('#cbd5e1').fontSize(8.5).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
     }
 
-    // ── CEFR legend ──────────────────────────────────────────────────
-    const legendY = 265;
-    doc.fillColor('#17252a').fontSize(12).font('Helvetica-Bold').text('CEFR Skill Profile', 0, legendY, { width: 595, align: 'center' });
-    const boxesY = legendY + 18; // = 283
+    // ── CEFR Skill Profile legend (Monochromatic / Navy & Slate) ─────
+    const legendY = 270;
+    doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('CEFR Skill Profile', 0, legendY, { width: 595, align: 'center' });
+    const boxesY = legendY + 18;
     const gap = 120;
-    const boxW = 52;
-    const totalLegendWidth = 3 * gap + boxW; // = 412
-    const startLegendX = (595 - totalLegendWidth) / 2; // = 91.5
+    const boxW = 54;
+    const totalLegendWidth = 3 * gap + boxW;
+    const startLegendX = (595 - totalLegendWidth) / 2;
     [['A1', 'Beginner'], ['A2', 'Elementary'], ['B1', 'Intermediate'], ['B2', 'Upper-Intermediate']].forEach(([lvl, desc], i) => {
       const lx = startLegendX + i * gap;
-      doc.roundedRect(lx, boxesY, boxW, 18, 3).fill(cefrColor(lvl));
-      doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold').text(lvl, lx, boxesY + 5, { width: boxW, align: 'center' });
-      doc.fillColor('#555').fontSize(7).font('Helvetica').text(desc, lx - 10, boxesY + 20, { width: boxW + 20, align: 'center' });
+      doc.roundedRect(lx, boxesY, boxW, 20, 4).fill('#1e3a8a');
+      doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold').text(lvl, lx, boxesY + 5, { width: boxW, align: 'center' });
+      doc.fillColor('#475569').fontSize(7.5).font('Helvetica').text(desc, lx - 12, boxesY + 23, { width: boxW + 24, align: 'center' });
     });
 
-    // ── Skills table ─────────────────────────────────────────────────
-    const tableX = 42;
-    const tableWidth = 511;
-    const skillColW = 260;
-    const levelColW = 130;
-    const rawColW = tableWidth - skillColW - levelColW;
-    const tableTop = 330;
-    const rowH = 32;
+    // ── Skills table (ONLY 2 COLUMNS: Skill / Component & CEFR Level) ─
+    const tableWidth = 480;
+    const tableX = (595 - tableWidth) / 2; // = 57.5
+    const skillColW = 310;
+    const levelColW = 170;
+    const tableTop = 335;
+    const rowH = 34;
 
     // Table header
-    doc.rect(tableX, tableTop, tableWidth, rowH).fill('#1a2e5a');
-    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold')
-      .text('Skill / Component', tableX, tableTop + 11, { width: skillColW, align: 'center' })
-      .text('CEFR Level', tableX + skillColW, tableTop + 11, { width: levelColW, align: 'center' })
-      .text('Raw Score', tableX + skillColW + levelColW, tableTop + 11, { width: rawColW, align: 'center' });
+    doc.rect(tableX, tableTop, tableWidth, rowH).fill('#0f274a');
+    doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold')
+      .text('Skill / Component', tableX + 24, tableTop + 11, { width: skillColW - 24, align: 'left' })
+      .text('CEFR Level', tableX + skillColW, tableTop + 11, { width: levelColW, align: 'center' });
 
     const skillRows = [
-      ['Grammar & Vocabulary', row.grammarVocabulary, '/ 20'],
-      ['Listening', row.listening, '/ 18'],
-      ['Reading', row.reading, '/ 20'],
-      ['Writing', row.writing, '/ 16 (rubric)'],
-      ['Speaking', row.speaking, '/ 16 (rubric)'],
+      ['Grammar & Vocabulary', row.grammarVocabulary],
+      ['Listening', row.listening],
+      ['Reading', row.reading],
+      ['Writing', row.writing],
+      ['Speaking', row.speaking],
     ];
 
-    skillRows.forEach(([skill, level, rawLabel], si) => {
+    skillRows.forEach(([skill, level], si) => {
       const y = tableTop + rowH + si * rowH;
-      const bg = si % 2 === 0 ? '#f4f6fb' : '#ffffff';
+      const bg = si % 2 === 0 ? '#f8fafc' : '#ffffff';
       doc.rect(tableX, y, tableWidth, rowH).fill(bg);
-      doc.lineWidth(0.5).strokeColor('#d0d8e8').rect(tableX, y, tableWidth, rowH).stroke();
+      doc.lineWidth(0.5).strokeColor('#e2e8f0').rect(tableX, y, tableWidth, rowH).stroke();
 
       // Skill name
-      doc.fillColor('#1a2e5a').fontSize(10).font('Helvetica-Bold')
-        .text(skill, tableX, y + 10, { width: skillColW, align: 'center' });
+      doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold')
+        .text(skill, tableX + 24, y + 11, { width: skillColW - 24, align: 'left' });
 
       // CEFR badge
       if (level && level !== '') {
-        const bColor = cefrColor(level);
-        const cellBadgeX = tableX + skillColW + (levelColW - 70) / 2;
-        doc.roundedRect(cellBadgeX, y + 6, 70, 20, 4).fill(bColor);
+        const cellBadgeW = 80;
+        const cellBadgeH = 22;
+        const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
+        doc.roundedRect(cellBadgeX, y + 6, cellBadgeW, cellBadgeH, 4).fill('#1e3a8a');
         doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
-          .text(level, cellBadgeX, y + 11, { width: 70, align: 'center' });
+          .text(level, cellBadgeX, y + 11, { width: cellBadgeW, align: 'center' });
       } else {
-        doc.fillColor('#aaa').fontSize(9).font('Helvetica').text('Pending review', tableX + skillColW, y + 11, { width: levelColW, align: 'center' });
+        doc.fillColor('#94a3b8').fontSize(9).font('Helvetica')
+          .text('Pending review', tableX + skillColW, y + 11, { width: levelColW, align: 'center' });
       }
-
-      // Raw label column
-      doc.fillColor('#666').fontSize(8).font('Helvetica')
-        .text(rawLabel, tableX + skillColW + levelColW, y + 11, { width: rawColW, align: 'center' });
     });
 
     // Total / Final row
     const totalY = tableTop + rowH + skillRows.length * rowH;
-    doc.rect(tableX, totalY, tableWidth, rowH).fill('#1a2e5a');
+    doc.rect(tableX, totalY, tableWidth, rowH).fill('#0f274a');
     doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
-      .text('Final CEFR Placement', tableX, totalY + 10, { width: skillColW, align: 'center' });
+      .text('Final CEFR Placement', tableX + 24, totalY + 11, { width: skillColW - 24, align: 'left' });
     if (overallLevel) {
-      const cellBadgeX = tableX + skillColW + (levelColW - 70) / 2;
-      doc.roundedRect(cellBadgeX, totalY + 6, 70, 20, 4).fill(cefrColor(overallLevel));
-      doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
-        .text(overallLevel, cellBadgeX, totalY + 11, { width: 70, align: 'center' });
-      doc.fillColor('#aad4ff').fontSize(8).font('Helvetica')
-        .text(cefrDescriptor(overallLevel), tableX + skillColW + levelColW, totalY + 11, { width: rawColW, align: 'center' });
+      const cellBadgeW = 80;
+      const cellBadgeH = 22;
+      const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
+      doc.roundedRect(cellBadgeX, totalY + 6, cellBadgeW, cellBadgeH, 4).fill('#ffffff');
+      doc.fillColor('#0f274a').fontSize(10).font('Helvetica-Bold')
+        .text(overallLevel, cellBadgeX, totalY + 11, { width: cellBadgeW, align: 'center' });
     } else {
-      doc.fillColor('#aaa').fontSize(9).font('Helvetica')
-        .text('Pending review', tableX + skillColW, totalY + 10, { width: levelColW + rawColW, align: 'center' });
+      doc.fillColor('#94a3b8').fontSize(9.5).font('Helvetica')
+        .text('Pending review', tableX + skillColW, totalY + 11, { width: levelColW, align: 'center' });
     }
 
     // ── Placement analysis ───────────────────────────────────────────
-    const analysisY = totalY + rowH + 20;
-    doc.fillColor('#17252a').fontSize(12).font('Helvetica-Bold').text('Placement Analysis', 0, analysisY, { width: 595, align: 'center' });
-    doc.font('Helvetica').fontSize(9.5).fillColor('#415354')
+    const analysisY = totalY + rowH + 24;
+    doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('Placement Analysis', 0, analysisY, { width: 595, align: 'center' });
+    doc.font('Helvetica').fontSize(9.5).fillColor('#334155')
       .text(row.analysis, tableX, analysisY + 18, { width: tableWidth, lineGap: 4, align: 'center' });
 
     // ── Footer ───────────────────────────────────────────────────────
     const oldBottomMargin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
-    doc.rect(0, 800, 595, 42).fill('#f0f4fb');
-    doc.fillColor('#6e7d7c').fontSize(7.5).font('Helvetica')
-      .text('This document is an internal placement record issued by Karya Bangsa School. It does not constitute an official CEFR or IELTS certificate.', 42, 812, { width: 511, align: 'center' });
+    doc.rect(0, 800, 595, 42).fill('#f8fafc');
+    doc.fillColor('#64748b').fontSize(7.5).font('Helvetica')
+      .text('This document is an internal placement record issued by Karya Bangsa School. It does not constitute an official CEFR or IELTS certificate.', 42, 814, { width: 511, align: 'center' });
     doc.page.margins.bottom = oldBottomMargin;
   });
   doc.end();
