@@ -1223,15 +1223,8 @@ async function renderAdminResultsTab(container) {
       </div>
     </div>
 
-    <!-- 4-Column KPI Grid -->
+    <!-- 3-Column KPI Grid -->
     <div class="admin-kpis-grid">
-      <div class="kpi-card kpi-blue">
-        <div class="kpi-card-info">
-          <strong>51</strong>
-          <span>Teachers Invited</span>
-        </div>
-        <div class="kpi-card-icon">${ICONS.users}</div>
-      </div>
       <div class="kpi-card kpi-indigo">
         <div class="kpi-card-info">
           <strong>${data.total}</strong>

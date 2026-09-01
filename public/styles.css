@@ -338,11 +338,11 @@ main#app {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   ADMIN DASHBOARD CORE: 4-COLUMN KPIS & DATA TABLE
+   ADMIN DASHBOARD CORE: 3-COLUMN KPIS & DATA TABLE
 ───────────────────────────────────────────────────────────── */
 .admin-kpis-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
