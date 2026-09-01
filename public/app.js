@@ -102,11 +102,14 @@ const renderQuestion = (question, section) => {
   return `<p><strong>${question.prompt}</strong></p>${section.id === 'speaking' ? `<video id="camera-preview" autoplay muted playsinline style="width:100%;max-width:480px;background:#17263d;border-radius:8px;display:block;margin:14px 0"></video><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="status" id="recording-status">Preparing camera…</span><button class="ghost" id="stop-recording" type="button">Stop recording</button></div>` : `<textarea id="writing-response" rows="8" placeholder="Write your response here" style="width:100%;border:1px solid var(--line);padding:12px;font:14px 'DM Sans';border-radius:7px"></textarea>`}`;
 };
 
-function renderLogin() {
+function renderLogin(initialRole) {
   const logoutBtn = document.querySelector('#logout');
   if (logoutBtn) logoutBtn.hidden = true;
   const roleLabel = document.querySelector('#role-label');
   if (roleLabel) roleLabel.textContent = 'Secure school workspace';
+
+  const savedRole = initialRole || localStorage.getItem('assessify_login_role') || (new URLSearchParams(window.location.search).get('role')) || 'teacher';
+  const isAdminRole = savedRole === 'admin';
 
   app.innerHTML = `
     <section class="panel" style="max-width:540px;margin:50px auto;padding:32px 36px">
@@ -117,22 +120,22 @@ function renderLogin() {
       <form id="login-form">
         <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Workspace</label>
         <select class="select-filter" id="login-role" name="role" style="width:100%;padding:12px;margin-bottom:6px">
-          <option value="teacher">Teacher Placement Assessment</option>
-          <option value="admin">School Administration Portal</option>
+          <option value="teacher" ${!isAdminRole ? 'selected' : ''}>Teacher Placement Assessment</option>
+          <option value="admin" ${isAdminRole ? 'selected' : ''}>School Administration Portal</option>
         </select>
 
         <!-- Teacher Login Fields -->
-        <div id="teacher-fields">
+        <div id="teacher-fields" ${isAdminRole ? 'hidden' : ''}>
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">
             Full Name <span style="font-size:11.5px;font-weight:400;color:var(--muted)">(used for Official Certificate & Placement Records)</span>
           </label>
-          <input type="text" name="fullName" placeholder="e.g. Budi Santoso, S.Pd." required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          <input type="text" name="fullName" placeholder="e.g. Budi Santoso, S.Pd." ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
 
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Email</label>
-          <input type="email" name="email" placeholder="name@karyabangsa.sch.id" required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          <input type="email" name="email" placeholder="name@karyabangsa.sch.id" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
 
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Unit</label>
-          <select class="select-filter" id="teacher-unit" name="unit" required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          <select class="select-filter" id="teacher-unit" name="unit" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
             <option value="" disabled selected>Select Unit</option>
             <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
             <option value="SD KARYA BANGSA">SD KARYA BANGSA</option>
@@ -143,12 +146,12 @@ function renderLogin() {
         </div>
 
         <!-- Admin Login Fields -->
-        <div id="admin-fields" hidden>
+        <div id="admin-fields" ${isAdminRole ? '' : 'hidden'}>
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Admin Username</label>
-          <input type="text" name="username" autocomplete="username" placeholder="Admin username" style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          <input type="text" name="username" autocomplete="username" placeholder="Admin username" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
 
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Password</label>
-          <input type="password" name="password" autocomplete="current-password" placeholder="Admin password" style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          <input type="password" name="password" autocomplete="current-password" placeholder="Admin password" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
         </div>
 
         <p id="login-error" style="color:var(--coral);font-size:13px;font-weight:600;margin:12px 0 0"></p>
@@ -163,6 +166,7 @@ function renderLogin() {
   const roleSelect = document.querySelector('#login-role');
   roleSelect.onchange = () => {
     const admin = roleSelect.value === 'admin';
+    localStorage.setItem('assessify_login_role', roleSelect.value);
     document.querySelector('#teacher-fields').hidden = admin;
     document.querySelector('#admin-fields').hidden = !admin;
     document.querySelector('[name="fullName"]').required = !admin;
@@ -2555,8 +2559,22 @@ document.querySelector('#logout').onclick = async () => {
   await request('/api/auth/logout', { method: 'POST' });
   document.querySelector('#logout').hidden = true;
   localStorage.removeItem('assessify_admin_tab');
+  localStorage.removeItem('assessify_user');
   history.replaceState(null, '', window.location.pathname);
   renderLogin();
 };
 
-request('/api/auth/me').then((data) => (data.user ? boot(data.user) : renderLogin()));
+async function init() {
+  try {
+    const data = await request('/api/auth/me');
+    if (data && data.user) {
+      boot(data.user);
+    } else {
+      renderLogin();
+    }
+  } catch {
+    renderLogin();
+  }
+}
+
+init();
