@@ -1,0 +1,54 @@
+{
+  "title": "Teacher English Placement detailed CEFR rubrics",
+  "version": "2026.2",
+  "notice": "Objective sections are scored automatically. Writing and Speaking are scored by an administrator using four 1–4 criteria (maximum 16).",
+  "bandScale": {
+    "range": "A1–B2",
+    "overall": "Writing and Speaking: 4–6 = A1, 7–9 = A2, 10–13 = B1, 14–16 = B2."
+  },
+  "writing": {
+    "criteria": [
+      {
+        "name": "Task Achievement",
+        "description": "How fully the response addresses the task, presents a clear position, and develops relevant ideas with support."
+      },
+      {
+        "name": "Organization",
+        "description": "How logically ideas are organized and how effectively paragraphs, referencing, and linking devices guide the reader."
+      },
+      {
+        "name": "Lexical Resource",
+        "description": "The range, accuracy, appropriacy, and flexibility of vocabulary used to express meaning."
+      },
+      {
+        "name": "Grammatical Range and Accuracy",
+        "description": "The variety and accuracy of sentence structures, grammar forms, punctuation, and error control."
+      }
+    ],
+    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2).",
+    "reviewNote": "Writing is not automatically scored; total the four evaluator scores to determine the CEFR level."
+  },
+  "speaking": {
+    "criteria": [
+      {
+        "name": "Fluency",
+        "description": "How continuously and logically the speaker communicates, including pace, hesitation, and connected ideas."
+      },
+      {
+        "name": "Vocabulary",
+        "description": "The range, precision, flexibility, and appropriacy of vocabulary used in spoken responses."
+      },
+      {
+        "name": "Grammar",
+        "description": "The variety and accuracy of spoken sentence structures and grammar forms."
+      },
+      {
+        "name": "Communication",
+        "description": "How clearly ideas are understood, supported, and developed in the conversation."
+      }
+    ],
+    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2).",
+    "reviewNote": "Speaking is not automatically scored; total the four evaluator scores to determine the CEFR level."
+  },
+  "source": "Official IELTS scoring guidance: https://ielts.org/organisations/ielts-for-organisations/ielts-scoring-in-detail"
+}

@@ -1,0 +1,53 @@
+{
+  "title": "Teacher English Placement Detailed CEFR Rubrics",
+  "version": "1.0",
+  "notice": "Objective sections are scored automatically. Writing and Speaking are scored by an administrator using four 1–4 criteria (maximum 16).",
+  "bandScale": {
+    "range": "A1–B2",
+    "overall": "Writing and Speaking: 4–6 = A1, 7–9 = A2, 10–13 = B1, 14–16 = B2."
+  },
+  "writing": {
+    "criteria": [
+      {
+        "name": "Task Achievement",
+        "description": "How fully the response addresses the prompt, presents a clear position, and develops relevant ideas with supporting details."
+      },
+      {
+        "name": "Organization",
+        "description": "How logically ideas are organized, paragraphing, cohesive devices, and flow of argument."
+      },
+      {
+        "name": "Lexical Resource",
+        "description": "The range, accuracy, precision, and flexibility of vocabulary used to communicate ideas."
+      },
+      {
+        "name": "Grammatical Range and Accuracy",
+        "description": "The variety and accuracy of sentence structures, grammatical forms, punctuation, and error control."
+      }
+    ],
+    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2). Total maximum score is 16.",
+    "reviewNote": "Writing is not automatically scored; total the four evaluator scores to determine the CEFR band."
+  },
+  "speaking": {
+    "criteria": [
+      {
+        "name": "Fluency",
+        "description": "Pace, continuity, hesitation management, and logical flow of spoken communication."
+      },
+      {
+        "name": "Vocabulary",
+        "description": "The range, appropriacy, and precision of vocabulary deployed in spoken answers."
+      },
+      {
+        "name": "Grammar",
+        "description": "The variety, complexity, and grammatical accuracy of spoken sentence patterns."
+      },
+      {
+        "name": "Communication",
+        "description": "Clarity of expression, development of response, and communicative effectiveness."
+      }
+    ],
+    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2). Total maximum score is 16.",
+    "reviewNote": "Speaking is evaluated by an administrator listening to recorded audio/video or reviewing transcripts."
+  }
+}

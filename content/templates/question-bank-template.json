@@ -1,0 +1,160 @@
+{
+  "id": "kbs-placement-template",
+  "version": "1.0",
+  "title": "Custom Placement Test Template",
+  "durationMinutes": 60,
+  "audience": "Candidate Teachers / Students",
+  "sourceNote": "Template for placement test question bank. Modify or add sections as needed.",
+  "sections": [
+    {
+      "id": "grammar-vocabulary",
+      "label": "Grammar & Vocabulary",
+      "durationMinutes": 10,
+      "instructions": "Choose the best answer for each question.",
+      "questions": [
+        {
+          "id": "grammar-1",
+          "type": "multiple-choice",
+          "prompt": "Choose the correct sentence to complete the statement.",
+          "options": [
+            "Option A: Sample incorrect answer",
+            "Option B: Sample correct answer",
+            "Option C: Sample incorrect answer",
+            "Option D: Sample incorrect answer"
+          ],
+          "answer": "Option B: Sample correct answer"
+        },
+        {
+          "id": "grammar-2",
+          "type": "multiple-choice",
+          "prompt": "The teacher asked the class to _____ their assignments before Friday.",
+          "options": [
+            "submit",
+            "submission",
+            "submitting",
+            "submitted"
+          ],
+          "answer": "submit"
+        }
+      ]
+    },
+    {
+      "id": "reading",
+      "label": "Reading",
+      "durationMinutes": 15,
+      "instructions": "Read the academic text below carefully and answer the comprehension questions.",
+      "passage": "[A] Insert your reading passage here. You can format paragraphs using line breaks and bracketed letters like [A], [B], [C] for reference.\n\n[B] Second paragraph of the reading text containing details, facts, arguments, or examples for candidates to analyze.",
+      "questions": [
+        {
+          "id": "reading-1",
+          "type": "multiple-choice",
+          "prompt": "According to Paragraph [A], what is the primary focus of the text?",
+          "options": [
+            "The correct main idea from paragraph A",
+            "A misleading detail mentioned elsewhere",
+            "An incorrect assumption",
+            "An irrelevant topic"
+          ],
+          "answer": "The correct main idea from paragraph A"
+        }
+      ]
+    },
+    {
+      "id": "listening",
+      "label": "Listening",
+      "durationMinutes": 15,
+      "instructions": "Listen to each audio prompt and answer the questions.",
+      "questions": [
+        {
+          "id": "listening-1",
+          "type": "multiple-choice",
+          "prompt": "Where will the teacher workshop take place?",
+          "options": [
+            "Room 101",
+            "Main Auditorium",
+            "School Library",
+            "Science Lab"
+          ],
+          "answer": "Main Auditorium",
+          "audioScript": "Good morning staff. Please note that today's teacher workshop will begin at 9:00 AM in the Main Auditorium. Please bring your notebooks."
+        }
+      ]
+    },
+    {
+      "id": "writing",
+      "label": "Writing",
+      "durationMinutes": 15,
+      "instructions": "Complete the writing task. Write thoughtful and well-structured paragraphs.",
+      "questions": [
+        {
+          "id": "writing-1",
+          "type": "essay",
+          "prompt": "Some educators believe digital tools improve student engagement, while others argue they cause distractions. Discuss both views and give your opinion.",
+          "rubric": {
+            "criteria": [
+              "Task Response",
+              "Coherence and Cohesion",
+              "Lexical Resource",
+              "Grammatical Range and Accuracy"
+            ],
+            "weight": "equal"
+          }
+        },
+        {
+          "id": "writing-2",
+          "type": "short-essay",
+          "prompt": "Write a short paragraph explaining one method you use to give constructive feedback to learners.",
+          "rubric": {
+            "criteria": [
+              "Task Response",
+              "Coherence and Cohesion",
+              "Lexical Resource",
+              "Grammatical Range and Accuracy"
+            ],
+            "weight": "equal"
+          }
+        }
+      ]
+    },
+    {
+      "id": "speaking",
+      "label": "Speaking",
+      "durationMinutes": 10,
+      "instructions": "Record your spoken response for each interview question using your camera and microphone.",
+      "questions": [
+        {
+          "id": "speaking-1",
+          "type": "speaking-prompt",
+          "part": "Part 1: Introduction & Background",
+          "prompt": "Please introduce yourself and describe your teaching background and your primary subject area.",
+          "guidance": "Speak clearly for 1–2 minutes. Provide specific examples.",
+          "rubric": {
+            "criteria": [
+              "Fluency",
+              "Vocabulary",
+              "Grammar",
+              "Communication"
+            ],
+            "weight": "equal"
+          }
+        },
+        {
+          "id": "speaking-2",
+          "type": "speaking-prompt",
+          "part": "Part 2: Classroom Scenario",
+          "prompt": "Describe how you handle a situation where students have different levels of English proficiency in the same classroom.",
+          "guidance": "Explain your differentiation strategies and classroom management approach.",
+          "rubric": {
+            "criteria": [
+              "Fluency",
+              "Vocabulary",
+              "Grammar",
+              "Communication"
+            ],
+            "weight": "equal"
+          }
+        }
+      ]
+    }
+  ]
+}
