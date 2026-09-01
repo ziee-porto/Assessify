@@ -200,7 +200,7 @@ function renderTeacher(test, user) {
           <p>This English proficiency assessment measures your skills across Grammar & Vocabulary, Reading, Listening, Writing, and Speaking for Karya Bangsa School development.</p>
         </div>
         <div class="hero-note">
-          <strong>01:00:00</strong>
+          <strong>01:15:00</strong>
           <span>Total assessment time</span>
         </div>
       </section>
@@ -226,8 +226,8 @@ function renderTeacher(test, user) {
           <div class="guideline-item">
             <div class="guideline-icon">${ICONS.clock}</div>
             <div>
-              <div class="guideline-title">60-Minute Session</div>
-              <p class="guideline-desc">The assessment is timed. Once started, complete all 4 sections within the allotted hour.</p>
+              <div class="guideline-title">75-Minute Session</div>
+              <p class="guideline-desc">The assessment is timed. Once started, complete all 5 sections within the allotted 75 minutes.</p>
             </div>
           </div>
           <div class="guideline-item">

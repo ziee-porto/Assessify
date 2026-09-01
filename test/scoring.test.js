@@ -5,6 +5,12 @@ import assert from 'node:assert/strict';
 const cefrOrder = ['A1', 'A2', 'B1', 'B2'];
 
 const cefrFromCorrect = (correct, total) => {
+  if (total <= 15) {
+    if (correct >= 13) return 'B2';
+    if (correct >= 9) return 'B1';
+    if (correct >= 6) return 'A2';
+    return 'A1';
+  }
   if (total <= 18) {
     if (correct >= 15) return 'B2';
     if (correct >= 11) return 'B1';
@@ -47,11 +53,12 @@ describe('CEFR Scoring Engine', () => {
     assert.equal(cefrFromCorrect(5, 20), 'A1');
   });
 
-  it('correctly maps raw scores to CEFR levels for 18-item sections', () => {
-    assert.equal(cefrFromCorrect(16, 18), 'B2');
-    assert.equal(cefrFromCorrect(12, 18), 'B1');
-    assert.equal(cefrFromCorrect(8, 18), 'A2');
-    assert.equal(cefrFromCorrect(4, 18), 'A1');
+  it('correctly maps raw scores to CEFR levels for 15-item sections (Listening & Reading)', () => {
+    assert.equal(cefrFromCorrect(14, 15), 'B2');
+    assert.equal(cefrFromCorrect(13, 15), 'B2');
+    assert.equal(cefrFromCorrect(11, 15), 'B1');
+    assert.equal(cefrFromCorrect(7, 15), 'A2');
+    assert.equal(cefrFromCorrect(3, 15), 'A1');
   });
 
   it('validates 4-criteria rubric calculations correctly', () => {

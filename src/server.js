@@ -216,6 +216,12 @@ const requestBody = async (request) => { let body = ''; for await (const chunk o
 
 // ── CEFR helpers ────────────────────────────────────────────────
 const cefrFromCorrect = (correct, total) => {
+  if (total <= 15) {
+    if (correct >= 13) return 'B2';
+    if (correct >= 9) return 'B1';
+    if (correct >= 6) return 'A2';
+    return 'A1';
+  }
   if (total <= 18) {
     if (correct >= 15) return 'B2';
     if (correct >= 11) return 'B1';
@@ -716,7 +722,8 @@ const server = createServer(async (request, response) => {
     const existing = await repository.listAttempts();
     const attempt = { id: `ATT-${1043 + existing.length}`, teacher: user.name, email: user.email, status: 'In progress', startedAt: new Date().toISOString(), overall: null, review: 'Pending' };
     await repository.createAttempt(attempt);
-    return json(response, 201, { attempt, expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
+    const durationMins = Number(content.durationMinutes) || 75;
+    return json(response, 201, { attempt, expiresAt: new Date(Date.now() + durationMins * 60 * 1000).toISOString() });
   }
   if (url.pathname.startsWith('/api/')) return json(response, 404, { error: 'Not found' });
   if (url.pathname === '/favicon.ico') {

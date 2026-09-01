@@ -2,7 +2,7 @@
   "id": "kbs-ielts-placement",
   "version": "2026.2",
   "title": "Karya Bangsa English Placement Test",
-  "durationMinutes": 60,
+  "durationMinutes": 75,
   "audience": "Karya Bangsa School teachers",
   "sourceNote": "Original practice content modeled on IELTS task formats; not official IELTS test material.",
   "sections": [
@@ -196,50 +196,13 @@
             "Report connection issues"
           ],
           "answer": "Save their work locally"
-        },
-        {
-          "id": "listening-16",
-          "type": "multiple-choice",
-          "prompt": "On which day will the school conduct the fire evacuation drill?",
-          "options": [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday"
-          ],
-          "answer": "Wednesday",
-          "audioScript": "The school will conduct a fire evacuation drill on Wednesday afternoon at 2:15 PM. When the alarm sounds, please guide your students to the assembly point on the sports field."
-        },
-        {
-          "id": "listening-17",
-          "type": "multiple-choice",
-          "prompt": "What time is the drill scheduled to take place?",
-          "options": [
-            "10:00 AM",
-            "1:30 PM",
-            "2:15 PM",
-            "3:00 PM"
-          ],
-          "answer": "2:15 PM"
-        },
-        {
-          "id": "listening-18",
-          "type": "multiple-choice",
-          "prompt": "Where is the designated assembly point for the evacuation drill?",
-          "options": [
-            "The sports field",
-            "The school gates",
-            "The parking lot",
-            "The main hall"
-          ],
-          "answer": "The sports field"
         }
       ]
     },
     {
       "id": "grammar-vocabulary",
       "label": "Grammar & Vocabulary",
-      "durationMinutes": 10,
+      "durationMinutes": 15,
       "instructions": "Choose the best answer for each original grammar and vocabulary question.",
       "questions": [
         {
@@ -487,7 +450,7 @@
     {
       "id": "reading",
       "label": "Reading",
-      "durationMinutes": 15,
+      "durationMinutes": 20,
       "instructions": "Read the academic text below carefully and answer all 20 comprehension questions. Questions evaluate main ideas, specific factual details, inferences, vocabulary in context, and author intent.",
       "passage": "Pedagogical Evolution: Differentiated Instruction, Formative Assessment, and Cognitive Engagement in Modern Education\n\n[A] In contemporary educational institutions, continuous professional development is no longer conceptualized as an isolated annual workshop, but rather as an ongoing, systematic inquiry into instructional efficacy. Traditional teacher development often relied heavily on passive lecture delivery; in contrast, modern pedagogical paradigms prioritize reflective practice, structured peer observation, and evidence-informed decision-making. When educators actively analyze classroom dynamics in light of tangible empirical evidence, their capacity to adapt to diverse student needs and improve learning outcomes increases substantially.\n\n[B] A central pillar of this reflective culture is collaborative peer observation. When peer observation is framed supportively rather than evaluatively or punitively, teachers feel safe to examine challenging classroom routines and discuss nuanced pedagogical refinements. Rather than assigning numerical scores or ranking colleagues, the observer serves as an objective documenter of classroom interactions, recording qualitative and quantitative data on student participation rates, the pacing of lesson phases, student engagement levels, and the clarity of instructional scaffolding.\n\n[C] A crucial dimension of classroom instruction scrutinized during peer reviews is cognitive load management. Grounded in Cognitive Load Theory, research demonstrates that learners possess strictly limited working memory capacities. When educators overwhelm students with convoluted simultaneous instructions, excessive unstructured text, or disorganized board presentations, cognitive overload ensues and comprehension falters. Effective practitioners mitigate this risk through deliberate instructional scaffolding—breaking intricate conceptual tasks into manageable sequences, providing explicit visual and verbal models, and verifying student comprehension before transitioning to independent practice.\n\n[D] Following the classroom observation, the educators participate in a structured post-observation conference. This dialogue is designed not as an administrative appraisal, but as a reflective professional discussion centered around the collected classroom evidence. Grounding the conversation in objective observations rather than subjective impressions enables teachers to collaboratively diagnose specific learning bottlenecks, celebrate successful pedagogical moments, and formulate concrete, actionable improvement milestones for upcoming teaching cycles.\n\n[E] Differentiated instruction represents another vital component of modern classroom pedagogy. In heterogeneous classrooms comprising multi-ability learners, mixed language proficiencies, and varying cognitive backgrounds, a rigid, uniform curriculum inevitably leaves struggling learners behind while failing to stretch advanced students. Differentiated instruction addresses this variance by modifying content access, instructional processes, and learning products according to students' readiness levels, individual learning profiles, and cognitive interests.\n\n[F] Operating in synergy with differentiation is the deliberate deployment of formative assessment. Unlike summative evaluations which merely measure and record student attainment at the culmination of an academic term, formative assessments function as continuous diagnostic checkpoints embedded directly into daily learning activities. Practices such as digital exit tickets, peer review protocols, and targeted questioning provide immediate feedback loops. This real-time insight allows teachers to dynamically adjust their instructional pacing while empowering students to cultivate metacognitive self-regulation over their own progress.\n\n[G] Ultimately, the long-term sustainability of classroom innovation rests upon an institutional culture of collaborative leadership and psychological safety. When school leaders foster an environment where educators can safely take calculated pedagogical risks, share interdisciplinary resources, and participate in constructive professional discourse, schoolwide instructional quality rises. Sustainable educational improvement is never the result of isolated individual effort, but the product of a unified institutional commitment to instructional excellence.",
       "questions": [
@@ -670,66 +633,6 @@
             "The teacher's private personnel record"
           ],
           "answer": "Student participation rates and pacing of lesson phases"
-        },
-        {
-          "id": "reading-16",
-          "type": "multiple-choice",
-          "prompt": "In Paragraph [D], why are objective observations preferred over subjective impressions during debriefing?",
-          "options": [
-            "They enable educators to diagnose specific learning bottlenecks constructively and set measurable milestones",
-            "They guarantee that the teacher will agree with all administrative directives without debate",
-            "They shorten the post-observation meeting to under two minutes",
-            "They allow the school to automate all performance reviews through algorithms"
-          ],
-          "answer": "They enable educators to diagnose specific learning bottlenecks constructively and set measurable milestones"
-        },
-        {
-          "id": "reading-17",
-          "type": "multiple-choice",
-          "prompt": "What does the author imply about teacher professional growth across the text?",
-          "options": [
-            "It is a continuous, collaborative institutional commitment rather than an isolated individual effort",
-            "It is only necessary for newly hired educators in their first year of teaching",
-            "It is best achieved by listening to long commercial sales lectures",
-            "It can be fully measured by examining students' final summative exam scores alone"
-          ],
-          "answer": "It is a continuous, collaborative institutional commitment rather than an isolated individual effort"
-        },
-        {
-          "id": "reading-18",
-          "type": "multiple-choice",
-          "prompt": "The term 'synergy' in Paragraph [F] suggests that differentiation and formative assessment:",
-          "options": [
-            "Work together harmoniously to mutually enhance learning effectiveness",
-            "Conflict with each other and must be used in separate academic terms",
-            "Cancel out the benefits of collaborative peer observation",
-            "Are identical strategies that require no distinct planning"
-          ],
-          "answer": "Work together harmoniously to mutually enhance learning effectiveness"
-        },
-        {
-          "id": "reading-19",
-          "type": "multiple-choice",
-          "prompt": "Which practice is explicitly DISCOURAGED by the author in the text?",
-          "options": [
-            "Numerically ranking or grading fellow teachers during peer observations",
-            "Utilizing exit tickets to check for student understanding during lessons",
-            "Allowing teachers to take calculated pedagogical risks in a safe environment",
-            "Modifying learning products based on student readiness levels"
-          ],
-          "answer": "Numerically ranking or grading fellow teachers during peer observations"
-        },
-        {
-          "id": "reading-20",
-          "type": "multiple-choice",
-          "prompt": "What is the primary overarching theme of the reading passage?",
-          "options": [
-            "Comprehensive instructional excellence through reflective practice, cognitive scaffolding, differentiation, and formative feedback",
-            "The historical evolution of school architecture and building design",
-            "Financial budgeting strategies for international private schools",
-            "Managing student transportation logistics and athletic scheduling"
-          ],
-          "answer": "Comprehensive instructional excellence through reflective practice, cognitive scaffolding, differentiation, and formative feedback"
         }
       ]
     },
@@ -797,22 +700,6 @@
           "part": "Part 2: Classroom Challenge & Resolution",
           "prompt": "Describe a difficult situation you encountered with a student or parent. How did you resolve the situation, and what insight did you gain from that experience?",
           "guidance": "Explain the context, the actions you took, and the lasting learning outcome.",
-          "rubric": {
-            "criteria": [
-              "Fluency",
-              "Vocabulary",
-              "Grammar",
-              "Communication"
-            ],
-            "weight": "equal"
-          }
-        },
-        {
-          "id": "speaking-3",
-          "type": "speaking-prompt",
-          "part": "Part 3: School Vision & Collaboration",
-          "prompt": "In your view, how can digital learning tools and cross-departmental teacher collaboration best support student achievement across Karya Bangsa School?",
-          "guidance": "Discuss potential benefits, collaborative ideas, and your vision for school growth.",
           "rubric": {
             "criteria": [
               "Fluency",
