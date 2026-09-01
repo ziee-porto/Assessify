@@ -31,34 +31,33 @@ let repository = memoryRepository;
 let storageMode = 'memory';
 
 async function connectMySQL() {
-  const mysqlUri = process.env.MYSQL_URI || process.env.DATABASE_URL;
-  const hasHostConfig = Boolean(process.env.MYSQL_HOST || process.env.MYSQL_DATABASE);
-
-  if (!mysqlUri && !hasHostConfig) {
-    console.warn('MySQL is not configured (MYSQL_URI or MYSQL_HOST); using memory repository. Test data will not survive restart.');
-    return;
-  }
+  const rawUri = process.env.MYSQL_URI || (process.env.DATABASE_URL?.startsWith('mysql') ? process.env.DATABASE_URL : null);
+  const host = (process.env.MYSQL_HOST === 'localhost' || !process.env.MYSQL_HOST) ? '127.0.0.1' : process.env.MYSQL_HOST;
+  const port = Number(process.env.MYSQL_PORT) || 3306;
+  const user = process.env.MYSQL_USER || 'root';
+  const password = process.env.MYSQL_PASSWORD || '';
+  const database = process.env.MYSQL_DATABASE || 'assessify';
 
   try {
     const mysql = await import('mysql2/promise');
     let pool;
-    if (mysqlUri && (mysqlUri.startsWith('mysql://') || mysqlUri.startsWith('mysql2://'))) {
+    if (rawUri && (rawUri.startsWith('mysql://') || rawUri.startsWith('mysql2://'))) {
       pool = mysql.createPool({
-        uri: mysqlUri,
+        uri: rawUri,
         waitForConnections: true,
         connectionLimit: 10,
-        connectTimeout: 2000
+        connectTimeout: 3000
       });
     } else {
       pool = mysql.createPool({
-        host: process.env.MYSQL_HOST || 'localhost',
-        port: Number(process.env.MYSQL_PORT) || 3306,
-        user: process.env.MYSQL_USER || 'root',
-        password: process.env.MYSQL_PASSWORD || '',
-        database: process.env.MYSQL_DATABASE || 'assessify',
+        host,
+        port,
+        user,
+        password,
+        database,
         waitForConnections: true,
         connectionLimit: 10,
-        connectTimeout: 2000
+        connectTimeout: 3000
       });
     }
 
