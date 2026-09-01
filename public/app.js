@@ -133,7 +133,7 @@ function renderLogin() {
 
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Unit</label>
           <select class="select-filter" id="teacher-unit" name="unit" required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-            <option value="" disabled selected>Choose Unit</option>
+            <option value="" disabled selected>Select Unit</option>
             <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
             <option value="SD KARYA BANGSA">SD KARYA BANGSA</option>
             <option value="SMP KARYA BANGSA">SMP KARYA BANGSA</option>
