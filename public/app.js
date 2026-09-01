@@ -688,9 +688,13 @@ function renderSectionFlow(test, expiresAt, attemptId) {
                 </div>
               ` : `
                 <div>
-                  <textarea class="writing-input" id="writing-${index}" rows="9" placeholder="Compose your written response here…" style="width:100%;border:1px solid var(--line);padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6"></textarea>
-                  <div style="display:flex;justify-content:flex-end">
-                    <span class="word-counter-tag" id="counter-writing-${index}" style="display:inline-flex;align-items:center;gap:5px">${ICONS.penTool} <span>0 words</span></span>
+                  <textarea class="writing-input" id="writing-${index}" data-target="${index === 0 ? 150 : 80}" rows="9" placeholder="Compose your written response here…" style="width:100%;border:1px solid var(--line);padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6"></textarea>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:8px">
+                    <span style="font-size:12px;color:var(--muted)">Recommended: <strong>${index === 0 ? '150–200' : '80–120'} words</strong></span>
+                    <span class="word-counter-tag" id="counter-writing-${index}">
+                      ${ICONS.penTool}
+                      <span>0 words</span>
+                    </span>
                   </div>
                 </div>
               `}
@@ -793,9 +797,14 @@ function renderSectionFlow(test, expiresAt, attemptId) {
       input.value = answers[input.id] || '';
       const updateWordCount = () => {
         const text = input.value.trim();
-        const words = text ? text.split(/\s+/).length : 0;
+        const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+        const target = Number(input.dataset.target) || 100;
         const counter = document.querySelector(`#counter-${input.id}`);
-        if (counter) counter.innerHTML = `${ICONS.penTool} <span>${words} word${words === 1 ? '' : 's'}</span>`;
+        if (counter) {
+          const isGood = words >= target;
+          counter.className = `word-counter-tag ${isGood ? 'good' : ''}`;
+          counter.innerHTML = `${ICONS.penTool} <span>${words} word${words === 1 ? '' : 's'}${isGood ? ' ✓' : ''}</span>`;
+        }
       };
       updateWordCount();
       input.addEventListener('input', () => {
