@@ -554,7 +554,6 @@ const server = createServer(async (request, response) => {
 
     const contentType = request.headers['content-type'] || 'video/webm';
     const durationSeconds = Number(request.headers['x-duration-seconds']) || 0;
-    const transcriptSource = request.headers['x-transcript-source'] || 'Browser SpeechRecognition';
 
     const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm';
     const filename = `${attemptId}.${ext}`;
@@ -567,7 +566,6 @@ const server = createServer(async (request, response) => {
       const recordingMeta = {
         mimeType: contentType,
         durationSeconds,
-        transcriptSource,
         fileUrl,
         filename
       };

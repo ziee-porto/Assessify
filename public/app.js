@@ -99,7 +99,7 @@ const sectionIcons = {
 const renderQuestion = (question, section) => {
   const audio = question.audioScript ? `<button class="button speak-question" data-text="${question.audioScript.replaceAll('"', '&quot;')}">Play audio</button>` : '';
   if (question.options) return `${audio}<p><strong>${question.prompt}</strong></p>${question.options.map((option) => `<label class="option"><input type="radio" name="${question.id}"> ${option}</label>`).join('')}`;
-  return `<p><strong>${question.prompt}</strong></p>${section.id === 'speaking' ? `<video id="camera-preview" autoplay muted playsinline style="width:100%;max-width:480px;background:#17263d;border-radius:8px;display:block;margin:14px 0"></video><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="status" id="recording-status">Preparing camera…</span><button class="ghost" id="stop-recording" type="button">Stop recording</button></div><textarea id="speaking-transcript" rows="5" placeholder="Your live transcript appears here" style="width:100%;border:1px solid var(--line);padding:12px;font:14px 'DM Sans';border-radius:7px;margin-top:12px"></textarea>` : `<textarea id="writing-response" rows="8" placeholder="Write your response here" style="width:100%;border:1px solid var(--line);padding:12px;font:14px 'DM Sans';border-radius:7px"></textarea>`}`;
+  return `<p><strong>${question.prompt}</strong></p>${section.id === 'speaking' ? `<video id="camera-preview" autoplay muted playsinline style="width:100%;max-width:480px;background:#17263d;border-radius:8px;display:block;margin:14px 0"></video><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="status" id="recording-status">Preparing camera…</span><button class="ghost" id="stop-recording" type="button">Stop recording</button></div>` : `<textarea id="writing-response" rows="8" placeholder="Write your response here" style="width:100%;border:1px solid var(--line);padding:12px;font:14px 'DM Sans';border-radius:7px"></textarea>`}`;
 };
 
 function renderLogin() {
@@ -583,19 +583,10 @@ function renderSectionFlow(test, expiresAt, attemptId) {
               </div>
             ` : ''}
 
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <label style="font-size:13px;font-weight:700;color:var(--ink);display:inline-flex;align-items:center;gap:6px">
-                <span style="color:var(--blue)">${ICONS.mic}</span>
-                <span>Live Spoken Transcript (Prompt ${speakingStep + 1} of ${current.questions.length})</span>
-              </label>
-              <div style="display:flex;align-items:center;gap:12px">
-                <span id="speaking-word-count" style="font-size:12px;font-weight:600;color:${speakingRecordingState === 'recording' ? '#dc2626' : '#64748b'}">
-                  ${speakingRecordingState === 'recording' ? '● Transcribing Voice…' : (speakingRecordingState === 'stopped' ? '✓ Transcript Locked' : 'Ready (Auto-fills on speaking)')}
-                </span>
-                <button type="button" id="toggle-manual-edit-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;display:inline-flex;align-items:center;gap:4px">${ICONS.edit} Edit</button>
-              </div>
+            <div style="font-size:13px;color:var(--muted);background:#f1f5f9;padding:12px 14px;border-radius:8px;display:flex;align-items:center;gap:8px;margin-bottom:16px">
+              <span style="color:var(--blue);display:inline-flex">${ICONS.video}</span>
+              <span>Your spoken video and audio are recorded directly for evaluator review. No typing or transcript needed.</span>
             </div>
-            <textarea id="speaking-current-transcript" rows="6" placeholder="${speakingRecordingState === 'recording' ? 'Listening to your microphone... Speak clearly and your words will transcribe here automatically...' : 'Click \"Start Recording\" above. Your spoken speech will automatically fill this transcript box in real-time.'}" style="width:100%;background:#f8fafc;border:1px solid #cbd5e1;padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6;color:var(--ink);resize:vertical">${answers['speaking-' + speakingStep] || ''}</textarea>
 
             ${speakingStep < current.questions.length - 1 ? `
               <div style="display:flex;justify-content:flex-end;margin-top:16px">
@@ -885,21 +876,6 @@ function renderSectionFlow(test, expiresAt, attemptId) {
         }
       }
 
-      // Manual edit toggle & live input
-      const toggleEditBtn = document.querySelector('#toggle-manual-edit-btn');
-      const transcriptBox = document.querySelector('#speaking-current-transcript');
-      if (toggleEditBtn && transcriptBox) {
-        toggleEditBtn.onclick = () => {
-          transcriptBox.focus();
-          showToast('You can now type or refine your speech transcript.', 'info');
-        };
-      }
-      if (transcriptBox) {
-        transcriptBox.oninput = () => {
-          answers['speaking-' + speakingStep] = transcriptBox.value;
-        };
-      }
-
       const startRecordBtn = document.querySelector('#start-speaking-record-btn');
       if (startRecordBtn) {
         startRecordBtn.onclick = async () => {
@@ -922,76 +898,13 @@ function renderSectionFlow(test, expiresAt, attemptId) {
             mediaRecorder.start(500);
           } catch (e) { console.warn('MediaRecorder error:', e); }
         }
-        startSpeechToText();
         draw();
-      }
-
-      function startSpeechToText() {
-        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRec) {
-          console.warn('SpeechRecognition API not supported in this browser.');
-          return;
-        }
-        if (speechRecognizer) {
-          try { speechRecognizer.stop(); } catch { }
-        }
-        try {
-          speechRecognizer = new SpeechRec();
-          speechRecognizer.continuous = true;
-          speechRecognizer.interimResults = true;
-          speechRecognizer.lang = 'en-US';
-
-          speechRecognizer.onresult = (event) => {
-            let fullTranscript = '';
-            for (let i = 0; i < event.results.length; i++) {
-              fullTranscript += event.results[i][0].transcript + ' ';
-            }
-            const cleanText = fullTranscript.trim();
-            if (cleanText) {
-              answers['speaking-' + speakingStep] = cleanText;
-              const box = document.querySelector('#speaking-current-transcript');
-              if (box) {
-                box.value = cleanText;
-                box.scrollTop = box.scrollHeight;
-              }
-              const countEl = document.querySelector('#speaking-word-count');
-              if (countEl) {
-                const words = cleanText.split(/\s+/).filter(Boolean).length;
-                countEl.textContent = `🎙️ ${words} words captured`;
-              }
-            }
-          };
-
-          speechRecognizer.onerror = (e) => {
-            console.warn('SpeechRecognition error:', e.error);
-            if (speakingRecordingState === 'recording' && e.error !== 'aborted') {
-              setTimeout(() => {
-                if (speakingRecordingState === 'recording') {
-                  try { speechRecognizer.start(); } catch { }
-                }
-              }, 400);
-            }
-          };
-
-          speechRecognizer.onend = () => {
-            if (speakingRecordingState === 'recording') {
-              try { speechRecognizer.start(); } catch { }
-            }
-          };
-
-          speechRecognizer.start();
-        } catch (err) {
-          console.warn('SpeechRecognizer initialization failed:', err);
-        }
       }
 
       const nextPromptBtn = document.querySelector('#speaking-next-prompt-btn');
       if (nextPromptBtn) {
         nextPromptBtn.onclick = () => {
           speakingStep = Math.min(speakingStep + 1, current.questions.length - 1);
-          if (speakingRecordingState === 'recording') {
-            startSpeechToText();
-          }
           draw();
         };
       }
@@ -1000,10 +913,6 @@ function renderSectionFlow(test, expiresAt, attemptId) {
       if (stopRecordBtn) {
         stopRecordBtn.onclick = async () => {
           speakingRecordingState = 'stopped';
-          if (speechRecognizer) {
-            try { speechRecognizer.stop(); } catch { }
-            speechRecognizer = null;
-          }
           if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             try { mediaRecorder.stop(); } catch { }
           }
@@ -1039,14 +948,12 @@ function renderSectionFlow(test, expiresAt, attemptId) {
       let recordingMeta = null;
       if (video) {
         const durationSeconds = Math.round((Date.now() - recordingStartedAt) / 1000);
-        const transcriptSource = window.SpeechRecognition || window.webkitSpeechRecognition ? 'Browser SpeechRecognition' : 'Manual transcript';
         try {
           const uploadRes = await fetch(`/api/attempts/${attemptId}/recording`, {
             method: 'POST',
             headers: {
               'Content-Type': video.type,
-              'x-duration-seconds': String(durationSeconds),
-              'x-transcript-source': transcriptSource
+              'x-duration-seconds': String(durationSeconds)
             },
             body: video
           });
@@ -1065,7 +972,6 @@ function renderSectionFlow(test, expiresAt, attemptId) {
         body: JSON.stringify({
           responses: answers,
           writing: ['writing-0', 'writing-1'].map((id) => answers[id] || '').filter(Boolean).join('\n\n') || Object.entries(answers).filter(([k]) => k.startsWith('writing')).map(([, v]) => v).join('\n\n'),
-          speaking: ['speaking-0', 'speaking-1', 'speaking-2'].map((id) => answers[id] || '').filter(Boolean).join('\n\n') || Object.entries(answers).filter(([k]) => k.startsWith('speaking')).map(([, v]) => v).join('\n\n'),
           speakingRecording: recordingMeta
         })
       });
@@ -1992,19 +1898,18 @@ const getLevelBadgeClass = (level) => {
               <div class="submission-header">
                 <div style="display:flex;align-items:center;gap:8px;color:var(--blue-dark)">
                   ${ICONS.mic}
-                  <strong>Candidate Spoken Transcript & Recording</strong>
+                  <strong>Candidate Spoken Audio / Video Recording</strong>
                 </div>
                 <span style="font-size:12px;color:var(--muted)">${recordingInfo}</span>
               </div>
               ${(attempt.speakingRecording?.fileUrl || attempt.speakingRecording?.dataUrl) ? `
                 <div class="recording-meta"><span class="rec-dot"></span> Spoken audio/video recording — ${attempt.speakingRecording.durationSeconds || 0}s · ${attempt.speakingRecording.mimeType || 'video/webm'}</div>
                 <video class="speaking-playback" id="review-speaking-video" controls playsinline preload="auto" src="${attempt.speakingRecording.fileUrl || attempt.speakingRecording.dataUrl}"></video>
-                <div style="display:flex;align-items:center;gap:10px;margin:6px 0 14px">
+                <div style="display:flex;align-items:center;gap:10px;margin:6px 0 8px">
                   <button type="button" class="button button-sm" id="btn-force-play-video" style="padding:6px 14px;font-size:12px">▶ Play Recording with Audio</button>
                   <span style="font-size:12px;color:var(--muted)">Ensure device output speaker is unmuted</span>
                 </div>
               ` : `<div class="recording-meta" style="background:#fef3c7;color:#92400e">⚠ No video recording stored for this attempt</div>`}
-              <div class="submission-content">${speakingSubmission.replace(/</g, '&lt;')}</div>
             </section>
 
             <!-- Error Banner (if validation fails) -->

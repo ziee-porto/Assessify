@@ -773,7 +773,7 @@
       "id": "speaking",
       "label": "Speaking",
       "durationMinutes": 10,
-      "instructions": "Record your spoken response for each interview question using your camera and microphone. Aim for 1 to 2 minutes per response. A live transcript is captured automatically.",
+      "instructions": "Record your spoken response for each interview question using your camera and microphone. Aim for 1 to 2 minutes per response.",
       "questions": [
         {
           "id": "speaking-1",
