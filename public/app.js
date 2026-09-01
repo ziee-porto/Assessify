@@ -112,55 +112,57 @@ function renderLogin(initialRole) {
   const isAdminRole = savedRole === 'admin';
 
   app.innerHTML = `
-    <section class="panel" style="max-width:540px;margin:50px auto;padding:32px 36px">
-      <div class="eyebrow">Karya Bangsa School</div>
-      <h1 style="font:700 32px 'Space Grotesk';margin:8px 0;color:var(--ink)">Welcome to Assessify</h1>
-      <p style="color:var(--muted);line-height:1.6;font-size:14px;margin-bottom:20px">Sign in with your educator credentials to begin a placement assessment or access administration reports.</p>
-      
-      <form id="login-form">
-        <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Workspace</label>
-        <select class="select-filter" id="login-role" name="role" style="width:100%;padding:12px;margin-bottom:6px">
-          <option value="teacher" ${!isAdminRole ? 'selected' : ''}>Teacher Placement Assessment</option>
-          <option value="admin" ${isAdminRole ? 'selected' : ''}>School Administration Portal</option>
-        </select>
-
-        <!-- Teacher Login Fields -->
-        <div id="teacher-fields" ${isAdminRole ? 'hidden' : ''}>
-          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">
-            Full Name <span style="font-size:11.5px;font-weight:400;color:var(--muted)">(used for Official Certificate & Placement Records)</span>
-          </label>
-          <input type="text" name="fullName" placeholder="e.g. Budi Santoso, S.Pd." ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-
-          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Email</label>
-          <input type="email" name="email" placeholder="name@karyabangsa.sch.id" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-
-          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Unit</label>
-          <select class="select-filter" id="teacher-unit" name="unit" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-            <option value="" disabled selected>Select Unit</option>
-            <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
-            <option value="SD KARYA BANGSA">SD KARYA BANGSA</option>
-            <option value="SMP KARYA BANGSA">SMP KARYA BANGSA</option>
-            <option value="SMA KARYA BANGSA">SMA KARYA BANGSA</option>
-            <option value="SMK KARYA BANGSA">SMK KARYA BANGSA</option>
-          </select>
-        </div>
-
-        <!-- Admin Login Fields -->
-        <div id="admin-fields" ${isAdminRole ? '' : 'hidden'}>
-          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Admin Username</label>
-          <input type="text" name="username" autocomplete="username" placeholder="Admin username" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-
-          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Password</label>
-          <input type="password" name="password" autocomplete="current-password" placeholder="Admin password" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
-        </div>
-
-        <p id="login-error" style="color:var(--coral);font-size:13px;font-weight:600;margin:12px 0 0"></p>
+    <div class="login-wrapper">
+      <section class="panel login-panel">
+        <div class="eyebrow">Karya Bangsa School</div>
+        <h1 style="font:700 32px 'Space Grotesk';margin:8px 0;color:var(--ink)">Welcome to Assessify</h1>
+        <p style="color:var(--muted);line-height:1.6;font-size:14px;margin-bottom:20px">Sign in with your educator credentials to begin a placement assessment or access administration reports.</p>
         
-        <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:20px;padding:12px">
-          Continue Securely <span aria-hidden="true">→</span>
-        </button>
-      </form>
-    </section>
+        <form id="login-form">
+          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Workspace</label>
+          <select class="select-filter" id="login-role" name="role" style="width:100%;padding:12px;margin-bottom:6px">
+            <option value="teacher" ${!isAdminRole ? 'selected' : ''}>Teacher Placement Assessment</option>
+            <option value="admin" ${isAdminRole ? 'selected' : ''}>School Administration Portal</option>
+          </select>
+
+          <!-- Teacher Login Fields -->
+          <div id="teacher-fields" ${isAdminRole ? 'hidden' : ''}>
+            <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">
+              Full Name <span style="font-size:11.5px;font-weight:400;color:var(--muted)">(used for Official Certificate & Placement Records)</span>
+            </label>
+            <input type="text" name="fullName" placeholder="e.g. Budi Santoso, S.Pd." ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+
+            <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Email</label>
+            <input type="email" name="email" placeholder="name@karyabangsa.sch.id" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+
+            <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Unit</label>
+            <select class="select-filter" id="teacher-unit" name="unit" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+              <option value="" disabled selected>Select Unit</option>
+              <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
+              <option value="SD KARYA BANGSA">SD KARYA BANGSA</option>
+              <option value="SMP KARYA BANGSA">SMP KARYA BANGSA</option>
+              <option value="SMA KARYA BANGSA">SMA KARYA BANGSA</option>
+              <option value="SMK KARYA BANGSA">SMK KARYA BANGSA</option>
+            </select>
+          </div>
+
+          <!-- Admin Login Fields -->
+          <div id="admin-fields" ${isAdminRole ? '' : 'hidden'}>
+            <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Admin Username</label>
+            <input type="text" name="username" autocomplete="username" placeholder="Admin username" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+
+            <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Password</label>
+            <input type="password" name="password" autocomplete="current-password" placeholder="Admin password" ${isAdminRole ? 'required' : ''} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+          </div>
+
+          <p id="login-error" style="color:var(--coral);font-size:13px;font-weight:600;margin:12px 0 0"></p>
+          
+          <button class="button" type="submit" style="width:100%;justify-content:center;margin-top:20px;padding:12px">
+            Continue Securely <span aria-hidden="true">→</span>
+          </button>
+        </form>
+      </section>
+    </div>
   `;
 
   const roleSelect = document.querySelector('#login-role');
