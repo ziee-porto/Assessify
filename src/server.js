@@ -30,40 +30,150 @@ const memoryRepository = {
 let repository = memoryRepository;
 let storageMode = 'memory';
 
-async function connectMongo() {
-  if (!process.env.MONGODB_URI) {
-    console.warn('MONGODB_URI is not configured; using memory repository. Test data will not survive restart.');
+async function connectMySQL() {
+  const mysqlUri = process.env.MYSQL_URI || process.env.DATABASE_URL;
+  const hasHostConfig = Boolean(process.env.MYSQL_HOST || process.env.MYSQL_DATABASE);
+
+  if (!mysqlUri && !hasHostConfig) {
+    console.warn('MySQL is not configured (MYSQL_URI or MYSQL_HOST); using memory repository. Test data will not survive restart.');
     return;
   }
+
   try {
-    const { MongoClient } = await import('mongodb');
-    const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 1500, connectTimeoutMS: 1500 });
+    const mysql = await import('mysql2/promise');
+    let pool;
+    if (mysqlUri && (mysqlUri.startsWith('mysql://') || mysqlUri.startsWith('mysql2://'))) {
+      pool = mysql.createPool({
+        uri: mysqlUri,
+        waitForConnections: true,
+        connectionLimit: 10,
+        connectTimeout: 2000
+      });
+    } else {
+      pool = mysql.createPool({
+        host: process.env.MYSQL_HOST || 'localhost',
+        port: Number(process.env.MYSQL_PORT) || 3306,
+        user: process.env.MYSQL_USER || 'root',
+        password: process.env.MYSQL_PASSWORD || '',
+        database: process.env.MYSQL_DATABASE || 'assessify',
+        waitForConnections: true,
+        connectionLimit: 10,
+        connectTimeout: 2000
+      });
+    }
+
+    // Verify connection with timeout
     const connectPromise = async () => {
-      await client.connect();
-      const database = client.db(process.env.MONGODB_DB || 'assessify');
-      const collection = database.collection('attempts');
-      const settings = database.collection('settings');
-      await collection.createIndex({ id: 1 }, { unique: true });
-      await collection.createIndex({ email: 1, startedAt: -1 });
-      await collection.createIndex({ status: 1, review: 1, startedAt: -1 });
-      await Promise.all(seedAttempts.map((attempt) => collection.updateOne({ id: attempt.id }, { $setOnInsert: attempt }, { upsert: true })));
+      await pool.query('SELECT 1');
+
+      // Initialize tables if they do not exist
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS attempts (
+          id VARCHAR(64) PRIMARY KEY,
+          teacher VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          status VARCHAR(64) NOT NULL DEFAULT 'In progress',
+          started_at VARCHAR(64) NOT NULL,
+          submitted_at VARCHAR(64) NULL,
+          overall VARCHAR(32) NULL,
+          review VARCHAR(64) NOT NULL DEFAULT 'Pending',
+          raw_data JSON NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_email_started (email, started_at),
+          INDEX idx_status_review (status, review)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS settings (
+          setting_key VARCHAR(128) PRIMARY KEY,
+          setting_value JSON NOT NULL,
+          updated_at VARCHAR(64) NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       repository = {
-        async listAttempts() { return collection.find({}, { projection: { _id: 0 } }).sort({ startedAt: -1 }).toArray(); },
-        async createAttempt(attempt) { await collection.insertOne(attempt); return attempt; },
-        async getAttempt(id) { return collection.findOne({ id }, { projection: { _id: 0 } }); },
-        async updateAttempt(id, update) { return collection.findOneAndUpdate({ id }, { $set: update }, { returnDocument: 'after', projection: { _id: 0 } }); },
-        async deleteAttempt(id) { const result = await collection.deleteOne({ id }); return result.deletedCount > 0; },
-        async getSetting(key) { return (await settings.findOne({ _id: key }))?.value; },
-        async setSetting(key, value) { await settings.updateOne({ _id: key }, { $set: { value, updatedAt: new Date().toISOString() } }, { upsert: true }); return value; }
+        async listAttempts() {
+          const [rows] = await pool.query('SELECT raw_data FROM attempts ORDER BY started_at DESC');
+          return rows.map((r) => (typeof r.raw_data === 'string' ? JSON.parse(r.raw_data) : r.raw_data));
+        },
+        async createAttempt(attempt) {
+          await pool.query(
+            `INSERT INTO attempts (id, teacher, email, status, started_at, submitted_at, overall, review, raw_data)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE raw_data = VALUES(raw_data), status = VALUES(status), overall = VALUES(overall), review = VALUES(review), submitted_at = VALUES(submitted_at)`,
+            [
+              attempt.id,
+              attempt.teacher || '',
+              attempt.email || '',
+              attempt.status || 'In progress',
+              attempt.startedAt || new Date().toISOString(),
+              attempt.submittedAt || null,
+              attempt.overall || null,
+              attempt.review || 'Pending',
+              JSON.stringify(attempt)
+            ]
+          );
+          return attempt;
+        },
+        async getAttempt(id) {
+          const [rows] = await pool.query('SELECT raw_data FROM attempts WHERE id = ? LIMIT 1', [id]);
+          if (!rows.length) return null;
+          const raw = rows[0].raw_data;
+          return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        },
+        async updateAttempt(id, update) {
+          const current = await this.getAttempt(id);
+          if (!current) return null;
+          const merged = { ...current, ...update };
+          await pool.query(
+            `UPDATE attempts 
+             SET teacher = ?, email = ?, status = ?, submitted_at = ?, overall = ?, review = ?, raw_data = ?
+             WHERE id = ?`,
+            [
+              merged.teacher || '',
+              merged.email || '',
+              merged.status || 'In progress',
+              merged.submittedAt || null,
+              merged.overall || null,
+              merged.review || 'Pending',
+              JSON.stringify(merged),
+              id
+            ]
+          );
+          return merged;
+        },
+        async deleteAttempt(id) {
+          const [res] = await pool.query('DELETE FROM attempts WHERE id = ?', [id]);
+          return res.affectedRows > 0;
+        },
+        async getSetting(key) {
+          const [rows] = await pool.query('SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1', [key]);
+          if (!rows.length) return null;
+          const val = rows[0].setting_value;
+          return typeof val === 'string' ? JSON.parse(val) : val;
+        },
+        async setSetting(key, value) {
+          const updated = new Date().toISOString();
+          await pool.query(
+            `INSERT INTO settings (setting_key, setting_value, updated_at)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)`,
+            [key, JSON.stringify(value), updated]
+          );
+          return value;
+        }
       };
-      storageMode = 'mongodb';
-      console.log('MongoDB repository connected');
+
+      storageMode = 'mysql';
+      console.log('MySQL repository connected successfully');
     };
-    
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 1500));
+
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000));
     await Promise.race([connectPromise(), timeoutPromise]);
   } catch (error) {
-    console.warn(`MongoDB unavailable; using memory repository (${error.message})`);
+    console.warn(`MySQL unavailable; using memory repository (${error.message})`);
   }
 }
 
@@ -640,5 +750,5 @@ const server = createServer(async (request, response) => {
 
 server.listen(Number(process.env.PORT) || 3000, () => {
   console.log(`Assessify running at http://localhost:${process.env.PORT || 3000}`);
-  connectMongo();
+  connectMySQL();
 });
