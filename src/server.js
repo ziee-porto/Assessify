@@ -71,6 +71,7 @@ async function connectMySQL() {
           id VARCHAR(64) PRIMARY KEY,
           teacher VARCHAR(255) NOT NULL,
           email VARCHAR(255) NOT NULL,
+          unit VARCHAR(128) NULL,
           status VARCHAR(64) NOT NULL DEFAULT 'In progress',
           started_at VARCHAR(64) NOT NULL,
           submitted_at VARCHAR(64) NULL,
@@ -80,9 +81,14 @@ async function connectMySQL() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_email_started (email, started_at),
+          INDEX idx_unit (unit),
           INDEX idx_status_review (status, review)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      try {
+        await pool.query('ALTER TABLE attempts ADD COLUMN unit VARCHAR(128) NULL AFTER email');
+      } catch {}
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS settings (
@@ -99,13 +105,14 @@ async function connectMySQL() {
         },
         async createAttempt(attempt) {
           await pool.query(
-            `INSERT INTO attempts (id, teacher, email, status, started_at, submitted_at, overall, review, raw_data)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE raw_data = VALUES(raw_data), status = VALUES(status), overall = VALUES(overall), review = VALUES(review), submitted_at = VALUES(submitted_at)`,
+            `INSERT INTO attempts (id, teacher, email, unit, status, started_at, submitted_at, overall, review, raw_data)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE raw_data = VALUES(raw_data), unit = VALUES(unit), status = VALUES(status), overall = VALUES(overall), review = VALUES(review), submitted_at = VALUES(submitted_at)`,
             [
               attempt.id,
               attempt.teacher || '',
               attempt.email || '',
+              attempt.unit || 'SD KARYA BANGSA',
               attempt.status || 'In progress',
               attempt.startedAt || new Date().toISOString(),
               attempt.submittedAt || null,
@@ -128,11 +135,12 @@ async function connectMySQL() {
           const merged = { ...current, ...update };
           await pool.query(
             `UPDATE attempts 
-             SET teacher = ?, email = ?, status = ?, submitted_at = ?, overall = ?, review = ?, raw_data = ?
+             SET teacher = ?, email = ?, unit = ?, status = ?, submitted_at = ?, overall = ?, review = ?, raw_data = ?
              WHERE id = ?`,
             [
               merged.teacher || '',
               merged.email || '',
+              merged.unit || 'SD KARYA BANGSA',
               merged.status || 'In progress',
               merged.submittedAt || null,
               merged.overall || null,
@@ -295,15 +303,68 @@ const scoreObjective = (sectionId, responses) => {
 };
 
 const certificateNumber = (row) => `KBS-EN-${new Date(row.started).getUTCFullYear()}-${row.attempt.replace(/^ATT-/, '')}`;
-const exportRows = (results) => results.map((row) => ({ teacher: row.teacher, email: row.email || '', attempt: row.id, started: row.startedAt, status: row.status, listening: row.sectionScores?.Listening ?? '', grammarVocabulary: row.sectionScores?.['Grammar & Vocabulary'] ?? '', reading: row.sectionScores?.Reading ?? '', writing: row.sectionScores?.Writing ?? '', speaking: row.sectionScores?.Speaking ?? '', overallBand: row.overall ?? '', review: row.review, analysis: performanceAnalysis(row) }));
-const sendExcel = async (response, results) => { const workbook = new ExcelJS.Workbook(); workbook.creator = 'Assessify'; const sheet = workbook.addWorksheet('Teacher Results'); sheet.columns = [{ header: 'Teacher', key: 'teacher', width: 24 }, { header: 'Email', key: 'email', width: 36 }, { header: 'Attempt', key: 'attempt', width: 14 }, { header: 'Started', key: 'started', width: 25 }, { header: 'Status', key: 'status', width: 16 }, { header: 'Listening', key: 'listening', width: 14 }, { header: 'Grammar & Vocabulary', key: 'grammarVocabulary', width: 22 }, { header: 'Reading', key: 'reading', width: 14 }, { header: 'Writing', key: 'writing', width: 14 }, { header: 'Speaking', key: 'speaking', width: 14 }, { header: 'Overall Band', key: 'overallBand', width: 16 }, { header: 'Review', key: 'review', width: 18 }, { header: 'Analysis', key: 'analysis', width: 80 }]; sheet.addRows(exportRows(results)); sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D7772' } }; sheet.getColumn('analysis').alignment = { wrapText: true, vertical: 'top' }; sheet.autoFilter = 'A1:M1'; const buffer = await workbook.xlsx.writeBuffer(); response.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="assessify-teacher-results.xlsx"' }); response.end(buffer); };
+const exportRows = (results) => results.map((row) => ({
+  teacher: row.teacher,
+  email: row.email || '',
+  unit: row.unit || 'SD KARYA BANGSA',
+  attempt: row.id,
+  started: row.startedAt,
+  status: row.status,
+  listening: row.sectionScores?.Listening ?? '',
+  grammarVocabulary: row.sectionScores?.['Grammar & Vocabulary'] ?? '',
+  reading: row.sectionScores?.Reading ?? '',
+  writing: row.sectionScores?.Writing ?? '',
+  speaking: row.sectionScores?.Speaking ?? '',
+  overallBand: row.overall ?? '',
+  review: row.review,
+  analysis: performanceAnalysis(row)
+}));
 
-const sendCenteredPdf = (response, results) => {
+const sendExcel = async (response, results, unitFilter) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Assessify';
+  const sheetName = unitFilter && unitFilter.toLowerCase() !== 'all' ? unitFilter.slice(0, 31) : 'Teacher Results';
+  const sheet = workbook.addWorksheet(sheetName);
+  sheet.columns = [
+    { header: 'Teacher', key: 'teacher', width: 24 },
+    { header: 'Email', key: 'email', width: 34 },
+    { header: 'School Unit', key: 'unit', width: 24 },
+    { header: 'Attempt', key: 'attempt', width: 14 },
+    { header: 'Started', key: 'started', width: 25 },
+    { header: 'Status', key: 'status', width: 16 },
+    { header: 'Listening', key: 'listening', width: 14 },
+    { header: 'Grammar & Vocabulary', key: 'grammarVocabulary', width: 22 },
+    { header: 'Reading', key: 'reading', width: 14 },
+    { header: 'Writing', key: 'writing', width: 14 },
+    { header: 'Speaking', key: 'speaking', width: 14 },
+    { header: 'Overall Band', key: 'overallBand', width: 16 },
+    { header: 'Review', key: 'review', width: 18 },
+    { header: 'Analysis', key: 'analysis', width: 80 }
+  ];
+  sheet.addRows(exportRows(results));
+  sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D7772' } };
+  sheet.getColumn('analysis').alignment = { wrapText: true, vertical: 'top' };
+  sheet.autoFilter = 'A1:N1';
+  const buffer = await workbook.xlsx.writeBuffer();
+  const fileSuffix = unitFilter && unitFilter.toLowerCase() !== 'all' ? `-${unitFilter.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+  response.writeHead(200, {
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="assessify-teacher-results${fileSuffix}.xlsx"`
+  });
+  response.end(buffer);
+};
+
+const sendCenteredPdf = (response, results, unitFilter) => {
   const doc = new PDFDocument({ margin: 42, size: 'A4' });
   const chunks = [];
   doc.on('data', (chunk) => chunks.push(chunk));
   doc.on('end', () => {
-    response.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="assessify-teacher-results.pdf"' });
+    const fileSuffix = unitFilter && unitFilter.toLowerCase() !== 'all' ? `-${unitFilter.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+    response.writeHead(200, {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="assessify-teacher-results${fileSuffix}.pdf"`
+    });
     response.end(Buffer.concat(chunks));
   });
   const rows = exportRows(results);
@@ -313,12 +374,12 @@ const sendCenteredPdf = (response, results) => {
     // ── Header bar ──────────────────────────────────────────────────
     doc.rect(0, 0, 595, 100).fill('#0f274a');
     doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('Assessify.', 0, 28, { width: 595, align: 'center' });
-    doc.fontSize(10).font('Helvetica').text('CEFR English Placement Result · Karya Bangsa School', 0, 58, { width: 595, align: 'center' });
+    doc.fontSize(10).font('Helvetica').text(`CEFR English Placement Result · ${row.unit || 'Karya Bangsa School'}`, 0, 58, { width: 595, align: 'center' });
 
     // ── Teacher info ─────────────────────────────────────────────────
     doc.fillColor('#0f172a').fontSize(20).font('Helvetica-Bold').text(row.teacher, 0, 122, { width: 595, align: 'center' });
     doc.fontSize(9).font('Helvetica').fillColor('#64748b')
-      .text(`${row.email}  |  Started ${new Date(row.started).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 0, 148, { width: 595, align: 'center' });
+      .text(`${row.email}  |  Unit: ${row.unit || 'SD KARYA BANGSA'}  |  Started ${new Date(row.started).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 0, 148, { width: 595, align: 'center' });
     doc.font('Helvetica-Bold').fillColor('#1e3a8a').text(`Certificate No. ${certificateNumber(row)}`, 0, 163, { width: 595, align: 'center' });
 
     // ── Overall CEFR badge (Band Color Coded) ────────────────────────
@@ -436,7 +497,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/api/test') return json(response, 200, safeTest());
   if (url.pathname === '/api/auth/me') return json(response, 200, { user: currentUser(request) || null });
   if (url.pathname === '/api/auth/login' && request.method === 'POST') {
-    const { email, fullName, name, username, password, role = 'teacher' } = await requestBody(request);
+    const { email, fullName, name, username, password, role = 'teacher', unit } = await requestBody(request);
     if (role === 'admin') {
       const normalizedUsername = (username || '').toLowerCase().trim();
       const account = adminAccounts[normalizedUsername];
@@ -450,7 +511,8 @@ const server = createServer(async (request, response) => {
     }
     if (!email || !email.endsWith('@karyabangsa.sch.id')) return json(response, 403, { error: 'Use your Karya Bangsa School account (@karyabangsa.sch.id)' });
     const teacherName = (fullName || name || '').trim() || email.split('@')[0].split('.').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-    const user = { email, name: teacherName, role: 'teacher' };
+    const selectedUnit = (unit || '').trim() || 'SD KARYA BANGSA';
+    const user = { email, name: teacherName, role: 'teacher', unit: selectedUnit };
     const token = createSession(user);
     response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
     return response.end(JSON.stringify({ user }));
@@ -490,9 +552,13 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === '/api/admin/results/export') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
-    const results = await repository.listAttempts();
-    if (url.searchParams.get('format') === 'pdf') return sendCenteredPdf(response, results);
-    if (url.searchParams.get('format') === 'xlsx') return sendExcel(response, results);
+    const unitFilter = url.searchParams.get('unit') || 'all';
+    let results = await repository.listAttempts();
+    if (unitFilter && unitFilter.toLowerCase() !== 'all') {
+      results = results.filter((r) => String(r.unit || '').trim().toLowerCase() === unitFilter.trim().toLowerCase());
+    }
+    if (url.searchParams.get('format') === 'pdf') return sendCenteredPdf(response, results, unitFilter);
+    if (url.searchParams.get('format') === 'xlsx') return sendExcel(response, results, unitFilter);
     return json(response, 400, { error: 'Use format=xlsx or format=pdf' });
   }
   // Question Bank Management
@@ -731,7 +797,16 @@ const server = createServer(async (request, response) => {
     const user = currentUser(request);
     if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
     const existing = await repository.listAttempts();
-    const attempt = { id: `ATT-${1043 + existing.length}`, teacher: user.name, email: user.email, status: 'In progress', startedAt: new Date().toISOString(), overall: null, review: 'Pending' };
+    const attempt = {
+      id: `ATT-${1043 + existing.length}`,
+      teacher: user.name,
+      email: user.email,
+      unit: user.unit || 'SD KARYA BANGSA',
+      status: 'In progress',
+      startedAt: new Date().toISOString(),
+      overall: null,
+      review: 'Pending'
+    };
     await repository.createAttempt(attempt);
     const durationMins = Number(content.durationMinutes) || 75;
     return json(response, 201, { attempt, expiresAt: new Date(Date.now() + durationMins * 60 * 1000).toISOString() });

@@ -130,6 +130,15 @@ function renderLogin() {
 
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Email</label>
           <input type="email" name="email" placeholder="name@karyabangsa.sch.id" required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+
+          <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">School Unit</label>
+          <select class="select-filter" id="teacher-unit" name="unit" required style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+            <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
+            <option value="SD KARYA BANGSA" selected>SD KARYA BANGSA</option>
+            <option value="SMP KARYA BANGSA">SMP KARYA BANGSA</option>
+            <option value="SMA KARYA BANGSA">SMA KARYA BANGSA</option>
+            <option value="SMK KARYA BANGSA">SMK KARYA BANGSA</option>
+          </select>
         </div>
 
         <!-- Admin Login Fields -->
@@ -1120,10 +1129,10 @@ async function renderAdminResultsTab(container) {
         <p style="color:var(--muted);font-size:14px;margin:0">Monitor diagnostic placement progress and evaluate candidate responses across Karya Bangsa School.</p>
       </div>
       <div class="admin-toolbar">
-        <a class="btn-icon" href="/api/admin/results/export?format=xlsx" title="Download Excel spreadsheet">
+        <a class="btn-icon" id="export-excel-btn" href="/api/admin/results/export?format=xlsx" title="Download Excel spreadsheet">
           ${ICONS.excel} <span>Export Excel</span>
         </a>
-        <a class="btn-icon" href="/api/admin/results/export?format=pdf" title="Download PDF report">
+        <a class="btn-icon" id="export-pdf-btn" href="/api/admin/results/export?format=pdf" title="Download PDF report">
           ${ICONS.pdf} <span>Export PDF</span>
         </a>
       </div>
@@ -1161,6 +1170,14 @@ async function renderAdminResultsTab(container) {
           <span class="search-icon-prefix">${ICONS.search}</span>
           <input id="search" placeholder="Search by teacher name, email, or attempt ID…">
         </div>
+        <select class="select-filter" id="unit-filter" style="min-width:160px">
+          <option value="">All Units</option>
+          <option value="KB-TK GOLDEN BEE">KB-TK GOLDEN BEE</option>
+          <option value="SD KARYA BANGSA">SD KARYA BANGSA</option>
+          <option value="SMP KARYA BANGSA">SMP KARYA BANGSA</option>
+          <option value="SMA KARYA BANGSA">SMA KARYA BANGSA</option>
+          <option value="SMK KARYA BANGSA">SMK KARYA BANGSA</option>
+        </select>
         <select class="select-filter" id="status">
           <option value="">All Statuses</option>
           <option value="Completed">Completed</option>
@@ -1176,13 +1193,14 @@ async function renderAdminResultsTab(container) {
         <table>
           <thead>
             <tr>
-              <th style="width:28%">Teacher Candidate</th>
-              <th style="width:12%">Attempt ID</th>
-              <th style="width:14%">Started Date</th>
-              <th style="width:13%">Status</th>
-              <th style="width:11%">Overall Band</th>
-              <th style="width:14%">Review Status</th>
-              <th style="width:18%;text-align:right">Actions</th>
+              <th style="width:25%">Teacher Candidate</th>
+              <th style="width:16%">School Unit</th>
+              <th style="width:10%">Attempt ID</th>
+              <th style="width:11%">Started</th>
+              <th style="width:11%">Status</th>
+              <th style="width:10%">Overall Band</th>
+              <th style="width:11%">Review Status</th>
+              <th style="width:16%;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="results">${renderTableRows(data.results)}</tbody>
@@ -1195,10 +1213,10 @@ async function renderAdminResultsTab(container) {
     if (!list || !list.length) {
       return `
         <tr>
-          <td colspan="7" style="text-align:center;padding:48px 16px;color:var(--muted)">
+          <td colspan="8" style="text-align:center;padding:48px 16px;color:var(--muted)">
             <div style="font-size:32px;margin-bottom:8px">👥</div>
-            <div style="font-weight:700;font-size:15px;color:var(--ink)">No Teacher Assessments Yet</div>
-            <div style="font-size:13px;color:var(--muted);margin-top:4px">When teachers sign in and take placement tests, their records and scores will appear here.</div>
+            <div style="font-weight:700;font-size:15px;color:var(--ink)">No Teacher Assessments Found</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">Try adjusting your search or unit filter, or wait for candidate submissions.</div>
           </td>
         </tr>
       `;
@@ -1208,19 +1226,30 @@ async function renderAdminResultsTab(container) {
 
   const filter = () => {
     const query = (document.querySelector('#search')?.value || '').toLowerCase();
+    const selectedUnit = document.querySelector('#unit-filter')?.value || '';
     const selectedStatus = document.querySelector('#status')?.value || '';
     const selectedReview = document.querySelector('#review-filter')?.value || '';
     const filtered = data.results.filter((row) => {
+      const matchUnit = !selectedUnit || (row.unit || '').trim().toLowerCase() === selectedUnit.trim().toLowerCase();
       const matchStatus = !selectedStatus || row.status === selectedStatus;
       const matchReview = !selectedReview || (selectedReview === 'Pending' ? (row.review === 'Pending' || row.review?.includes('required')) : row.review === selectedReview);
-      const matchQuery = !query || `${row.teacher} ${row.email || ''} ${row.id}`.toLowerCase().includes(query);
-      return matchStatus && matchReview && matchQuery;
+      const matchQuery = !query || `${row.teacher} ${row.email || ''} ${row.unit || ''} ${row.id}`.toLowerCase().includes(query);
+      return matchUnit && matchStatus && matchReview && matchQuery;
     });
     document.querySelector('#results').innerHTML = renderTableRows(filtered);
+
+    // Update export links dynamically to reflect the active Unit filter
+    const excelBtn = document.querySelector('#export-excel-btn');
+    const pdfBtn = document.querySelector('#export-pdf-btn');
+    const unitParam = selectedUnit ? `&unit=${encodeURIComponent(selectedUnit)}` : '';
+    if (excelBtn) excelBtn.href = `/api/admin/results/export?format=xlsx${unitParam}`;
+    if (pdfBtn) pdfBtn.href = `/api/admin/results/export?format=pdf${unitParam}`;
+
     bindDetails();
   };
 
   document.querySelector('#search').oninput = filter;
+  document.querySelector('#unit-filter').onchange = filter;
   document.querySelector('#status').onchange = filter;
   document.querySelector('#review-filter').onchange = filter;
   bindDetails();
@@ -1635,6 +1664,9 @@ function renderRow(row) {
           </div>
         </div>
       </td>
+      <td>
+        <span class="unit-pill">${row.unit || 'SD KARYA BANGSA'}</span>
+      </td>
       <td><span class="attempt-pill">${row.id}</span></td>
       <td style="color:var(--muted);font-size:13px">${new Date(row.startedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
       <td>
@@ -1644,7 +1676,7 @@ function renderRow(row) {
         </span>
       </td>
       <td>
-        ${row.overall ? `<span class="cefr-tag">${row.overall}</span>` : '<span style="color:var(--muted)">—</span>'}
+        ${row.overall ? `<span class="cefr-tag ${getLevelBadgeClass(row.overall)}">${row.overall}</span>` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
         <span class="${reviewPillClass}">
