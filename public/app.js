@@ -13,9 +13,9 @@ function showToast(message, type = 'success', duration = 4500) {
   })();
 
   const icons = {
-    success: '✓',
-    error: '✕',
-    info: 'ℹ'
+    success: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+    info: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
   };
 
   const toast = document.createElement('div');
@@ -44,6 +44,7 @@ const request = async (path, options = {}) => {
     const response = await fetch(path, options);
     if (response.status === 204) return {};
     const data = await response.json();
+    if (!response.ok) return { error: data.error || 'Request failed' };
     if (path.includes('/submit') && data.speakingMeetUrl) window.location.assign(data.speakingMeetUrl);
     return data;
   } catch (err) {
@@ -60,13 +61,40 @@ const ICONS = {
   pdf: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
   grade: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   eye: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-  trash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
+  trash: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
   upload: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
-  check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-  x: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+  check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  x: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  search: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  users: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  fileText: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+  checkCircle: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  clock: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  penTool: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>`,
+  mic: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
+  headphones: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>`,
+  book: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  layers: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+  award: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>`,
+  video: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+  refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+  lightbulb: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/></svg>`,
+  volume2: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`,
+  lock: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  alertTriangle: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  edit: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  pin: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a3 3 0 0 0-6 0v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>`,
+  save: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
+  clipboardCheck: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 14 12 17 16 12"/></svg>`
 };
 
-const sectionIcons = { 'Grammar & Vocabulary': 'G', Reading: 'R', Writing: 'W', Listening: 'L', Speaking: 'S' };
+const sectionIcons = {
+  'Grammar & Vocabulary': ICONS.layers,
+  Reading: ICONS.book,
+  Writing: ICONS.penTool,
+  Listening: ICONS.headphones,
+  Speaking: ICONS.mic
+};
 
 const renderQuestion = (question, section) => {
   const audio = question.audioScript ? `<button class="button speak-question" data-text="${question.audioScript.replaceAll('"', '&quot;')}">Play audio</button>` : '';
@@ -191,33 +219,33 @@ function renderTeacher(test, user) {
       <!-- Guidelines Card -->
       <div class="test-guidelines-card">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">📌</span>
+          <div class="skill-icon-badge skill-icon-writing" style="width:28px;height:28px">${ICONS.pin}</div>
           <h3 style="font:700 18px 'Space Grotesk';margin:0;color:var(--ink)">Before You Begin</h3>
         </div>
         <div class="test-guidelines-grid">
           <div class="guideline-item">
-            <div class="guideline-icon">⏱️</div>
+            <div class="guideline-icon">${ICONS.clock}</div>
             <div>
               <div class="guideline-title">60-Minute Session</div>
               <p class="guideline-desc">The assessment is timed. Once started, complete all 4 sections within the allotted hour.</p>
             </div>
           </div>
           <div class="guideline-item">
-            <div class="guideline-icon">🎧</div>
+            <div class="guideline-icon">${ICONS.headphones}</div>
             <div>
               <div class="guideline-title">Headphones Recommended</div>
               <p class="guideline-desc">Listening questions include audio prompts. Adjust your device volume beforehand.</p>
             </div>
           </div>
           <div class="guideline-item">
-            <div class="guideline-icon">🎙️</div>
+            <div class="guideline-icon">${ICONS.mic}</div>
             <div>
               <div class="guideline-title">Camera & Microphone</div>
               <p class="guideline-desc">Speaking questions record a short video/audio response directly in the browser.</p>
             </div>
           </div>
           <div class="guideline-item">
-            <div class="guideline-icon">💾</div>
+            <div class="guideline-icon">${ICONS.save}</div>
             <div>
               <div class="guideline-title">Real-Time Autosave</div>
               <p class="guideline-desc">All selected answers and written drafts are saved automatically as you proceed.</p>
@@ -241,13 +269,13 @@ function renderTeacher(test, user) {
           <div>
             <div class="device-preview-box">
               <video id="diag-camera-preview" autoplay muted playsinline></video>
-              <div id="diag-camera-overlay" style="position:absolute;top:10px;left:10px;background:rgba(15,23,42,0.85);color:#fff;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600">
-                📹 Camera Preview
+              <div id="diag-camera-overlay" style="position:absolute;top:10px;left:10px;background:rgba(15,23,42,0.85);color:#fff;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:5px">
+                ${ICONS.video} Camera Preview
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12.5px">
               <span id="diag-cam-status" style="color:#16a34a;font-weight:600">Checking camera…</span>
-              <button type="button" id="diag-retry-cam-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0">🔄 Retest Device</button>
+              <button type="button" id="diag-retry-cam-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;display:inline-flex;align-items:center;gap:4px">${ICONS.refresh} Retest Device</button>
             </div>
           </div>
 
@@ -255,7 +283,10 @@ function renderTeacher(test, user) {
           <div>
             <div class="device-meter-row">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <strong style="font-size:13px;color:var(--ink)">🎙️ Live Microphone Input</strong>
+                <div style="display:flex;align-items:center;gap:6px;color:var(--blue-dark)">
+                  ${ICONS.mic}
+                  <strong style="font-size:13px;color:var(--ink)">Live Microphone Input</strong>
+                </div>
                 <span id="diag-mic-text" style="font-size:12px;font-weight:600;color:#64748b">Listening…</span>
               </div>
               <div style="background:#e2e8f0;height:10px;border-radius:5px;overflow:hidden;position:relative">
@@ -270,12 +301,12 @@ function renderTeacher(test, user) {
               <p style="font-size:12px;color:var(--muted);margin:0 0 10px">Record a 3-second test clip to verify your voice can be recorded and heard clearly.</p>
               
               <button type="button" class="button button-sm" id="diag-sample-btn" style="padding:8px 16px;font-size:12.5px;margin:0 auto">
-                🔴 Record 3s Test Sample
+                <span class="rec-dot" style="margin-right:6px"></span> Record 3s Test Sample
               </button>
 
               <div id="diag-playback-container" style="margin-top:12px;display:none">
                 <video id="diag-sample-player" controls playsinline style="width:100%;max-width:320px;border-radius:8px;background:#0f172a;margin:6px auto;display:block"></video>
-                <span style="font-size:11.5px;color:#16a34a;font-weight:600">✓ Play the clip above to verify your voice sound!</span>
+                <span style="font-size:11.5px;color:#16a34a;font-weight:600;display:inline-flex;align-items:center;gap:4px">${ICONS.check} Play the clip above to verify your voice sound!</span>
               </div>
             </div>
           </div>
@@ -546,28 +577,30 @@ function renderSectionFlow(test, expiresAt, attemptId) {
               ${activePrompt.prompt}
             </p>
             ${activePrompt.guidance ? `
-              <div style="font-size:13px;color:var(--muted);background:#f8fafc;padding:10px 14px;border-radius:8px;border-left:3px solid var(--blue);margin-bottom:18px">
-                💡 <strong>Guidance:</strong> ${activePrompt.guidance}
+              <div style="font-size:13px;color:var(--muted);background:#f8fafc;padding:10px 14px;border-radius:8px;border-left:3.5px solid var(--blue);margin-bottom:18px;display:flex;align-items:center;gap:8px">
+                <span style="color:var(--blue);display:inline-flex">${ICONS.lightbulb}</span>
+                <span><strong>Guidance:</strong> ${activePrompt.guidance}</span>
               </div>
             ` : ''}
 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <label style="font-size:13px;font-weight:700;color:var(--ink)">
-                🎙️ Live Spoken Transcript (Prompt ${speakingStep + 1} of ${current.questions.length})
+              <label style="font-size:13px;font-weight:700;color:var(--ink);display:inline-flex;align-items:center;gap:6px">
+                <span style="color:var(--blue)">${ICONS.mic}</span>
+                <span>Live Spoken Transcript (Prompt ${speakingStep + 1} of ${current.questions.length})</span>
               </label>
               <div style="display:flex;align-items:center;gap:12px">
                 <span id="speaking-word-count" style="font-size:12px;font-weight:600;color:${speakingRecordingState === 'recording' ? '#dc2626' : '#64748b'}">
                   ${speakingRecordingState === 'recording' ? '● Transcribing Voice…' : (speakingRecordingState === 'stopped' ? '✓ Transcript Locked' : 'Ready (Auto-fills on speaking)')}
                 </span>
-                <button type="button" id="toggle-manual-edit-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0">✏️ Edit</button>
+                <button type="button" id="toggle-manual-edit-btn" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;display:inline-flex;align-items:center;gap:4px">${ICONS.edit} Edit</button>
               </div>
             </div>
-            <textarea id="speaking-current-transcript" rows="6" placeholder="${speakingRecordingState === 'recording' ? '🎙️ Listening to your microphone... Speak clearly and your words will transcribe here automatically...' : 'Click \"Start Recording\" above. Your spoken speech will automatically fill this transcript box in real-time.'}" style="width:100%;background:#f8fafc;border:1px solid #cbd5e1;padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6;color:var(--ink);resize:vertical">${answers['speaking-' + speakingStep] || ''}</textarea>
+            <textarea id="speaking-current-transcript" rows="6" placeholder="${speakingRecordingState === 'recording' ? 'Listening to your microphone... Speak clearly and your words will transcribe here automatically...' : 'Click \"Start Recording\" above. Your spoken speech will automatically fill this transcript box in real-time.'}" style="width:100%;background:#f8fafc;border:1px solid #cbd5e1;padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6;color:var(--ink);resize:vertical">${answers['speaking-' + speakingStep] || ''}</textarea>
 
             ${speakingStep < current.questions.length - 1 ? `
               <div style="display:flex;justify-content:flex-end;margin-top:16px">
                 <button class="button" id="speaking-next-prompt-btn" type="button" style="padding:10px 20px">
-                  Next Question ➔
+                  <span>Next Question</span> <span aria-hidden="true">→</span>
                 </button>
               </div>
             ` : ''}
@@ -578,8 +611,9 @@ function renderSectionFlow(test, expiresAt, attemptId) {
       contentHtml = `
         ${current.passage ? `
           <div class="reading-passage-box">
-            <div style="font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-              <span>📖</span> Reading Passage
+            <div style="font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+              <div class="skill-icon-badge skill-icon-reading" style="width:26px;height:26px">${ICONS.book}</div>
+              <span>Reading Passage</span>
             </div>
             <div style="line-height:1.7;font-size:14.5px">${current.passage.replace(/\n\n/g, '<br><br>')}</div>
           </div>
@@ -593,12 +627,12 @@ function renderSectionFlow(test, expiresAt, attemptId) {
               ${question.audioScript ? `
                 <div style="margin-bottom:14px">
                   ${playedAudio[question.id] ? `
-                    <button class="button button-sm speak-question played" disabled style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:not-allowed" type="button">
-                      🔒 Audio Played (1/1 Attempt Used)
+                    <button class="button button-sm speak-question played" disabled style="background:#f1f5f9;color:#64748b;border:1px solid #cbd5e1;cursor:not-allowed;display:inline-flex;align-items:center;gap:6px" type="button">
+                      ${ICONS.lock} <span>Audio Played (1/1 Attempt Used)</span>
                     </button>
                   ` : `
-                    <button class="button button-sm speak-question" data-qid="${question.id}" data-text="${question.audioScript.replaceAll('"', '&quot;')}" type="button">
-                      <span>▶ Play Audio (Single Play Only)</span>
+                    <button class="button button-sm speak-question" data-qid="${question.id}" data-text="${question.audioScript.replaceAll('"', '&quot;')}" type="button" style="display:inline-flex;align-items:center;gap:6px">
+                      ${ICONS.volume2} <span>Play Audio (Single Play Only)</span>
                     </button>
                   `}
                 </div>
@@ -622,7 +656,7 @@ function renderSectionFlow(test, expiresAt, attemptId) {
                 <div>
                   <textarea class="writing-input" id="writing-${index}" rows="9" placeholder="Compose your written response here…" style="width:100%;border:1px solid var(--line);padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6"></textarea>
                   <div style="display:flex;justify-content:flex-end">
-                    <span class="word-counter-tag" id="counter-writing-${index}">📝 0 words</span>
+                    <span class="word-counter-tag" id="counter-writing-${index}" style="display:inline-flex;align-items:center;gap:5px">${ICONS.penTool} <span>0 words</span></span>
                   </div>
                 </div>
               `}
@@ -688,7 +722,7 @@ function renderSectionFlow(test, expiresAt, attemptId) {
         playedAudio[qid] = true;
         button.disabled = true;
         button.classList.add('played');
-        button.innerHTML = '🔊 Playing Audio… (Single Play Only)';
+        button.innerHTML = `${ICONS.volume2} <span>Playing Audio… (Single Play Only)</span>`;
         button.style.background = '#fef3c7';
         button.style.color = '#92400e';
         button.style.borderColor = '#fde68a';
@@ -697,13 +731,13 @@ function renderSectionFlow(test, expiresAt, attemptId) {
         const utterance = new SpeechSynthesisUtterance(button.dataset.text);
         utterance.rate = 0.92;
         utterance.onend = () => {
-          button.innerHTML = '🔒 Audio Played (1/1 Attempt Used)';
+          button.innerHTML = `${ICONS.lock} <span>Audio Played (1/1 Attempt Used)</span>`;
           button.style.background = '#f1f5f9';
           button.style.color = '#64748b';
           button.style.borderColor = '#cbd5e1';
         };
         utterance.onerror = () => {
-          button.innerHTML = '🔒 Audio Played (1/1 Attempt Used)';
+          button.innerHTML = `${ICONS.lock} <span>Audio Played (1/1 Attempt Used)</span>`;
           button.style.background = '#f1f5f9';
           button.style.color = '#64748b';
           button.style.borderColor = '#cbd5e1';
@@ -727,7 +761,7 @@ function renderSectionFlow(test, expiresAt, attemptId) {
         const text = input.value.trim();
         const words = text ? text.split(/\s+/).length : 0;
         const counter = document.querySelector(`#counter-${input.id}`);
-        if (counter) counter.textContent = `📝 ${words} word${words === 1 ? '' : 's'}`;
+        if (counter) counter.innerHTML = `${ICONS.penTool} <span>${words} word${words === 1 ? '' : 's'}</span>`;
       };
       updateWordCount();
       input.addEventListener('input', () => {
@@ -1174,28 +1208,28 @@ async function renderAdminResultsTab(container) {
           <strong>51</strong>
           <span>Teachers Invited</span>
         </div>
-        <div class="kpi-card-icon">👥</div>
+        <div class="kpi-card-icon">${ICONS.users}</div>
       </div>
       <div class="kpi-card kpi-indigo">
         <div class="kpi-card-info">
           <strong>${data.total}</strong>
           <span>Total Attempts</span>
         </div>
-        <div class="kpi-card-icon">📝</div>
+        <div class="kpi-card-icon">${ICONS.fileText}</div>
       </div>
       <div class="kpi-card kpi-green">
         <div class="kpi-card-info">
           <strong>${completedCount}</strong>
           <span>Completed Tests</span>
         </div>
-        <div class="kpi-card-icon">✅</div>
+        <div class="kpi-card-icon">${ICONS.checkCircle}</div>
       </div>
       <div class="kpi-card kpi-amber">
         <div class="kpi-card-info">
           <strong>${pendingCount}</strong>
           <span>Pending Review</span>
         </div>
-        <div class="kpi-card-icon">⏳</div>
+        <div class="kpi-card-icon">${ICONS.clock}</div>
       </div>
     </div>
 
@@ -1203,7 +1237,7 @@ async function renderAdminResultsTab(container) {
     <div class="panel" style="padding:24px 28px">
       <div class="table-toolbar">
         <div class="search-wrap">
-          <span class="search-icon-prefix">🔍</span>
+          <span class="search-icon-prefix">${ICONS.search}</span>
           <input id="search" placeholder="Search by teacher name, email, or attempt ID…">
         </div>
         <select class="select-filter" id="status">
@@ -1286,15 +1320,15 @@ async function renderAdminQuestionsTab(container) {
     ${isStaged ? `
       <div class="staged-review-banner">
         <div class="staged-banner-info">
-          <div class="staged-banner-icon">⚠️</div>
+          <div class="staged-banner-icon">${ICONS.alertTriangle}</div>
           <div>
             <h3 class="staged-banner-title">Questions Draft Staged for Review</h3>
             <p class="staged-banner-desc">You are reviewing a draft upload containing <strong>${questionsData.sections?.length || 0} sections</strong> and <strong>${totalQuestions} questions</strong>. Review below and approve to make live.</p>
           </div>
         </div>
         <div class="staged-banner-actions">
-          <button class="btn-discard" id="discard-questions-draft" type="button">✕ Discard Draft</button>
-          <button class="btn-approve" id="approve-questions-draft" type="button">✓ Approve & Publish</button>
+          <button class="btn-discard" id="discard-questions-draft" type="button">${ICONS.x} <span>Discard Draft</span></button>
+          <button class="btn-approve" id="approve-questions-draft" type="button">${ICONS.check} <span>Approve & Publish</span></button>
         </div>
       </div>
     ` : ''}
@@ -1307,7 +1341,7 @@ async function renderAdminQuestionsTab(container) {
       </div>
       <div class="admin-toolbar">
         <div class="file-upload-wrapper">
-          <label class="file-upload-label" for="questions-upload-input">📂 Choose Questions JSON
+          <label class="file-upload-label" for="questions-upload-input">${ICONS.upload} <span>Choose Questions JSON</span>
             <input type="file" id="questions-upload-input" accept=".json">
           </label>
         </div>
@@ -1319,6 +1353,7 @@ async function renderAdminQuestionsTab(container) {
         <div class="section-group-card">
           <div class="section-group-header">
             <h3 class="section-group-title">
+              <div class="skill-icon-badge ${sec.label === 'Writing' ? 'skill-icon-writing' : (sec.label === 'Speaking' ? 'skill-icon-speaking' : (sec.label === 'Reading' ? 'skill-icon-reading' : (sec.label === 'Listening' ? 'skill-icon-listening' : 'skill-icon-grammar')))}" style="width:30px;height:30px">${sectionIcons[sec.label] || ICONS.fileText}</div>
               <span>Section ${secIdx + 1}: ${sec.label}</span>
               <span class="pill">${sec.questions?.length || 0} items</span>
               <span class="pill pending">${sec.durationMinutes || 0} mins</span>
@@ -1334,7 +1369,7 @@ async function renderAdminQuestionsTab(container) {
               <div class="question-item-card">
                 <div class="question-item-header">
                   <span class="question-num-tag">Q${qIdx + 1} · ${q.type || 'standard'}</span>
-                  ${q.audioScript ? '<span class="pill success">🎧 Audio Script Included</span>' : ''}
+                  ${q.audioScript ? `<span class="pill success" style="display:inline-flex;align-items:center;gap:5px">${ICONS.headphones} Audio Script Included</span>` : ''}
                 </div>
                 <p class="question-item-prompt">${q.prompt}</p>
                 ${q.options ? `
@@ -1457,13 +1492,14 @@ async function renderAdminRubricsTab(container) {
     <!-- Writing Rubric -->
     <div class="rubric-skill-card">
       <h2 class="rubric-skill-title">
-        <span>✍️</span> Writing Evaluation Criteria
+        <div class="skill-icon-badge skill-icon-writing">${ICONS.penTool}</div>
+        <span>Writing Evaluation Criteria</span>
         <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 16 pts</span>
       </h2>
       <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.writing?.weight || 'Evaluated on 1 to 4 scale.'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.writing?.criteria || []).map((c) => `
-          <div class="criterion-card">
+          <div class="criterion-card criterion-card-writing">
             <div class="criterion-card-title">${c.name}</div>
             <p class="criterion-card-desc">${c.description}</p>
           </div>
@@ -1474,13 +1510,14 @@ async function renderAdminRubricsTab(container) {
     <!-- Speaking Rubric -->
     <div class="rubric-skill-card">
       <h2 class="rubric-skill-title">
-        <span>🎙️</span> Speaking Evaluation Criteria
+        <div class="skill-icon-badge skill-icon-speaking">${ICONS.mic}</div>
+        <span>Speaking Evaluation Criteria</span>
         <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 16 pts</span>
       </h2>
       <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.speaking?.weight || 'Evaluated on 1 to 4 scale.'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.speaking?.criteria || []).map((c) => `
-          <div class="criterion-card">
+          <div class="criterion-card criterion-card-speaking">
             <div class="criterion-card-title">${c.name}</div>
             <p class="criterion-card-desc">${c.description}</p>
           </div>
@@ -1490,7 +1527,10 @@ async function renderAdminRubricsTab(container) {
 
     <!-- Band Scale Card -->
     <div class="rubric-skill-card" style="background:#f8fafc">
-      <h3 style="font:700 16px 'DM Sans';margin:0 0 8px;color:var(--blue-dark)">CEFR Placement Band Mapping</h3>
+      <h3 style="font:700 16px 'DM Sans';margin:0 0 8px;color:var(--blue-dark);display:flex;align-items:center;gap:10px">
+        <div class="skill-icon-badge skill-icon-award" style="width:28px;height:28px">${ICONS.award}</div>
+        <span>CEFR Placement Band Mapping</span>
+      </h3>
       <p style="color:var(--ink);font-size:13px;margin:0 0 8px">${rubricsData.bandScale?.overall || '4–6 = A1, 7–9 = A2, 10–13 = B1, 14–16 = B2.'}</p>
       <p style="color:var(--muted);font-size:12px;margin:0"><em>Source: ${rubricsData.source || 'Official IELTS / CEFR Guidance'}</em></p>
     </div>
@@ -1607,15 +1647,16 @@ function openDeleteModal(attemptId, teacherName) {
     <div class="modal-backdrop" id="delete-modal-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
       <div class="modal-card" role="dialog" aria-modal="true" style="max-width:440px;background:#ffffff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;padding:0">
         <div style="padding:28px 24px 20px;text-align:center">
-          <div style="width:56px;height:56px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:26px;margin:0 auto 16px">
-            🗑️
+          <div class="modal-icon-danger" style="width:56px;height:56px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;margin:0 auto 16px">
+            ${ICONS.trash}
           </div>
           <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">Delete Assessment Record?</h3>
           <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5">
             Are you sure you want to permanently delete attempt <strong style="color:var(--ink)">${attemptId}</strong>${teacherName ? ` for <strong>${teacherName}</strong>` : ''}?
           </p>
-          <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;padding:10px 12px;border-radius:8px;margin-top:16px;text-align:left">
-            ⚠️ <strong>Warning:</strong> This will permanently erase all test answers, grading rubrics, and video recordings. This action cannot be undone.
+          <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;padding:10px 12px;border-radius:8px;margin-top:16px;text-align:left;display:flex;align-items:flex-start;gap:8px">
+            <span style="flex-shrink:0;color:#dc2626">${ICONS.alertTriangle}</span>
+            <span><strong>Warning:</strong> This will permanently erase all test answers, grading rubrics, and video recordings. This action cannot be undone.</span>
           </div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;background:#f8fafc;border-top:1px solid var(--line)">
@@ -1780,14 +1821,14 @@ const getLevelBadgeClass = (level) => {
   }
 };
 
-async function openGradingModal(attemptId) {
+  async function openGradingModal(attemptId) {
   const modalContainer = document.querySelector('#modal-root') || document.body;
   modalContainer.innerHTML = `
     <div class="modal-backdrop" id="grading-modal-backdrop">
       <div class="modal-card" role="dialog" aria-modal="true" style="max-width:960px">
         <div class="modal-header">
           <div class="modal-title-wrap">
-            <div class="modal-icon">✍️</div>
+            <div class="modal-icon">${ICONS.grade}</div>
             <div>
               <h2>Assessment Evaluation & Grading</h2>
               <p>Loading candidate attempt details…</p>
@@ -1866,7 +1907,7 @@ async function openGradingModal(attemptId) {
           <!-- Modal Header -->
           <div class="modal-header">
             <div class="modal-title-wrap">
-              <div class="modal-icon">📋</div>
+              <div class="modal-icon">${ICONS.clipboardCheck}</div>
               <div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                   <h2 id="modal-title" style="margin:0">Manual Evaluation & Grading</h2>
@@ -1923,7 +1964,10 @@ async function openGradingModal(attemptId) {
             <!-- Candidate Submissions Preview -->
             <section class="submission-card">
               <div class="submission-header">
-                <strong>📝 Candidate Written Essay Submission</strong>
+                <div style="display:flex;align-items:center;gap:8px;color:var(--blue-dark)">
+                  ${ICONS.fileText}
+                  <strong>Candidate Written Essay Submission</strong>
+                </div>
                 <span style="font-size:12px;color:var(--muted)">${writingSubmission.split(/\s+/).filter(Boolean).length} words</span>
               </div>
               <div class="submission-content">${writingSubmission.replace(/</g, '&lt;')}</div>
@@ -1931,7 +1975,10 @@ async function openGradingModal(attemptId) {
 
             <section class="submission-card">
               <div class="submission-header">
-                <strong>🎙️ Candidate Spoken Transcript & Recording</strong>
+                <div style="display:flex;align-items:center;gap:8px;color:var(--blue-dark)">
+                  ${ICONS.mic}
+                  <strong>Candidate Spoken Transcript & Recording</strong>
+                </div>
                 <span style="font-size:12px;color:var(--muted)">${recordingInfo}</span>
               </div>
               ${(attempt.speakingRecording?.fileUrl || attempt.speakingRecording?.dataUrl) ? `
@@ -1957,7 +2004,8 @@ async function openGradingModal(attemptId) {
               <section class="rubric-panel-card" id="writing-rubric-card">
                 <div class="rubric-panel-header">
                   <div class="rubric-panel-title">
-                    <span>✍️</span> Writing Rubric Assessment
+                    <div class="skill-icon-badge skill-icon-writing" style="width:28px;height:28px">${ICONS.penTool}</div>
+                    <span>Writing Rubric Assessment</span>
                   </div>
                   <div id="w-calc-badge" class="rubric-panel-badge">
                     ${writingPill}
@@ -1994,7 +2042,8 @@ async function openGradingModal(attemptId) {
               <section class="rubric-panel-card" id="speaking-rubric-card">
                 <div class="rubric-panel-header">
                   <div class="rubric-panel-title">
-                    <span>🎙️</span> Speaking Rubric Assessment
+                    <div class="skill-icon-badge skill-icon-speaking" style="width:28px;height:28px">${ICONS.mic}</div>
+                    <span>Speaking Rubric Assessment</span>
                   </div>
                   <div id="s-calc-badge" class="rubric-panel-badge">
                     ${speakingPill}
