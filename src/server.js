@@ -510,8 +510,9 @@ const server = createServer(async (request, response) => {
       return response.end(JSON.stringify({ user }));
     }
     if (!email || !email.endsWith('@karyabangsa.sch.id')) return json(response, 403, { error: 'Use your Karya Bangsa School account (@karyabangsa.sch.id)' });
+    const selectedUnit = (unit || '').trim();
+    if (!selectedUnit) return json(response, 400, { error: 'Please choose your School Unit' });
     const teacherName = (fullName || name || '').trim() || email.split('@')[0].split('.').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-    const selectedUnit = (unit || '').trim() || 'SD KARYA BANGSA';
     const user = { email, name: teacherName, role: 'teacher', unit: selectedUnit };
     const token = createSession(user);
     response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
