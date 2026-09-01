@@ -2234,8 +2234,8 @@ table tbody tr:hover {
   }
 }
 
-/* 2. Tablets & Mobile Phones (<= 768px) */
-@media (max-width: 768px) {
+/* 2. Tablets & Mobile Phones (<= 992px) */
+@media (max-width: 992px) {
   .topbar {
     height: 62px;
     padding: 0 16px;
@@ -2257,6 +2257,8 @@ table tbody tr:hover {
   }
   .top-actions {
     gap: 8px;
+  }
+
   /* Admin Shell & Mobile Tab Bar */
   .admin-shell {
     flex-direction: column;
