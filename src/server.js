@@ -554,13 +554,30 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/api/admin/results/export') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
     const unitFilter = url.searchParams.get('unit') || 'all';
+    const idsParam = url.searchParams.get('ids');
     let results = await repository.listAttempts();
-    if (unitFilter && unitFilter.toLowerCase() !== 'all') {
+    if (idsParam) {
+      const idList = idsParam.split(',').map((s) => s.trim().toLowerCase());
+      results = results.filter((r) => idList.includes(String(r.id || '').toLowerCase()));
+    } else if (unitFilter && unitFilter.toLowerCase() !== 'all') {
       results = results.filter((r) => String(r.unit || '').trim().toLowerCase() === unitFilter.trim().toLowerCase());
     }
     if (url.searchParams.get('format') === 'pdf') return sendCenteredPdf(response, results, unitFilter);
     if (url.searchParams.get('format') === 'xlsx') return sendExcel(response, results, unitFilter);
     return json(response, 400, { error: 'Use format=xlsx or format=pdf' });
+  }
+  if (url.pathname === '/api/admin/results/bulk-delete' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const { ids } = await requestBody(request);
+      if (!Array.isArray(ids) || !ids.length) return json(response, 400, { error: 'No candidate attempt IDs provided' });
+      for (const id of ids) {
+        await repository.deleteAttempt(id);
+      }
+      return json(response, 200, { success: true, deletedCount: ids.length });
+    } catch (e) {
+      return json(response, 400, { error: e.message });
+    }
   }
   // Question Bank Management
   if (url.pathname === '/api/admin/questions' && request.method === 'GET') {

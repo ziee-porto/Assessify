@@ -1208,6 +1208,26 @@ async function renderAdminResultsTab(container) {
 
     <!-- Teacher Results Table Card -->
     <div class="panel" style="padding:24px 28px">
+      <!-- Bulk Actions Bar (Shown when candidates are selected) -->
+      <div class="bulk-actions-bar" id="bulk-actions-bar" style="display:none">
+        <div class="bulk-selected-info">
+          <span class="bulk-count-badge" id="bulk-selected-count">0</span>
+          <span>candidate(s) selected</span>
+        </div>
+        <div class="bulk-actions-btns">
+          <button type="button" class="btn-bulk-export" id="bulk-export-excel-btn" title="Export only selected candidates to Excel">
+            ${ICONS.excel} <span>Export Selected (Excel)</span>
+          </button>
+          <button type="button" class="btn-bulk-export" id="bulk-export-pdf-btn" title="Export only selected candidates to PDF">
+            ${ICONS.pdf} <span>Export Selected (PDF)</span>
+          </button>
+          <button type="button" class="btn-bulk-delete" id="bulk-delete-btn" title="Delete selected candidate records">
+            ${ICONS.trash} <span>Delete Selected</span>
+          </button>
+          <button type="button" class="btn-bulk-cancel" id="bulk-deselect-btn" title="Clear selection">✕</button>
+        </div>
+      </div>
+
       <div class="table-toolbar">
         <div class="search-wrap">
           <span class="search-icon-prefix">${ICONS.search}</span>
@@ -1236,14 +1256,17 @@ async function renderAdminResultsTab(container) {
         <table>
           <thead>
             <tr>
-              <th style="width:25%">Teacher Candidate</th>
+              <th style="width:40px;text-align:center;padding:12px 8px">
+                <input type="checkbox" id="select-all-attempts" class="custom-table-checkbox" title="Select all visible candidates">
+              </th>
+              <th style="width:24%">Teacher Candidate</th>
               <th style="width:16%">School Unit</th>
               <th style="width:10%">Attempt ID</th>
               <th style="width:11%">Started</th>
               <th style="width:11%">Status</th>
               <th style="width:10%">Overall Band</th>
               <th style="width:11%">Review Status</th>
-              <th style="width:16%;text-align:right">Actions</th>
+              <th style="width:14%;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="results">${renderTableRows(data.results)}</tbody>
@@ -1256,7 +1279,7 @@ async function renderAdminResultsTab(container) {
     if (!list || !list.length) {
       return `
         <tr>
-          <td colspan="8" style="text-align:center;padding:48px 16px;color:var(--muted)">
+          <td colspan="9" style="text-align:center;padding:48px 16px;color:var(--muted)">
             <div style="font-size:32px;margin-bottom:8px">👥</div>
             <div style="font-weight:700;font-size:15px;color:var(--ink)">No Teacher Assessments Found</div>
             <div style="font-size:13px;color:var(--muted);margin-top:4px">Try adjusting your search or unit filter, or wait for candidate submissions.</div>
@@ -1697,7 +1720,10 @@ function renderRow(row) {
   const initial = (row.teacher || 'T').charAt(0).toUpperCase();
 
   return `
-    <tr>
+    <tr id="row-${row.id}">
+      <td style="text-align:center;padding:12px 8px">
+        <input type="checkbox" class="attempt-row-checkbox custom-table-checkbox" data-id="${row.id}" data-name="${(row.teacher || '').replaceAll('"', '&quot;')}" title="Select ${row.teacher}">
+      </td>
       <td>
         <div class="teacher-cell">
           <div class="teacher-avatar-sm">${initial}</div>
@@ -1742,6 +1768,65 @@ function renderRow(row) {
   `;
 }
 
+function openBulkDeleteModal(selectedIds, selectedNames) {
+  const modalContainer = document.querySelector('#modal-root') || document.body;
+  modalContainer.innerHTML = `
+    <div class="modal-backdrop" id="delete-modal-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
+      <div class="modal-card" role="dialog" aria-modal="true" style="max-width:480px;background:#ffffff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;padding:0">
+        <div style="padding:28px 24px 20px;text-align:center">
+          <div class="modal-icon-danger" style="width:56px;height:56px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;margin:0 auto 16px">
+            ${ICONS.trash}
+          </div>
+          <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">Delete ${selectedIds.length} Assessment Records?</h3>
+          <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5">
+            Are you sure you want to permanently delete <strong>${selectedIds.length} candidate attempts</strong>?
+          </p>
+          <div style="max-height:100px;overflow-y:auto;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:12px 0 0;font-size:12px;text-align:left;color:var(--ink)">
+            ${selectedNames.map((n, i) => `<div>• <strong>${n}</strong> (${selectedIds[i]})</div>`).join('')}
+          </div>
+          <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;padding:10px 12px;border-radius:8px;margin-top:14px;text-align:left;display:flex;align-items:flex-start;gap:8px">
+            <span style="flex-shrink:0;color:#dc2626">${ICONS.alertTriangle}</span>
+            <span><strong>Warning:</strong> All answers, scores, and recordings for these candidates will be permanently erased. This cannot be undone.</span>
+          </div>
+        </div>
+        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+          <button class="ghost" id="modal-cancel-delete" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
+          <button class="button" id="bulk-delete-confirm-btn" type="button" style="background:#dc2626;border-color:#dc2626;color:#ffffff;padding:8px 18px;font-size:13px;font-weight:600">
+            ${ICONS.trash} <span>Yes, Delete ${selectedIds.length} Records</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => {
+    modalContainer.innerHTML = '';
+  };
+
+  document.querySelector('#modal-cancel-delete').onclick = closeModal;
+  const backdrop = document.querySelector('#delete-modal-backdrop');
+  if (backdrop) backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
+
+  document.querySelector('#bulk-delete-confirm-btn').onclick = async () => {
+    const btn = document.querySelector('#bulk-delete-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+
+    const res = await request('/api/admin/results/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: selectedIds })
+    });
+    closeModal();
+    if (res.error) {
+      showToast(`Error: ${res.error}`, 'error');
+    } else {
+      showToast(`✓ ${selectedIds.length} candidate attempts deleted successfully.`, 'success');
+      renderAdmin();
+    }
+  };
+}
+
 function openDeleteModal(attemptId, teacherName) {
   const modalContainer = document.querySelector('#modal-root') || document.body;
   modalContainer.innerHTML = `
@@ -1760,10 +1845,10 @@ function openDeleteModal(attemptId, teacherName) {
             <span><strong>Warning:</strong> This will permanently erase all test answers, grading rubrics, and video recordings. This action cannot be undone.</span>
           </div>
         </div>
-        <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;background:#f8fafc;border-top:1px solid var(--line)">
-          <button class="ghost" id="delete-cancel-btn" type="button" style="padding:9px 18px">Cancel</button>
-          <button class="button" id="delete-confirm-btn" type="button" style="background:#dc2626;border-color:#dc2626;padding:9px 18px;color:#ffffff">
-            <span>Delete Permanently</span>
+        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+          <button class="ghost" id="modal-cancel-delete" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
+          <button class="button" id="delete-confirm-btn" type="button" style="background:#dc2626;border-color:#dc2626;color:#ffffff;padding:8px 18px;font-size:13px;font-weight:600">
+            ${ICONS.trash} <span>Delete Permanently</span>
           </button>
         </div>
       </div>
@@ -1771,12 +1856,10 @@ function openDeleteModal(attemptId, teacherName) {
   `;
 
   const closeModal = () => {
-    const backdrop = document.querySelector('#delete-modal-backdrop');
-    if (backdrop) backdrop.remove();
+    modalContainer.innerHTML = '';
   };
 
-  document.querySelector('#delete-cancel-btn').onclick = closeModal;
-
+  document.querySelector('#modal-cancel-delete').onclick = closeModal;
   const backdrop = document.querySelector('#delete-modal-backdrop');
   if (backdrop) {
     backdrop.onclick = (e) => {
@@ -1813,6 +1896,87 @@ function bindDetails() {
       openDeleteModal(button.dataset.id, button.dataset.name);
     };
   });
+
+  // Checkbox selection and bulk actions
+  const selectAllCheckbox = document.querySelector('#select-all-attempts');
+  const rowCheckboxes = document.querySelectorAll('.attempt-row-checkbox');
+  const bulkBar = document.querySelector('#bulk-actions-bar');
+  const bulkCountBadge = document.querySelector('#bulk-selected-count');
+
+  const syncSelection = () => {
+    const checked = Array.from(document.querySelectorAll('.attempt-row-checkbox:checked'));
+    if (!checked.length) {
+      if (bulkBar) bulkBar.style.display = 'none';
+      if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      }
+    } else {
+      if (bulkBar) bulkBar.style.display = 'flex';
+      if (bulkCountBadge) bulkCountBadge.textContent = checked.length;
+      if (selectAllCheckbox) {
+        if (checked.length === rowCheckboxes.length) {
+          selectAllCheckbox.checked = true;
+          selectAllCheckbox.indeterminate = false;
+        } else {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = true;
+        }
+      }
+    }
+  };
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.onchange = () => {
+      rowCheckboxes.forEach((cb) => {
+        cb.checked = selectAllCheckbox.checked;
+      });
+      syncSelection();
+    };
+  }
+
+  rowCheckboxes.forEach((cb) => {
+    cb.onchange = () => syncSelection();
+  });
+
+  const deselectBtn = document.querySelector('#bulk-deselect-btn');
+  if (deselectBtn) {
+    deselectBtn.onclick = () => {
+      rowCheckboxes.forEach((cb) => { cb.checked = false; });
+      syncSelection();
+    };
+  }
+
+  const bulkExportExcel = document.querySelector('#bulk-export-excel-btn');
+  if (bulkExportExcel) {
+    bulkExportExcel.onclick = () => {
+      const checked = Array.from(document.querySelectorAll('.attempt-row-checkbox:checked'));
+      if (!checked.length) return showToast('Please select at least one candidate.', 'info');
+      const ids = checked.map((cb) => cb.dataset.id);
+      window.location.href = `/api/admin/results/export?format=xlsx&ids=${encodeURIComponent(ids.join(','))}`;
+    };
+  }
+
+  const bulkExportPdf = document.querySelector('#bulk-export-pdf-btn');
+  if (bulkExportPdf) {
+    bulkExportPdf.onclick = () => {
+      const checked = Array.from(document.querySelectorAll('.attempt-row-checkbox:checked'));
+      if (!checked.length) return showToast('Please select at least one candidate.', 'info');
+      const ids = checked.map((cb) => cb.dataset.id);
+      window.location.href = `/api/admin/results/export?format=pdf&ids=${encodeURIComponent(ids.join(','))}`;
+    };
+  }
+
+  const bulkDeleteBtn = document.querySelector('#bulk-delete-btn');
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.onclick = () => {
+      const checked = Array.from(document.querySelectorAll('.attempt-row-checkbox:checked'));
+      if (!checked.length) return showToast('Please select at least one candidate.', 'info');
+      const ids = checked.map((cb) => cb.dataset.id);
+      const names = checked.map((cb) => cb.dataset.name);
+      openBulkDeleteModal(ids, names);
+    };
+  }
 }
 
 // -------------------------------------------------------------
