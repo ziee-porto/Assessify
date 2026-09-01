@@ -2933,3 +2933,98 @@ table tbody tr:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   RUBRIC CARDS & RESPONSIVE TITLE WRAPPING
+───────────────────────────────────────────────────────────── */
+.rubric-skill-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.rubric-skill-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.rubric-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font: 700 19px 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  min-width: 0;
+  flex: 1;
+}
+
+.rubric-pill-badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rubric-criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.criterion-card {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  border-left: 4px solid var(--blue);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.criterion-card-listening { border-left-color: #d97706; }
+.criterion-card-grammar { border-left-color: #2563eb; }
+.criterion-card-reading { border-left-color: #059669; }
+.criterion-card-writing { border-left-color: #7c3aed; }
+.criterion-card-speaking { border-left-color: #dc2626; }
+
+.criterion-card-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.criterion-card-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .rubric-skill-card {
+    padding: 18px 16px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+  }
+  .rubric-title-wrap {
+    font-size: 17px;
+  }
+  .rubric-pill-badge {
+    margin-left: 0 !important;
+  }
+}
+

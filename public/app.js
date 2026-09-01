@@ -1513,12 +1513,14 @@ async function renderAdminRubricsTab(container) {
 
     <!-- 1. Listening Rubric -->
     <div class="rubric-skill-card">
-      <h2 class="rubric-skill-title">
-        <div class="skill-icon-badge skill-icon-listening">${ICONS.headphones}</div>
-        <span>${rubricsData.listening?.title || 'Listening Comprehension Rubric'}</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">15 Items · Auto-Scored</span>
-      </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.listening?.format || '15 Objective Audio Prompts (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.listening?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
+      <div class="rubric-skill-title">
+        <div class="rubric-title-wrap">
+          <div class="skill-icon-badge skill-icon-listening">${ICONS.headphones}</div>
+          <span>${rubricsData.listening?.title || 'Listening Comprehension Rubric'}</span>
+        </div>
+        <span class="pill success rubric-pill-badge">15 Items · Auto-Scored</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;word-break:break-word"><strong>Format:</strong> ${rubricsData.listening?.format || '15 Objective Audio Prompts (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.listening?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.listening?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-listening">
@@ -1531,12 +1533,14 @@ async function renderAdminRubricsTab(container) {
 
     <!-- 2. Grammar & Vocabulary Rubric -->
     <div class="rubric-skill-card">
-      <h2 class="rubric-skill-title">
-        <div class="skill-icon-badge skill-icon-grammar">${ICONS.edit}</div>
-        <span>${rubricsData.grammarVocabulary?.title || 'Grammar & Vocabulary Rubric'}</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">20 Items · Auto-Scored</span>
-      </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.grammarVocabulary?.format || '20 Contextual Questions (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.grammarVocabulary?.thresholds || 'A1: 0–7 | A2: 8–11 | B1: 12–15 | B2: 16–18 | C1: 19–20 / 20'}</p>
+      <div class="rubric-skill-title">
+        <div class="rubric-title-wrap">
+          <div class="skill-icon-badge skill-icon-grammar">${ICONS.edit}</div>
+          <span>${rubricsData.grammarVocabulary?.title || 'Grammar & Vocabulary Rubric'}</span>
+        </div>
+        <span class="pill success rubric-pill-badge">20 Items · Auto-Scored</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;word-break:break-word"><strong>Format:</strong> ${rubricsData.grammarVocabulary?.format || '20 Contextual Questions (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.grammarVocabulary?.thresholds || 'A1: 0–7 | A2: 8–11 | B1: 12–15 | B2: 16–18 | C1: 19–20 / 20'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.grammarVocabulary?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-grammar">
@@ -1549,12 +1553,14 @@ async function renderAdminRubricsTab(container) {
 
     <!-- 3. Reading Rubric -->
     <div class="rubric-skill-card">
-      <h2 class="rubric-skill-title">
-        <div class="skill-icon-badge skill-icon-reading">${ICONS.book}</div>
-        <span>${rubricsData.reading?.title || 'Reading Comprehension Rubric'}</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">15 Items · Auto-Scored</span>
-      </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.reading?.format || '15 Passage Items (20 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.reading?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
+      <div class="rubric-skill-title">
+        <div class="rubric-title-wrap">
+          <div class="skill-icon-badge skill-icon-reading">${ICONS.book}</div>
+          <span>${rubricsData.reading?.title || 'Reading Comprehension Rubric'}</span>
+        </div>
+        <span class="pill success rubric-pill-badge">15 Items · Auto-Scored</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px;word-break:break-word"><strong>Format:</strong> ${rubricsData.reading?.format || '15 Passage Items (20 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.reading?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.reading?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-reading">
@@ -1567,12 +1573,14 @@ async function renderAdminRubricsTab(container) {
 
     <!-- 4. Writing Rubric -->
     <div class="rubric-skill-card">
-      <h2 class="rubric-skill-title">
-        <div class="skill-icon-badge skill-icon-writing">${ICONS.penTool}</div>
-        <span>${rubricsData.writing?.title || 'Writing Evaluation Criteria'}</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 20 pts</span>
-      </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.writing?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
+      <div class="rubric-skill-title">
+        <div class="rubric-title-wrap">
+          <div class="skill-icon-badge skill-icon-writing">${ICONS.penTool}</div>
+          <span>${rubricsData.writing?.title || 'Writing Evaluation Criteria'}</span>
+        </div>
+        <span class="pill success rubric-pill-badge">4 Criteria · Max 20 pts</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px;word-break:break-word">${rubricsData.writing?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.writing?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-writing">
@@ -1585,12 +1593,14 @@ async function renderAdminRubricsTab(container) {
 
     <!-- 5. Speaking Rubric -->
     <div class="rubric-skill-card">
-      <h2 class="rubric-skill-title">
-        <div class="skill-icon-badge skill-icon-speaking">${ICONS.mic}</div>
-        <span>${rubricsData.speaking?.title || 'Speaking Evaluation Criteria'}</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 20 pts</span>
-      </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.speaking?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
+      <div class="rubric-skill-title">
+        <div class="rubric-title-wrap">
+          <div class="skill-icon-badge skill-icon-speaking">${ICONS.mic}</div>
+          <span>${rubricsData.speaking?.title || 'Speaking Evaluation Criteria'}</span>
+        </div>
+        <span class="pill success rubric-pill-badge">4 Criteria · Max 20 pts</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px;word-break:break-word">${rubricsData.speaking?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.speaking?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-speaking">
