@@ -247,7 +247,12 @@ const rubricLevel = (criteria) => {
   return { criteria: criteria || {}, total, level };
 };
 const cefrDescriptor = (level) => ({ A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate', B2: 'Upper-Intermediate' }[level] || level);
-const cefrColor = (_level) => '#1e3a8a';
+const cefrColor = (level) => ({
+  A1: '#c0392b', // Crimson Red
+  A2: '#d97706', // Warm Amber
+  B1: '#2563eb', // Royal Blue
+  B2: '#059669'  // Emerald Green
+}[level] || '#1e3a8a');
 
 const performanceAnalysis = (row) => {
   if (!row.overall) return 'This assessment is still in progress. CEFR placement will be available after submission and manual review of Writing and Speaking.';
@@ -299,20 +304,21 @@ const sendCenteredPdf = (response, results) => {
       .text(`${row.email}  |  Started ${new Date(row.started).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 0, 148, { width: 595, align: 'center' });
     doc.font('Helvetica-Bold').fillColor('#1e3a8a').text(`Certificate No. ${certificateNumber(row)}`, 0, 163, { width: 595, align: 'center' });
 
-    // ── Overall CEFR badge (Monochromatic / Deep Navy) ───────────────
+    // ── Overall CEFR badge (Band Color Coded) ────────────────────────
     const overallLevel = row.overallBand;
+    const badgeColor = overallLevel ? cefrColor(overallLevel) : '#0f274a';
     const badgeW = 164;
     const badgeH = 72;
     const badgeX = (595 - badgeW) / 2; // = 215.5
     const badgeY = 182;
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 6).fill('#0f274a');
-    doc.fillColor('#94a3b8').fontSize(8.5).font('Helvetica-Bold').text('OVERALL CEFR LEVEL', badgeX, badgeY + 12, { width: badgeW, align: 'center' });
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 6).fill(badgeColor);
+    doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica-Bold').text('OVERALL CEFR LEVEL', badgeX, badgeY + 12, { width: badgeW, align: 'center' });
     doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold').text(overallLevel || 'Pending', badgeX, badgeY + 24, { width: badgeW, align: 'center' });
     if (overallLevel) {
-      doc.fillColor('#cbd5e1').fontSize(8.5).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
+      doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
     }
 
-    // ── CEFR Skill Profile legend (Monochromatic / Navy & Slate) ─────
+    // ── CEFR Skill Profile legend (Color Coded Bands) ────────────────
     const legendY = 270;
     doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('CEFR Skill Profile', 0, legendY, { width: 595, align: 'center' });
     const boxesY = legendY + 18;
@@ -322,7 +328,7 @@ const sendCenteredPdf = (response, results) => {
     const startLegendX = (595 - totalLegendWidth) / 2;
     [['A1', 'Beginner'], ['A2', 'Elementary'], ['B1', 'Intermediate'], ['B2', 'Upper-Intermediate']].forEach(([lvl, desc], i) => {
       const lx = startLegendX + i * gap;
-      doc.roundedRect(lx, boxesY, boxW, 20, 4).fill('#1e3a8a');
+      doc.roundedRect(lx, boxesY, boxW, 20, 4).fill(cefrColor(lvl));
       doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold').text(lvl, lx, boxesY + 5, { width: boxW, align: 'center' });
       doc.fillColor('#475569').fontSize(7.5).font('Helvetica').text(desc, lx - 12, boxesY + 23, { width: boxW + 24, align: 'center' });
     });
@@ -359,12 +365,12 @@ const sendCenteredPdf = (response, results) => {
       doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold')
         .text(skill, tableX + 24, y + 11, { width: skillColW - 24, align: 'left' });
 
-      // CEFR badge
+      // CEFR badge with color coding
       if (level && level !== '') {
         const cellBadgeW = 80;
         const cellBadgeH = 22;
         const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
-        doc.roundedRect(cellBadgeX, y + 6, cellBadgeW, cellBadgeH, 4).fill('#1e3a8a');
+        doc.roundedRect(cellBadgeX, y + 6, cellBadgeW, cellBadgeH, 4).fill(cefrColor(level));
         doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
           .text(level, cellBadgeX, y + 11, { width: cellBadgeW, align: 'center' });
       } else {
@@ -382,8 +388,8 @@ const sendCenteredPdf = (response, results) => {
       const cellBadgeW = 80;
       const cellBadgeH = 22;
       const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
-      doc.roundedRect(cellBadgeX, totalY + 6, cellBadgeW, cellBadgeH, 4).fill('#ffffff');
-      doc.fillColor('#0f274a').fontSize(10).font('Helvetica-Bold')
+      doc.roundedRect(cellBadgeX, totalY + 6, cellBadgeW, cellBadgeH, 4).fill(cefrColor(overallLevel));
+      doc.fillColor('#ffffff').fontSize(10.5).font('Helvetica-Bold')
         .text(overallLevel, cellBadgeX, totalY + 11, { width: cellBadgeW, align: 'center' });
     } else {
       doc.fillColor('#94a3b8').fontSize(9.5).font('Helvetica')
