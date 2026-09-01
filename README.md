@@ -1,6 +1,6 @@
 # Assessify
 
-Assessify is an IELTS placement test application for teachers at Karya Bangsa School.
+Assessify is an placement test application for teachers at Karya Bangsa School.
 
 ## Features
 
