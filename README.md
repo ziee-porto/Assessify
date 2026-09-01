@@ -4,10 +4,9 @@ Assessify is an IELTS placement test application for teachers at Karya Bangsa Sc
 
 ## Features
 
-- Four test sections: Grammar & Vocabulary, Reading, Listening, and Writing
-- Each completed assessment receives a dedicated Google Meet link for Speaking
+- Four test sections: Grammar & Vocabulary, Reading, Listening, Writing, and Speaking
 - IELTS-aligned scoring rubrics in `content/ielts-rubrics.json`
-- Server-enforced 120-minute assessment window
+- Server-enforced 60-minute assessment window
 - JSON question content in `content/ielts-placement.json`
 - Teacher test-taking flow with autosave status
 - Role-protected admin results dashboard
