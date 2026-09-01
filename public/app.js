@@ -688,12 +688,12 @@ function renderSectionFlow(test, expiresAt, attemptId) {
                 </div>
               ` : `
                 <div>
-                  <textarea class="writing-input" id="writing-${index}" data-target="${index === 0 ? 150 : 80}" rows="9" placeholder="Compose your written response here…" style="width:100%;border:1px solid var(--line);padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6"></textarea>
+                  <textarea class="writing-input" id="writing-${index}" data-target="${index === 0 ? 600 : 300}" rows="9" placeholder="Compose your written response here…" style="width:100%;border:1px solid var(--line);padding:14px;font:14px 'DM Sans';border-radius:8px;line-height:1.6"></textarea>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:8px">
-                    <span style="font-size:12px;color:var(--muted)">Recommended: <strong>${index === 0 ? '150–200' : '80–120'} words</strong></span>
-                    <span class="word-counter-tag" id="counter-writing-${index}">
+                    <span style="font-size:12px;color:var(--muted)">Recommended: <strong>${index === 0 ? '600–1000' : '300–600'} letters</strong></span>
+                    <span class="letter-counter-tag" id="counter-writing-${index}">
                       ${ICONS.penTool}
-                      <span>0 words</span>
+                      <span>0 letters</span>
                     </span>
                   </div>
                 </div>
@@ -795,21 +795,21 @@ function renderSectionFlow(test, expiresAt, attemptId) {
 
     document.querySelectorAll('.writing-input').forEach((input) => {
       input.value = answers[input.id] || '';
-      const updateWordCount = () => {
-        const text = input.value.trim();
-        const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
-        const target = Number(input.dataset.target) || 100;
+      const updateLetterCount = () => {
+        const text = input.value;
+        const letters = text.length;
+        const target = Number(input.dataset.target) || 300;
         const counter = document.querySelector(`#counter-${input.id}`);
         if (counter) {
-          const isGood = words >= target;
-          counter.className = `word-counter-tag ${isGood ? 'good' : ''}`;
-          counter.innerHTML = `${ICONS.penTool} <span>${words} word${words === 1 ? '' : 's'}${isGood ? ' ✓' : ''}</span>`;
+          const isGood = letters >= target;
+          counter.className = `letter-counter-tag ${isGood ? 'good' : ''}`;
+          counter.innerHTML = `${ICONS.penTool} <span>${letters} letter${letters === 1 ? '' : 's'}${isGood ? ' ✓' : ''}</span>`;
         }
       };
-      updateWordCount();
+      updateLetterCount();
       input.addEventListener('input', () => {
         answers[input.id] = input.value;
-        updateWordCount();
+        updateLetterCount();
       });
     });
 
@@ -2079,7 +2079,7 @@ const getLevelBadgeClass = (level) => {
                   ${ICONS.fileText}
                   <strong>Candidate Written Essay Submission</strong>
                 </div>
-                <span style="font-size:12px;color:var(--muted)">${writingSubmission.split(/\s+/).filter(Boolean).length} words</span>
+                <span style="font-size:12px;color:var(--muted)">${writingSubmission.length} letters</span>
               </div>
               <div class="submission-content">${writingSubmission.replace(/</g, '&lt;')}</div>
             </section>

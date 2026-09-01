@@ -2719,7 +2719,8 @@ table tbody tr:hover {
   text-align: center;
 }
 
-/* Word Counter Badges */
+/* Letter & Word Counter Badges */
+.letter-counter-tag,
 .word-counter-tag {
   display: inline-flex;
   align-items: center;
@@ -2734,6 +2735,7 @@ table tbody tr:hover {
   transition: all 0.15s ease;
 }
 
+.letter-counter-tag.good,
 .word-counter-tag.good {
   background: #ecfdf5;
   border-color: #a7f3d0;
