@@ -1410,14 +1410,68 @@ async function renderAdminRubricsTab(container) {
       </div>
     </div>
 
-    <!-- Writing Rubric -->
+    <!-- 1. Listening Rubric -->
+    <div class="rubric-skill-card">
+      <h2 class="rubric-skill-title">
+        <div class="skill-icon-badge skill-icon-listening">${ICONS.headphones}</div>
+        <span>${rubricsData.listening?.title || 'Listening Comprehension Rubric'}</span>
+        <span class="pill success" style="margin-left:auto;font-size:12px">15 Items · Auto-Scored</span>
+      </h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.listening?.format || '15 Objective Audio Prompts (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.listening?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
+      <div class="rubric-criteria-grid">
+        ${(rubricsData.listening?.criteria || []).map((c) => `
+          <div class="criterion-card criterion-card-listening">
+            <div class="criterion-card-title">${c.name}</div>
+            <p class="criterion-card-desc">${c.description}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- 2. Grammar & Vocabulary Rubric -->
+    <div class="rubric-skill-card">
+      <h2 class="rubric-skill-title">
+        <div class="skill-icon-badge skill-icon-grammar">${ICONS.edit}</div>
+        <span>${rubricsData.grammarVocabulary?.title || 'Grammar & Vocabulary Rubric'}</span>
+        <span class="pill success" style="margin-left:auto;font-size:12px">20 Items · Auto-Scored</span>
+      </h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.grammarVocabulary?.format || '20 Contextual Questions (15 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.grammarVocabulary?.thresholds || 'A1: 0–7 | A2: 8–11 | B1: 12–15 | B2: 16–18 | C1: 19–20 / 20'}</p>
+      <div class="rubric-criteria-grid">
+        ${(rubricsData.grammarVocabulary?.criteria || []).map((c) => `
+          <div class="criterion-card criterion-card-grammar">
+            <div class="criterion-card-title">${c.name}</div>
+            <p class="criterion-card-desc">${c.description}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- 3. Reading Rubric -->
+    <div class="rubric-skill-card">
+      <h2 class="rubric-skill-title">
+        <div class="skill-icon-badge skill-icon-reading">${ICONS.book}</div>
+        <span>${rubricsData.reading?.title || 'Reading Comprehension Rubric'}</span>
+        <span class="pill success" style="margin-left:auto;font-size:12px">15 Items · Auto-Scored</span>
+      </h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px"><strong>Format:</strong> ${rubricsData.reading?.format || '15 Passage Items (20 Mins)'} · <strong>Thresholds:</strong> ${rubricsData.reading?.thresholds || 'A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15'}</p>
+      <div class="rubric-criteria-grid">
+        ${(rubricsData.reading?.criteria || []).map((c) => `
+          <div class="criterion-card criterion-card-reading">
+            <div class="criterion-card-title">${c.name}</div>
+            <p class="criterion-card-desc">${c.description}</p>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- 4. Writing Rubric -->
     <div class="rubric-skill-card">
       <h2 class="rubric-skill-title">
         <div class="skill-icon-badge skill-icon-writing">${ICONS.penTool}</div>
-        <span>Writing Evaluation Criteria</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 16 pts</span>
+        <span>${rubricsData.writing?.title || 'Writing Evaluation Criteria'}</span>
+        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 20 pts</span>
       </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.writing?.weight || 'Evaluated on 1 to 4 scale.'}</p>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.writing?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.writing?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-writing">
@@ -1428,14 +1482,14 @@ async function renderAdminRubricsTab(container) {
       </div>
     </div>
 
-    <!-- Speaking Rubric -->
+    <!-- 5. Speaking Rubric -->
     <div class="rubric-skill-card">
       <h2 class="rubric-skill-title">
         <div class="skill-icon-badge skill-icon-speaking">${ICONS.mic}</div>
-        <span>Speaking Evaluation Criteria</span>
-        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 16 pts</span>
+        <span>${rubricsData.speaking?.title || 'Speaking Evaluation Criteria'}</span>
+        <span class="pill success" style="margin-left:auto;font-size:12px">4 Criteria · Max 20 pts</span>
       </h2>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.speaking?.weight || 'Evaluated on 1 to 4 scale.'}</p>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">${rubricsData.speaking?.weight || 'Administrator scores each criterion from 1 (A1) to 5 (C1).'}</p>
       <div class="rubric-criteria-grid">
         ${(rubricsData.speaking?.criteria || []).map((c) => `
           <div class="criterion-card criterion-card-speaking">
@@ -1446,14 +1500,65 @@ async function renderAdminRubricsTab(container) {
       </div>
     </div>
 
-    <!-- Band Scale Card -->
+    <!-- CEFR Placement Band Mapping Table (A1 to C1) -->
     <div class="rubric-skill-card" style="background:#f8fafc">
-      <h3 style="font:700 16px 'DM Sans';margin:0 0 8px;color:var(--blue-dark);display:flex;align-items:center;gap:10px">
-        <div class="skill-icon-badge skill-icon-award" style="width:28px;height:28px">${ICONS.award}</div>
-        <span>CEFR Placement Band Mapping</span>
+      <h3 style="font:700 18px 'Space Grotesk';margin:0 0 8px;color:var(--blue-dark);display:flex;align-items:center;gap:10px">
+        <div class="skill-icon-badge skill-icon-award" style="width:30px;height:30px">${ICONS.award}</div>
+        <span>CEFR Placement Band Mapping Standards (A1 to C1)</span>
       </h3>
-      <p style="color:var(--ink);font-size:13px;margin:0 0 8px">${rubricsData.bandScale?.overall || '4–6 = A1, 7–9 = A2, 10–13 = B1, 14–16 = B2.'}</p>
-      <p style="color:var(--muted);font-size:12px;margin:0"><em>Source: ${rubricsData.source || 'Official IELTS / CEFR Guidance'}</em></p>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">Complete standard mapping breakdown across all 5 skills and administrative evaluation rubrics:</p>
+      
+      <div class="table-responsive" style="background:#ffffff;border:1px solid var(--line);border-radius:10px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#0f274a;color:#ffffff">
+              <th style="padding:12px 16px;text-align:left">CEFR Band</th>
+              <th style="padding:12px 16px;text-align:left">Listening (15 Items)</th>
+              <th style="padding:12px 16px;text-align:left">Grammar & Vocab (20 Items)</th>
+              <th style="padding:12px 16px;text-align:left">Reading (15 Items)</th>
+              <th style="padding:12px 16px;text-align:left">Writing & Speaking Rubric (4–20 Pts)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:12px 16px"><span class="cefr-badge c1" style="font-size:12px">C1 Advanced</span></td>
+              <td style="padding:12px 16px;font-weight:600">15 / 15 (100%)</td>
+              <td style="padding:12px 16px;font-weight:600">19–20 / 20 (95–100%)</td>
+              <td style="padding:12px 16px;font-weight:600">15 / 15 (100%)</td>
+              <td style="padding:12px 16px;font-weight:600">18–20 Pts (Criteria avg ≥ 4.5)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fbfdff">
+              <td style="padding:12px 16px"><span class="cefr-badge b2" style="font-size:12px">B2 Upper-Int</span></td>
+              <td style="padding:12px 16px">12–14 / 15</td>
+              <td style="padding:12px 16px">16–18 / 20</td>
+              <td style="padding:12px 16px">12–14 / 15</td>
+              <td style="padding:12px 16px">14–17 Pts (Criteria avg 3.5–4.25)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:12px 16px"><span class="cefr-badge b1" style="font-size:12px">B1 Intermediate</span></td>
+              <td style="padding:12px 16px">9–11 / 15</td>
+              <td style="padding:12px 16px">12–15 / 20</td>
+              <td style="padding:12px 16px">9–11 / 15</td>
+              <td style="padding:12px 16px">10–13 Pts (Criteria avg 2.5–3.25)</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;background:#fbfdff">
+              <td style="padding:12px 16px"><span class="cefr-badge a2" style="font-size:12px">A2 Elementary</span></td>
+              <td style="padding:12px 16px">6–8 / 15</td>
+              <td style="padding:12px 16px">8–11 / 20</td>
+              <td style="padding:12px 16px">6–8 / 15</td>
+              <td style="padding:12px 16px">7–9 Pts (Criteria avg 1.75–2.25)</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px"><span class="cefr-badge a1" style="font-size:12px">A1 Beginner</span></td>
+              <td style="padding:12px 16px">0–5 / 15</td>
+              <td style="padding:12px 16px">0–7 / 20</td>
+              <td style="padding:12px 16px">0–5 / 15</td>
+              <td style="padding:12px 16px">4–6 Pts (Criteria avg 1.0–1.5)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin:12px 0 0"><em>Source: ${rubricsData.source || 'Official IELTS / CEFR Guidance Standards'}</em></p>
     </div>
   `;
 
@@ -1636,7 +1741,7 @@ function bindDetails() {
 }
 
 // -------------------------------------------------------------
-// GRADING MODAL LOGIC (No alert() or prompt())
+// GRADING MODAL LOGIC (Scale 1 to 5: A1, A2, B1, B2, C1)
 // -------------------------------------------------------------
 const RUBRIC_DESCRIPTIONS = {
   writing: {
@@ -1647,7 +1752,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Minimal response; barely addresses the prompt.' },
         2: { code: 'A2', label: 'Partially addresses task; ideas are limited or unclear.' },
         3: { code: 'B1', label: 'Addresses all main points adequately with relevant ideas.' },
-        4: { code: 'B2', label: 'Fully addresses the prompt with well-developed, clear supporting points.' }
+        4: { code: 'B2', label: 'Fully addresses the prompt with well-developed, clear supporting points.' },
+        5: { code: 'C1', label: 'Thoroughly satisfies all requirements with deep critical insights and sophisticated evidence.' }
       }
     },
     organization: {
@@ -1657,7 +1763,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Disjointed; little to no logical sequencing.' },
         2: { code: 'A2', label: 'Basic paragraphing with repetitive or mechanical linking.' },
         3: { code: 'B1', label: 'Clear progression throughout with effective connectives.' },
-        4: { code: 'B2', label: 'Skillfully organized paragraphs with smooth, sophisticated transitions.' }
+        4: { code: 'B2', label: 'Skillfully organized paragraphs with smooth, sophisticated transitions.' },
+        5: { code: 'C1', label: 'Flawlessly structured with effortless cohesion and sophisticated discourse transitions.' }
       }
     },
     lexicalResource: {
@@ -1667,7 +1774,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Extremely restricted vocabulary; frequent word choice errors.' },
         2: { code: 'A2', label: 'Sufficient for simple communication; limited variety.' },
         3: { code: 'B1', label: 'Good range of general and topic-specific vocabulary with few errors.' },
-        4: { code: 'B2', label: 'Rich, natural vocabulary with flexible collocations and precision.' }
+        4: { code: 'B2', label: 'Rich, natural vocabulary with flexible collocations and precision.' },
+        5: { code: 'C1', label: 'Extensive academic and idiomatic vocabulary used with natural, subtle precision.' }
       }
     },
     grammaticalRangeAccuracy: {
@@ -1677,7 +1785,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Simple phrases with frequent systemic grammar errors.' },
         2: { code: 'A2', label: 'Basic structures mostly accurate; complex forms break down.' },
         3: { code: 'B1', label: 'Mix of simple and complex sentences with good control.' },
-        4: { code: 'B2', label: 'Wide range of complex structures used accurately and fluently.' }
+        4: { code: 'B2', label: 'Wide range of complex structures used accurately and fluently.' },
+        5: { code: 'C1', label: 'Full flexibility and mastery across complex sentence structures with virtually no errors.' }
       }
     }
   },
@@ -1689,7 +1798,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Very hesitant; frequent long pauses and fragmented speech.' },
         2: { code: 'A2', label: 'Can sustain short phrases; noticeable pauses when formulating sentences.' },
         3: { code: 'B1', label: 'Speaks with good flow; occasional pauses to search for language.' },
-        4: { code: 'B2', label: 'Fluent, spontaneous, and natural pace with effortless coherence.' }
+        4: { code: 'B2', label: 'Fluent, spontaneous, and natural pace with effortless coherence.' },
+        5: { code: 'C1', label: 'Speaks fluently with effortless flow, natural rhythm, and no noticeable searching for words.' }
       }
     },
     vocabulary: {
@@ -1699,7 +1809,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Extremely basic vocabulary for isolated topics.' },
         2: { code: 'A2', label: 'Adequate for familiar topics; relies on repetitive words.' },
         3: { code: 'B1', label: 'Good variety of words to discuss diverse classroom topics.' },
-        4: { code: 'B2', label: 'Expressive and nuanced vocabulary with natural idioms.' }
+        4: { code: 'B2', label: 'Expressive and nuanced vocabulary with natural idioms.' },
+        5: { code: 'C1', label: 'Vast repertoire of academic, idiomatic, and professional expressions applied precisely.' }
       }
     },
     grammar: {
@@ -1709,7 +1820,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Short memorized utterances with persistent grammatical errors.' },
         2: { code: 'A2', label: 'Simple tenses accurate; frequent mistakes in complex sentences.' },
         3: { code: 'B1', label: 'Consistent grammatical control with minor non-impeding errors.' },
-        4: { code: 'B2', label: 'Broad range of complex spoken structures produced accurately.' }
+        4: { code: 'B2', label: 'Broad range of complex spoken structures produced accurately.' },
+        5: { code: 'C1', label: 'Consistently accurate and sophisticated sentence structures produced spontaneously.' }
       }
     },
     communication: {
@@ -1719,7 +1831,8 @@ const RUBRIC_DESCRIPTIONS = {
         1: { code: 'A1', label: 'Hard to understand; minimal interactive engagement.' },
         2: { code: 'A2', label: 'Pronunciation is intelligible with listener effort; basic responses.' },
         3: { code: 'B1', label: 'Clear pronunciation, natural intonation, and good interaction.' },
-        4: { code: 'B2', label: 'Highly clear, expressive intonation with confident interaction.' }
+        4: { code: 'B2', label: 'Highly clear, expressive intonation with confident interaction.' },
+        5: { code: 'C1', label: 'Exceptional pronunciation clarity, nuanced intonation, and engaging persuasive delivery.' }
       }
     }
   }
@@ -1729,11 +1842,13 @@ const calculateLevel = (total) => {
   if (total <= 6) return 'A1';
   if (total <= 9) return 'A2';
   if (total <= 13) return 'B1';
-  return 'B2';
+  if (total <= 17) return 'B2';
+  return 'C1';
 };
 
 const getLevelBadgeClass = (level) => {
   switch (level) {
+    case 'C1': return 'cefr-badge c1';
     case 'B2': return 'cefr-badge b2';
     case 'B1': return 'cefr-badge b1';
     case 'A2': return 'cefr-badge a2';
@@ -1804,8 +1919,8 @@ const getLevelBadgeClass = (level) => {
   const listeningBand = attempt.sectionScores?.Listening ?? (attempt.scoring?.listening ? `Band ${attempt.scoring.listening.band}` : '—');
 
   const computeTotals = () => {
-    const wVals = Object.values(scores.writing).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 4);
-    const sVals = Object.values(scores.speaking).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 4);
+    const wVals = Object.values(scores.writing).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
+    const sVals = Object.values(scores.speaking).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
 
     const wTotal = wVals.length === 4 ? wVals.reduce((a, b) => a + b, 0) : null;
     const sTotal = sVals.length === 4 ? sVals.reduce((a, b) => a + b, 0) : null;
@@ -1819,8 +1934,8 @@ const getLevelBadgeClass = (level) => {
   const renderModalContent = () => {
     const totals = computeTotals();
 
-    const writingPill = totals.writing.complete ? `<span class="${getLevelBadgeClass(totals.writing.level)}">${totals.writing.level} (${totals.writing.total}/16)</span>` : '<span class="pill pending">Incomplete (select 4 criteria)</span>';
-    const speakingPill = totals.speaking.complete ? `<span class="${getLevelBadgeClass(totals.speaking.level)}">${totals.speaking.level} (${totals.speaking.total}/16)</span>` : '<span class="pill pending">Incomplete (select 4 criteria)</span>';
+    const writingPill = totals.writing.complete ? `<span class="${getLevelBadgeClass(totals.writing.level)}">${totals.writing.level} (${totals.writing.total}/20)</span>` : '<span class="pill pending">Incomplete (select 4 criteria)</span>';
+    const speakingPill = totals.speaking.complete ? `<span class="${getLevelBadgeClass(totals.speaking.level)}">${totals.speaking.level} (${totals.speaking.total}/20)</span>` : '<span class="pill pending">Incomplete (select 4 criteria)</span>';
 
     return `
       <div class="modal-backdrop" id="grading-modal-backdrop">
@@ -1874,11 +1989,11 @@ const getLevelBadgeClass = (level) => {
               </div>
               <div class="band-mini-card">
                 <span>Writing Grade</span>
-                <strong id="w-summary-chip">${totals.writing.level ? `${totals.writing.level} (${totals.writing.total}/16)` : (attempt.sectionScores?.Writing || 'Pending')}</strong>
+                <strong id="w-summary-chip">${totals.writing.level ? `${totals.writing.level} (${totals.writing.total}/20)` : (attempt.sectionScores?.Writing || 'Pending')}</strong>
               </div>
               <div class="band-mini-card">
                 <span>Speaking Grade</span>
-                <strong id="s-summary-chip">${totals.speaking.level ? `${totals.speaking.level} (${totals.speaking.total}/16)` : (attempt.sectionScores?.Speaking || 'Pending')}</strong>
+                <strong id="s-summary-chip">${totals.speaking.level ? `${totals.speaking.level} (${totals.speaking.total}/20)` : (attempt.sectionScores?.Speaking || 'Pending')}</strong>
               </div>
             </div>
 
@@ -1941,13 +2056,13 @@ const getLevelBadgeClass = (level) => {
                           <span class="rubric-item-desc">${data.desc}</span>
                         </div>
                         <div class="scale-buttons">
-                          ${[1, 2, 3, 4].map((val) => {
+                          ${[1, 2, 3, 4, 5].map((val) => {
         const levelInfo = data.levels[val];
         const isActive = selectedVal === val;
         return `
                               <button type="button" class="scale-btn ${isActive ? 'active' : ''}" data-skill="writing" data-field="${key}" data-val="${val}" title="${levelInfo.label}">
                                 <strong>${val} — ${levelInfo.code}</strong>
-                                <span>${val === 1 ? 'Elementary' : val === 2 ? 'Pre-Int' : val === 3 ? 'Intermediate' : 'Advanced'}</span>
+                                <span>${val === 1 ? 'A1' : (val === 2 ? 'A2' : (val === 3 ? 'B1' : (val === 4 ? 'B2' : 'C1')))}</span>
                               </button>
                             `;
       }).join('')}
@@ -1979,13 +2094,13 @@ const getLevelBadgeClass = (level) => {
                           <span class="rubric-item-desc">${data.desc}</span>
                         </div>
                         <div class="scale-buttons">
-                          ${[1, 2, 3, 4].map((val) => {
+                          ${[1, 2, 3, 4, 5].map((val) => {
         const levelInfo = data.levels[val];
         const isActive = selectedVal === val;
         return `
                               <button type="button" class="scale-btn ${isActive ? 'active' : ''}" data-skill="speaking" data-field="${key}" data-val="${val}" title="${levelInfo.label}">
                                 <strong>${val} — ${levelInfo.code}</strong>
-                                <span>${val === 1 ? 'Elementary' : val === 2 ? 'Pre-Int' : val === 3 ? 'Intermediate' : 'Advanced'}</span>
+                                <span>${val === 1 ? 'A1' : (val === 2 ? 'A2' : (val === 3 ? 'B1' : (val === 4 ? 'B2' : 'C1')))}</span>
                               </button>
                             `;
       }).join('')}
@@ -2002,8 +2117,8 @@ const getLevelBadgeClass = (level) => {
           <div class="modal-footer">
             <div class="modal-footer-summary" id="modal-footer-summary">
               ${totals.writing.complete && totals.speaking.complete
-        ? `<span>Ready to save: <strong>Writing ${totals.writing.level} (${totals.writing.total}/16)</strong> · <strong>Speaking ${totals.speaking.level} (${totals.speaking.total}/16)</strong></span>`
-        : `<span style="color:var(--warning)">⚠️ Please select a score (1 to 4) for all criteria in both sections.</span>`}
+        ? `<span>Ready to save: <strong>Writing ${totals.writing.level} (${totals.writing.total}/20)</strong> · <strong>Speaking ${totals.speaking.level} (${totals.speaking.total}/20)</strong></span>`
+        : `<span style="color:var(--warning)">⚠️ Please select a score (1 to 5) for all criteria in both sections.</span>`}
             </div>
             <div class="modal-actions">
               <button class="ghost" id="modal-cancel-btn" type="button">Cancel</button>

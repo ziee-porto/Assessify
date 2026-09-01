@@ -1025,10 +1025,10 @@ table tbody tr:hover {
   color: var(--muted);
 }
 
-/* Rating Scale Segmented Buttons */
+/* Rating Scale Segmented Buttons (1 to 5: A1, A2, B1, B2, C1) */
 .scale-buttons {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   margin-top: 4px;
 }
@@ -1037,7 +1037,7 @@ table tbody tr:hover {
   background: var(--white);
   border: 1.5px solid var(--line);
   border-radius: 8px;
-  padding: 10px 8px;
+  padding: 10px 6px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -1060,7 +1060,7 @@ table tbody tr:hover {
 }
 
 .scale-btn strong {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1070,7 +1070,7 @@ table tbody tr:hover {
 }
 
 .scale-btn span {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--muted);
 }
@@ -1091,10 +1091,11 @@ table tbody tr:hover {
   letter-spacing: 0.4px;
 }
 
-.cefr-badge.b2 { background: #dbeafe; color: #1e40af; }
-.cefr-badge.b1 { background: #dcfce7; color: #166534; }
-.cefr-badge.a2 { background: #fef3c7; color: #92400e; }
-.cefr-badge.a1 { background: #f1f5f9; color: #475569; }
+.cefr-badge.c1 { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+.cefr-badge.b2 { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.cefr-badge.b1 { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.cefr-badge.a2 { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.cefr-badge.a1 { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 
 /* Modal Footer */
 .modal-footer {
@@ -1859,6 +1860,30 @@ table tbody tr:hover {
 .criterion-card-speaking {
   border-left-color: #7c3aed;
   background: #fafbfc;
+}
+
+.criterion-card-listening {
+  border-left-color: #ea580c;
+  background: #fffbf7;
+}
+.criterion-card-listening .criterion-card-title {
+  color: #c2410c;
+}
+
+.criterion-card-grammar {
+  border-left-color: #0d9488;
+  background: #f7fdfc;
+}
+.criterion-card-grammar .criterion-card-title {
+  color: #0f766e;
+}
+
+.criterion-card-reading {
+  border-left-color: #059669;
+  background: #f6fdf9;
+}
+.criterion-card-reading .criterion-card-title {
+  color: #047857;
 }
 
 .criterion-card-title {

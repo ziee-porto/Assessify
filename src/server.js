@@ -217,47 +217,58 @@ const requestBody = async (request) => { let body = ''; for await (const chunk o
 // ── CEFR helpers ────────────────────────────────────────────────
 const cefrFromCorrect = (correct, total) => {
   if (total <= 15) {
-    if (correct >= 13) return 'B2';
+    if (correct >= 15) return 'C1';
+    if (correct >= 12) return 'B2';
     if (correct >= 9) return 'B1';
     if (correct >= 6) return 'A2';
     return 'A1';
   }
   if (total <= 18) {
+    if (correct >= 18) return 'C1';
     if (correct >= 15) return 'B2';
     if (correct >= 11) return 'B1';
     if (correct >= 7) return 'A2';
     return 'A1';
   }
+  if (correct >= 19) return 'C1';
   if (correct >= 16) return 'B2';
   if (correct >= 12) return 'B1';
   if (correct >= 8) return 'A2';
   return 'A1';
 };
-const cefrOrder = ['A1', 'A2', 'B1', 'B2'];
+const cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const computeFinalPlacement = (sectionScores) => {
   const levels = Object.values(sectionScores).filter((v) => cefrOrder.includes(v));
   if (levels.length < 3) return null;
   const count = (l) => levels.filter((v) => v === l).length;
   const writingLevel = sectionScores.Writing || null;
   const speakingLevel = sectionScores.Speaking || null;
-  if (count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 2 && cefrOrder.indexOf(speakingLevel) >= 2) return 'B2';
-  if (count('B1') + count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 1 && cefrOrder.indexOf(speakingLevel) >= 1) return 'B1';
+  if (count('C1') >= 3 && cefrOrder.indexOf(writingLevel) >= 3 && cefrOrder.indexOf(speakingLevel) >= 3) return 'C1';
+  if (count('C1') + count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 2 && cefrOrder.indexOf(speakingLevel) >= 2) return 'B2';
+  if (count('B1') + count('B2') + count('C1') >= 3 && cefrOrder.indexOf(writingLevel) >= 1 && cefrOrder.indexOf(speakingLevel) >= 1) return 'B1';
   if (count('A1') >= 3) return 'A1';
   return 'A2';
 };
 const rubricLevel = (criteria) => {
-  const values = Object.values(criteria || {}).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 4);
+  const values = Object.values(criteria || {}).map(Number).filter((v) => Number.isInteger(v) && v >= 1 && v <= 5);
   if (values.length === 0) return { criteria: criteria || {}, total: 0, level: null };
   const total = values.reduce((sum, value) => sum + value, 0);
-  const level = values.length === 4 ? (total <= 6 ? 'A1' : total <= 9 ? 'A2' : total <= 13 ? 'B1' : 'B2') : null;
+  const level = values.length === 4 ? (total <= 6 ? 'A1' : total <= 9 ? 'A2' : total <= 13 ? 'B1' : total <= 17 ? 'B2' : 'C1') : null;
   return { criteria: criteria || {}, total, level };
 };
-const cefrDescriptor = (level) => ({ A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate', B2: 'Upper-Intermediate' }[level] || level);
+const cefrDescriptor = (level) => ({
+  A1: 'Beginner',
+  A2: 'Elementary',
+  B1: 'Intermediate',
+  B2: 'Upper-Intermediate',
+  C1: 'Advanced'
+}[level] || level);
 const cefrColor = (level) => ({
   A1: '#c0392b', // Crimson Red
   A2: '#d97706', // Warm Amber
   B1: '#2563eb', // Royal Blue
-  B2: '#059669'  // Emerald Green
+  B2: '#059669', // Emerald Green
+  C1: '#7c3aed'  // Royal Purple
 }[level] || '#1e3a8a');
 
 const performanceAnalysis = (row) => {
@@ -280,7 +291,7 @@ const scoreObjective = (sectionId, responses) => {
   const questions = section?.questions || [];
   const correct = questions.filter((question) => String(responses?.[question.id] || '').trim().toLowerCase() === String(question.answer || '').trim().toLowerCase()).length;
   const level = cefrFromCorrect(correct, questions.length);
-  return { skill: section?.label, correct, total: questions.length, level, method: 'Objective answer-key scoring mapped to CEFR (A1–B2) per school rubric' };
+  return { skill: section?.label, correct, total: questions.length, level, method: 'Objective answer-key scoring mapped to CEFR (A1–C1) per school rubric' };
 };
 
 const certificateNumber = (row) => `KBS-EN-${new Date(row.started).getUTCFullYear()}-${row.attempt.replace(/^ATT-/, '')}`;
@@ -324,19 +335,19 @@ const sendCenteredPdf = (response, results) => {
       doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
     }
 
-    // ── CEFR Skill Profile legend (Color Coded Bands) ────────────────
+    // ── CEFR Skill Profile legend (Color Coded Bands A1–C1) ───────────
     const legendY = 270;
     doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('CEFR Skill Profile', 0, legendY, { width: 595, align: 'center' });
     const boxesY = legendY + 18;
-    const gap = 120;
+    const gap = 94;
     const boxW = 54;
-    const totalLegendWidth = 3 * gap + boxW;
+    const totalLegendWidth = 4 * gap + boxW;
     const startLegendX = (595 - totalLegendWidth) / 2;
-    [['A1', 'Beginner'], ['A2', 'Elementary'], ['B1', 'Intermediate'], ['B2', 'Upper-Intermediate']].forEach(([lvl, desc], i) => {
+    [['A1', 'Beginner'], ['A2', 'Elementary'], ['B1', 'Intermediate'], ['B2', 'Upper-Inter.'], ['C1', 'Advanced']].forEach(([lvl, desc], i) => {
       const lx = startLegendX + i * gap;
       doc.roundedRect(lx, boxesY, boxW, 20, 4).fill(cefrColor(lvl));
       doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold').text(lvl, lx, boxesY + 5, { width: boxW, align: 'center' });
-      doc.fillColor('#475569').fontSize(7.5).font('Helvetica').text(desc, lx - 12, boxesY + 23, { width: boxW + 24, align: 'center' });
+      doc.fillColor('#475569').fontSize(7.5).font('Helvetica').text(desc, lx - 14, boxesY + 23, { width: boxW + 28, align: 'center' });
     });
 
     // ── Skills table (ONLY 2 COLUMNS: Skill / Component & CEFR Level) ─

@@ -2,21 +2,24 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Helper reproduction for isolated testing of rubric & placement logic
-const cefrOrder = ['A1', 'A2', 'B1', 'B2'];
+const cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1'];
 
 const cefrFromCorrect = (correct, total) => {
   if (total <= 15) {
-    if (correct >= 13) return 'B2';
+    if (correct >= 15) return 'C1';
+    if (correct >= 12) return 'B2';
     if (correct >= 9) return 'B1';
     if (correct >= 6) return 'A2';
     return 'A1';
   }
   if (total <= 18) {
+    if (correct >= 18) return 'C1';
     if (correct >= 15) return 'B2';
     if (correct >= 11) return 'B1';
     if (correct >= 7) return 'A2';
     return 'A1';
   }
+  if (correct >= 19) return 'C1';
   if (correct >= 16) return 'B2';
   if (correct >= 12) return 'B1';
   if (correct >= 8) return 'A2';
@@ -29,23 +32,26 @@ const computeFinalPlacement = (sectionScores) => {
   const count = (l) => levels.filter((v) => v === l).length;
   const writingLevel = sectionScores.Writing || null;
   const speakingLevel = sectionScores.Speaking || null;
-  if (count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 2 && cefrOrder.indexOf(speakingLevel) >= 2) return 'B2';
-  if (count('B1') + count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 1 && cefrOrder.indexOf(speakingLevel) >= 1) return 'B1';
+  if (count('C1') >= 3 && cefrOrder.indexOf(writingLevel) >= 3 && cefrOrder.indexOf(speakingLevel) >= 3) return 'C1';
+  if (count('C1') + count('B2') >= 3 && cefrOrder.indexOf(writingLevel) >= 2 && cefrOrder.indexOf(speakingLevel) >= 2) return 'B2';
+  if (count('B1') + count('B2') + count('C1') >= 3 && cefrOrder.indexOf(writingLevel) >= 1 && cefrOrder.indexOf(speakingLevel) >= 1) return 'B1';
   if (count('A1') >= 3) return 'A1';
   return 'A2';
 };
 
 const rubricLevel = (criteria) => {
   const values = Object.values(criteria || {}).map(Number);
-  if (values.length !== 4 || values.some((value) => !Number.isInteger(value) || value < 1 || value > 4)) {
-    throw new Error('Each rubric criterion must be a whole number from 1 to 4');
+  if (values.length !== 4 || values.some((value) => !Number.isInteger(value) || value < 1 || value > 5)) {
+    throw new Error('Each rubric criterion must be a whole number from 1 to 5');
   }
   const total = values.reduce((sum, value) => sum + value, 0);
-  return { criteria, total, level: total <= 6 ? 'A1' : total <= 9 ? 'A2' : total <= 13 ? 'B1' : 'B2' };
+  return { criteria, total, level: total <= 6 ? 'A1' : total <= 9 ? 'A2' : total <= 13 ? 'B1' : total <= 17 ? 'B2' : 'C1' };
 };
 
 describe('CEFR Scoring Engine', () => {
-  it('correctly maps raw scores to CEFR levels for 20-item sections', () => {
+  it('correctly maps raw scores to CEFR levels for 20-item sections up to C1', () => {
+    assert.equal(cefrFromCorrect(20, 20), 'C1');
+    assert.equal(cefrFromCorrect(19, 20), 'C1');
     assert.equal(cefrFromCorrect(18, 20), 'B2');
     assert.equal(cefrFromCorrect(16, 20), 'B2');
     assert.equal(cefrFromCorrect(14, 20), 'B1');
@@ -53,15 +59,20 @@ describe('CEFR Scoring Engine', () => {
     assert.equal(cefrFromCorrect(5, 20), 'A1');
   });
 
-  it('correctly maps raw scores to CEFR levels for 15-item sections (Listening & Reading)', () => {
+  it('correctly maps raw scores to CEFR levels for 15-item sections (Listening & Reading) up to C1', () => {
+    assert.equal(cefrFromCorrect(15, 15), 'C1');
     assert.equal(cefrFromCorrect(14, 15), 'B2');
-    assert.equal(cefrFromCorrect(13, 15), 'B2');
-    assert.equal(cefrFromCorrect(11, 15), 'B1');
+    assert.equal(cefrFromCorrect(12, 15), 'B2');
+    assert.equal(cefrFromCorrect(10, 15), 'B1');
     assert.equal(cefrFromCorrect(7, 15), 'A2');
     assert.equal(cefrFromCorrect(3, 15), 'A1');
   });
 
-  it('validates 4-criteria rubric calculations correctly', () => {
+  it('validates 4-criteria rubric calculations correctly up to C1', () => {
+    const c1Result = rubricLevel({ taskAchievement: 5, organization: 5, lexicalResource: 4, grammaticalRangeAccuracy: 5 });
+    assert.equal(c1Result.total, 19);
+    assert.equal(c1Result.level, 'C1');
+
     const b2Result = rubricLevel({ taskAchievement: 4, organization: 4, lexicalResource: 4, grammaticalRangeAccuracy: 4 });
     assert.equal(b2Result.total, 16);
     assert.equal(b2Result.level, 'B2');
@@ -81,11 +92,20 @@ describe('CEFR Scoring Engine', () => {
 
   it('rejects invalid rubric values', () => {
     assert.throws(() => rubricLevel({ a: 0, b: 2, c: 3, d: 4 }));
-    assert.throws(() => rubricLevel({ a: 5, b: 2, c: 3, d: 4 }));
+    assert.throws(() => rubricLevel({ a: 6, b: 2, c: 3, d: 4 }));
     assert.throws(() => rubricLevel({ a: 2, b: 2, c: 2 }));
   });
 
-  it('computes overall composite CEFR placement accurately', () => {
+  it('computes overall composite CEFR placement accurately including C1', () => {
+    const advancedScores = {
+      'Grammar & Vocabulary': 'C1',
+      Reading: 'C1',
+      Listening: 'C1',
+      Writing: 'C1',
+      Speaking: 'B2'
+    };
+    assert.equal(computeFinalPlacement(advancedScores), 'C1');
+
     const highScores = {
       'Grammar & Vocabulary': 'B2',
       Reading: 'B2',
