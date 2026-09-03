@@ -1,53 +1,84 @@
 {
-  "title": "Teacher English Placement Detailed CEFR Rubrics",
-  "version": "1.0",
-  "notice": "Objective sections are scored automatically. Writing and Speaking are scored by an administrator using four 1–4 criteria (maximum 16).",
+  "title": "Karya Bangsa Placement Detailed CEFR Rubrics",
+  "version": "2026.2",
+  "notice": "Grammar & Vocabulary is scored automatically mapped to CEFR (A1–C2). Writing and Speaking are evaluated by administrators using 1–6 CEFR criteria. Listening comprehension is integrated into audio-format Speaking prompts.",
   "bandScale": {
-    "range": "A1–B2",
-    "overall": "Writing and Speaking: 4–6 = A1, 7–9 = A2, 10–13 = B1, 14–16 = B2."
+    "range": "A1–C2",
+    "overall": "Writing and Speaking: 0–1 = A1, 2–3 = A2, 4–5 = B1, 6–7 = B2, 8–9 = C1, 10 = C2"
+  },
+  "grammarVocabulary": {
+    "title": "Grammar & Vocabulary Evaluation Standard",
+    "format": "50 Contextual Objective Items (30 Mins)",
+    "thresholds": "A1: 0–18 | A2: 19–25 | B1: 26–32 | B2: 33–39 | C1: 40–46 | C2: 47–50",
+    "scoreMapping": [
+      { "score": "0 – 18 points", "level": "A1 (Elementary)" },
+      { "score": "19 – 25 points", "level": "A2 (Pre-Intermediate)" },
+      { "score": "26 – 32 points", "level": "B1 (Intermediate)" },
+      { "score": "33 – 39 points", "level": "B2 (Upper Intermediate)" },
+      { "score": "40 – 46 points", "level": "C1 (Advanced)" },
+      { "score": "47 – 50 points", "level": "C2 (Higher Level Series Recommended)" }
+    ],
+    "criteria": [
+      {
+        "name": "Complex Syntactic Control",
+        "description": "Mastery of sentence structures including subjunctive mood, inverted conditionals, relative clauses, and passive constructions."
+      },
+      {
+        "name": "Collocational & Register Precision",
+        "description": "Accurate deployment of formal academic collocations, prepositions, phrasal verbs, and appropriate institutional register."
+      },
+      {
+        "name": "Morphological Accuracy",
+        "description": "Precision in word formation, derivational prefixes/suffixes, subject-verb concord, and tense/aspect consistency."
+      }
+    ]
   },
   "writing": {
+    "title": "Written Placement Essay Rubric (Single-Choice Topic)",
+    "format": "1 Selected Topic Essay (150–220 words · 20 Mins)",
+    "weight": "Administrator scores each of 4 criteria from 1 (A1) to 5 (C1). Total maximum score is 20.",
+    "reviewNote": "Evaluators grade responses against CEFR descriptors (1=A1, 2=A2, 3=B1, 4=B2, 5=C1).",
     "criteria": [
       {
         "name": "Task Achievement",
-        "description": "How fully the response addresses the prompt, presents a clear position, and develops relevant ideas with supporting details."
+        "description": "How fully the essay addresses all elements of the prompt, sustains a focused pedagogical thesis, and substantiates claims with concrete examples."
       },
       {
-        "name": "Organization",
-        "description": "How logically ideas are organized, paragraphing, cohesive devices, and flow of argument."
+        "name": "Coherence and Cohesion",
+        "description": "Clarity of essay structure, logical paragraph progression, effective use of transitional cohesive devices, and flow of argumentation."
       },
       {
         "name": "Lexical Resource",
-        "description": "The range, accuracy, precision, and flexibility of vocabulary used to communicate ideas."
+        "description": "Range, precision, sophistication, and stylistic appropriateness of academic vocabulary with minimal lexical inaccuracies."
       },
       {
         "name": "Grammatical Range and Accuracy",
-        "description": "The variety and accuracy of sentence structures, grammatical forms, punctuation, and error control."
+        "description": "Flexibility and accuracy of complex clause structures, punctuation mastery, grammatical control, and syntactic variety."
       }
-    ],
-    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2). Total maximum score is 16.",
-    "reviewNote": "Writing is not automatically scored; total the four evaluator scores to determine the CEFR band."
+    ]
   },
   "speaking": {
+    "title": "Speaking & Listening Oral Interview Rubric",
+    "format": "2-Part Recorded Audio/Video Interview with Audio-Format Prompts (15 Mins)",
+    "weight": "Administrator scores each of 4 criteria from 1 (A1) to 5 (C1). Total maximum score is 20.",
+    "reviewNote": "Evaluators review recorded video and audio streams to evaluate oral fluency, auditory prompt comprehension, grammatical control, and communicative efficacy.",
     "criteria": [
       {
-        "name": "Fluency",
-        "description": "Pace, continuity, hesitation management, and logical flow of spoken communication."
+        "name": "Fluency and Spontaneity",
+        "description": "Natural speech rhythm, appropriate speaking rate, smooth transition between ideas, and effective hesitation management."
       },
       {
-        "name": "Vocabulary",
-        "description": "The range, appropriacy, and precision of vocabulary deployed in spoken answers."
+        "name": "Listening Comprehension & Interaction",
+        "description": "Accurate comprehension of spoken prompts, relevant topic engagement, and coherent communicative response."
       },
       {
-        "name": "Grammar",
-        "description": "The variety, complexity, and grammatical accuracy of spoken sentence patterns."
+        "name": "Lexical & Idiomatic Range",
+        "description": "Breadth, precision, and nuance of vocabulary used to discuss educational methodologies and abstract pedagogical issues."
       },
       {
-        "name": "Communication",
-        "description": "Clarity of expression, development of response, and communicative effectiveness."
+        "name": "Grammatical Complexity & Pronunciation",
+        "description": "Accurate use of varied sentence structures, tense coordination, natural sentence intonation contours, and clear articulation."
       }
-    ],
-    "weight": "Administrator scores each criterion from 1 (A1) to 4 (B2). Total maximum score is 16.",
-    "reviewNote": "Speaking is evaluated by an administrator listening to recorded audio/video or reviewing transcripts."
+    ]
   }
 }

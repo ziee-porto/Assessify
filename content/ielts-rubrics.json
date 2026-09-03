@@ -1,116 +1,234 @@
 {
-  "title": "Teacher English Placement Detailed CEFR Rubrics & Section Standards",
-  "version": "2026.3",
-  "notice": "Objective sections (Listening, Grammar & Vocabulary, Reading) are scored automatically. Writing and Speaking are evaluated by an administrator using four 1–5 criteria (maximum 20 points).",
+  "title": "Karya Bangsa Placement Detailed CEFR Rubrics",
+  "version": "2026.2",
+  "notice": "Grammar & Vocabulary is scored automatically mapped to CEFR. Writing and Speaking are evaluated by administrators using 1–6 CEFR criteria. Listening comprehension is integrated into audio-format Speaking prompts.",
   "bandScale": {
-    "range": "A1–C1",
-    "overall": "Writing & Speaking: 4–6 = A1, 7–9 = A2, 10–13 = B1, 14–17 = B2, 18–20 = C1. Objective components are mapped to CEFR standard thresholds."
-  },
-  "listening": {
-    "title": "Listening Comprehension Rubric",
-    "format": "15 Objective Audio Prompts (15 Minutes)",
-    "scoringMode": "Automated Answer Key Scoring",
-    "thresholds": "A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15",
-    "criteria": [
-      {
-        "name": "Main Idea & Gist Identification",
-        "description": "Understanding core arguments, speaker stance, and primary purpose across academic conversations and announcements."
-      },
-      {
-        "name": "Specific Detail & Evidence Extraction",
-        "description": "Capturing numerical data, exact dates, names, key conditions, and nuanced spoken facts without distraction."
-      },
-      {
-        "name": "Inference & Implicit Meaning",
-        "description": "Deducing speaker tone, implied attitudes, indirect suggestions, and contextual nuance in spoken dialogue."
-      }
-    ]
+    "range": "A1–C2",
+    "overall": "Writing and Speaking: 0–1 = A1, 2–3 = A2, 4–5 = B1, 6–7 = B2, 8–9 = C1, 10 = C2"
   },
   "grammarVocabulary": {
-    "title": "Grammar & Vocabulary Rubric",
-    "format": "20 Multiple-Choice Contextual Questions (15 Minutes)",
-    "scoringMode": "Automated Answer Key Scoring",
-    "thresholds": "A1: 0–7 | A2: 8–11 | B1: 12–15 | B2: 16–18 | C1: 19–20 / 20",
-    "criteria": [
+    "title": "GRAMMAR & VOCABULARY",
+    "format": "50 Contextual Objective Items (1 point per item)",
+    "thresholds": "A1: 0–18 | A2: 19–25 | B1: 26–32 | B2: 33–39 | C1: 40–46 | C2: 47–50",
+    "scoreMapping": [
       {
-        "name": "Syntactic Complexity & Sentence Structure",
-        "description": "Accurate command of relative clauses, conditional sentences, passive structures, inversion, and subjunctive forms."
+        "score": "0 – 18 points",
+        "level": "A1 (Elementary)"
       },
       {
-        "name": "Collocation & Lexical Precision",
-        "description": "Selection of natural academic vocabulary, phrasal combinations, appropriate registers, and nuanced word forms."
+        "score": "19 – 25 points",
+        "level": "A2 (Pre-Intermediate)"
       },
       {
-        "name": "Tense & Aspect Consistency",
-        "description": "Flawless application of perfect, continuous, and modal auxiliary systems in varied contextual scenarios."
+        "score": "26 – 32 points",
+        "level": "B1 (Intermediate)"
+      },
+      {
+        "score": "33 – 39 points",
+        "level": "B2 (Upper Intermediate)"
+      },
+      {
+        "score": "40 – 46 points",
+        "level": "C1 (Advanced)"
+      },
+      {
+        "score": "47 – 50 points",
+        "level": "C2 (Higher Level Series Recommended)"
       }
-    ]
-  },
-  "reading": {
-    "title": "Reading Comprehension Rubric",
-    "format": "15 Multiple-Choice Passage Items (20 Minutes)",
-    "scoringMode": "Automated Answer Key Scoring",
-    "thresholds": "A1: 0–5 | A2: 6–8 | B1: 9–11 | B2: 12–14 | C1: 15 / 15",
-    "criteria": [
-      {
-        "name": "Passage Synthesis & Global Comprehension",
-        "description": "Interpreting complex expository and analytical prose, main themes, structural transitions, and thesis statements."
-      },
-      {
-        "name": "Evidence Scanning & Factual Verification",
-        "description": "Locating specific evidence, corroborating claims, distinguishing facts from opinions, and analyzing data citations."
-      },
-      {
-        "name": "Lexical Inference & Contextual Meaning",
-        "description": "Deciphering advanced academic vocabulary, figurative expressions, and references directly from context."
-      }
-    ]
+    ],
+    "criteria": []
   },
   "writing": {
-    "title": "Writing Evaluation Criteria",
-    "weight": "Administrator scores each criterion from 1 (A1) to 5 (C1) — Maximum 20 pts.",
-    "reviewNote": "Writing is evaluated via manual administrative rubric review across 4 core competencies.",
+    "title": "WRITING",
+    "format": "2 Tasks: Memo (120–150 words) and Discursive Essay (180–220 words) (20 Mins)",
+    "weight": "Administrator scores each of 4 criteria from (A1) to (C2).",
+    "reviewNote": "Evaluators grade responses against CEFR descriptors (1=A1, 2=A2, 3=B1, 4=B2, 5=C1).",
+    "levels": [
+      {
+        "score": "0–1",
+        "level": "A1",
+        "descriptors": [
+          "The topic is not developed at all, and writing seems to take enormous effort.",
+          "The purpose of the text and the writer’s aim are entirely unclear.",
+          "The text is not organised at either the paragraph or sentence level.",
+          "There is insufficient language control to express even very simple ideas.",
+          "There are very many errors in the use of language and standard writing conventions.",
+          "There is little or no use of appropriate vocabulary and structures."
+        ]
+      },
+      {
+        "score": "2–3",
+        "level": "A2",
+        "descriptors": [
+          "The topic is not well developed, and writing seems to take considerable effort.",
+          "The purpose of the text and the writer’s aim are generally unclear.",
+          "The text is not well organised at either the paragraph or sentence level.",
+          "There is insufficient language control to express relatively simple ideas.",
+          "There are many errors in the use of language and standard writing conventions.",
+          "There is very limited use of appropriate vocabulary and structures."
+        ]
+      },
+      {
+        "score": "4–5",
+        "level": "B1",
+        "descriptors": [
+          "The topic is quite well developed, although writing seems to take some effort.",
+          "The purpose of the text and the writer’s aim are not entirely clear.",
+          "The text is reasonably well organised, at least at the sentence level.",
+          "There is usually sufficient language control to express simple ideas.",
+          "There are some errors in the use of language and standard writing conventions.",
+          "There is limited use of appropriate vocabulary and structures."
+        ]
+      },
+      {
+        "score": "6–7",
+        "level": "B2",
+        "descriptors": [
+          "The topic is well developed, and writing seems to take little effort.",
+          "The purpose of the text and the writer’s aim are generally clear.",
+          "The text is reasonably well organised at both the sentence and paragraph level.",
+          "There is sufficient language control to express simple ideas.",
+          "There are a few errors in the use of language and standard writing conventions.",
+          "The text contains a range of appropriate vocabulary and structures."
+        ]
+      },
+      {
+        "score": "8–9",
+        "level": "C1",
+        "descriptors": [
+          "The topic is very well developed, and writing seems to take very little effort.",
+          "The purpose of the text and the writer’s aim are clear.",
+          "The text is well organised at both the sentence and paragraph level.",
+          "There is sufficient language control to express some quite complex ideas.",
+          "There are few errors in the use of language and standard writing conventions.",
+          "The text contains quite a wide range of appropriate vocabulary and structures."
+        ]
+      },
+      {
+        "score": "10",
+        "level": "C2",
+        "descriptors": [
+          "The topic is fully developed, and writing seems effortless.",
+          "The purpose of the text and the writer’s aim are perfectly clear.",
+          "The text is extremely well organised at both the sentence and paragraph level.",
+          "There is sufficient language control to express a range of complex ideas.",
+          "There are almost no errors in the use of language and standard writing conventions.",
+          "The text contains a wide range of appropriate vocabulary and structures."
+        ]
+      }
+    ],
     "criteria": [
       {
         "name": "Task Achievement",
-        "description": "How fully the response addresses the prompt, presents a clear well-developed thesis, and substantiates arguments with relevant pedagogical and real-world evidence."
+        "description": "How fully the essay addresses all elements of the prompt, sustains a focused pedagogical thesis, and substantiates claims with concrete examples."
       },
       {
         "name": "Coherence and Cohesion",
-        "description": "How logically ideas are structured, utilizing effective paragraphing, precise referencing, smooth transitions, and diverse cohesive devices."
+        "description": "Clarity of essay structure, logical paragraph progression, effective use of transitional cohesive devices, and flow of argumentation."
       },
       {
         "name": "Lexical Resource",
-        "description": "The range, sophistication, academic precision, flexibility of vocabulary, and idiomatic appropriacy with minimal lexical inaccuracies."
+        "description": "Range, precision, sophistication, and stylistic appropriateness of academic vocabulary with minimal lexical inaccuracies."
       },
       {
         "name": "Grammatical Range and Accuracy",
-        "description": "The variety of complex sentence structures, punctuation mastery, grammatical flexibility, and consistent error-free expression."
+        "description": "Flexibility and accuracy of complex clause structures, punctuation mastery, grammatical control, and syntactic variety."
       }
     ]
   },
   "speaking": {
-    "title": "Speaking Evaluation Criteria",
-    "weight": "Administrator scores each criterion from 1 (A1) to 5 (C1) — Maximum 20 pts.",
-    "reviewNote": "Speaking is evaluated via candidate video/audio recordings across 4 core communicative parameters.",
+    "title": "SPEAKING",
+    "format": "2-Part Recorded Audio/Video Interview with Audio-Format Prompts (20 Mins)",
+    "weight": "Administrator scores each of 4 criteria from (A1) to (C2).",
+    "reviewNote": "Evaluators review recorded video and audio streams to evaluate oral fluency, auditory prompt comprehension, grammatical control, and communicative efficacy.",
+    "passingRules": {
+      "lulusLevel": "Siswa berhasil mendapatkan skor minimal 3 (Good) pada pertanyaan di tingkat tersebut.",
+      "belumMampu": "Siswa mendapatkan skor 1 (Low) atau 2 (Fair) saat mencoba pertanyaan di tingkat berikutnya."
+    },
+    "levels": [
+      {
+        "score": 1,
+        "level": "Low",
+        "descriptors": [
+          "Speaks with frequent hesitation; occasionally does not respond verbally.",
+          "Rarely responds with confidence; frequently reluctant to use the language.",
+          "Speech and pronunciation are usually not easily understood.",
+          "Rarely uses complete sentences and phrases appropriately.",
+          "Rarely or never uses colloquial expressions appropriately.",
+          "Rarely uses appropriate and varied vocabulary.",
+          "Makes numerous errors in form or function."
+        ]
+      },
+      {
+        "score": 2,
+        "level": "Fair",
+        "descriptors": [
+          "Speaks with frequent hesitation.",
+          "Rarely responds with confidence; often reluctant to use the language.",
+          "Speech and pronunciation are frequently not easily understood.",
+          "Occasionally uses complete sentences and phrases appropriately.",
+          "Uses very few colloquial expressions appropriately.",
+          "Occasionally uses appropriate and varied vocabulary.",
+          "Makes frequent errors in form or function."
+        ]
+      },
+      {
+        "score": 3,
+        "level": "Good",
+        "descriptors": [
+          "Speaks fluently with a little hesitation.",
+          "Usually responds with confidence.",
+          "Speech and pronunciation may not always be easily understood.",
+          "Generally uses complete sentences and phrases appropriately.",
+          "Uses a few colloquial expressions appropriately.",
+          "Uses appropriate and varied vocabulary on most occasions.",
+          "Makes occasional errors in form or function."
+        ]
+      },
+      {
+        "score": 4,
+        "level": "Very Good",
+        "descriptors": [
+          "Speaks fluently without much hesitation.",
+          "Almost always responds with confidence.",
+          "Speech and pronunciation are almost always clear and easily understood.",
+          "Almost always uses complete sentences and phrases appropriately.",
+          "Uses a number of colloquial expressions appropriately.",
+          "Almost always uses appropriate and varied vocabulary.",
+          "Makes few errors in form or function."
+        ]
+      },
+      {
+        "score": 5,
+        "level": "Excellent",
+        "descriptors": [
+          "Speaks fluently without hesitation.",
+          "Consistently responds with confidence.",
+          "Speech and pronunciation are always clear and easily understood.",
+          "Consistently uses complete sentences and phrases appropriately.",
+          "Uses a wide range of colloquial expressions appropriately.",
+          "Consistently uses appropriate and varied vocabulary.",
+          "Makes very few or no errors in form or function."
+        ]
+      }
+    ],
     "criteria": [
       {
-        "name": "Fluency and Spontaneous Flow",
-        "description": "Continuity of speech, natural pacing, effortless rhythm, logical continuity with minimal self-correction or unnatural hesitation."
+        "name": "Fluency and Spontaneity",
+        "description": "Natural speech rhythm, appropriate speaking rate, smooth transition between ideas, and effective hesitation management."
       },
       {
-        "name": "Lexical Precision & Idiomatic Range",
-        "description": "Range, precision, and sophistication of spoken vocabulary, using academic and conversational phrases naturally in context."
+        "name": "Listening Comprehension & Interaction",
+        "description": "Accurate comprehension of spoken prompts, relevant topic engagement, and coherent communicative response."
       },
       {
-        "name": "Grammatical Flexibility & Accuracy",
-        "description": "Accuracy and versatility in deploying simple, compound, and complex sentence structures spontaneously."
+        "name": "Lexical & Idiomatic Range",
+        "description": "Breadth, precision, and nuance of vocabulary used to discuss educational methodologies and abstract pedagogical issues."
       },
       {
-        "name": "Communication & Pronunciation Clarity",
-        "description": "Pronunciation intelligibility, appropriate stress and intonation, clear articulation, and persuasive delivery of ideas."
+        "name": "Grammatical Complexity & Pronunciation",
+        "description": "Accurate use of varied sentence structures, tense coordination, natural sentence intonation contours, and clear articulation."
       }
     ]
-  },
-  "source": "Official IELTS & CEFR Alignment Standards: https://ielts.org/organisations/ielts-for-organisations/ielts-scoring-in-detail"
+  }
 }

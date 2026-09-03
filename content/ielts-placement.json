@@ -1,714 +1,1015 @@
 {
-  "id": "kbs-ielts-placement",
-  "version": "2026.2",
-  "title": "Karya Bangsa English Placement Test",
-  "durationMinutes": 75,
-  "audience": "Karya Bangsa School teachers",
-  "sourceNote": "Original practice content modeled on IELTS task formats; not official IELTS test material.",
+  "id": "ielts-placement-bank-2026",
+  "version": "2026.3",
+  "title": "KBS Comprehensive Placement Assessment",
+  "durationMinutes": 70,
+  "audience": "Candidate Teachers / Academic Faculty & Students",
+  "sourceNote": "Final Placement Test Structure: Section 1 Grammar & Vocabulary (50 questions, 30 mins), Section 2 Writing Placement Test (User selects 1 question from 5 topics to write 1 Essay, 20 mins), Section 3 Oral Placement Test (21 questions, 20 mins).",
   "sections": [
     {
-      "id": "listening",
-      "label": "Listening",
-      "durationMinutes": 15,
-      "instructions": "Listen to the staff briefing and answer all questions. Use the audio controls before selecting an answer.",
-      "questions": [
-        {
-          "id": "listening-1",
-          "type": "multiple-choice",
-          "prompt": "Where will the staff development session take place?",
-          "options": [
-            "Room 4",
-            "Room 9",
-            "The library",
-            "The hall"
-          ],
-          "answer": "Room 4",
-          "audioScript": "Welcome to the staff development briefing. The session begins at nine o'clock in Room 4. Please bring your observation notes and one question for the discussion."
-        },
-        {
-          "id": "listening-2",
-          "type": "multiple-choice",
-          "prompt": "What time does the session begin?",
-          "options": [
-            "9:00",
-            "9:30",
-            "10:00",
-            "10:30"
-          ],
-          "answer": "9:00"
-        },
-        {
-          "id": "listening-3",
-          "type": "multiple-choice",
-          "prompt": "What should participants bring?",
-          "options": [
-            "Observation notes and one question",
-            "A laptop and a textbook",
-            "Lunch and a timetable",
-            "A parent letter"
-          ],
-          "answer": "Observation notes and one question"
-        },
-        {
-          "id": "listening-4",
-          "type": "multiple-choice",
-          "prompt": "Where can teachers access temporary resources during the refurbishment?",
-          "options": [
-            "Room 4",
-            "Room 9",
-            "The study hall",
-            "The main office"
-          ],
-          "answer": "The study hall",
-          "audioScript": "Hello everyone, please note that the main library will be closed for refurbishment starting next Monday at 10:00 AM. Teachers can access temporary resources in the study hall during this period."
-        },
-        {
-          "id": "listening-5",
-          "type": "multiple-choice",
-          "prompt": "What time does the library refurbishment begin next Monday?",
-          "options": [
-            "9:00 AM",
-            "10:00 AM",
-            "11:00 AM",
-            "12:00 PM"
-          ],
-          "answer": "10:00 AM"
-        },
-        {
-          "id": "listening-6",
-          "type": "multiple-choice",
-          "prompt": "What is the main purpose of this announcement?",
-          "options": [
-            "To announce library closure and temporary resource access",
-            "To request parent assistance",
-            "To schedule a school exam",
-            "To explain playground rules"
-          ],
-          "answer": "To announce library closure and temporary resource access"
-        },
-        {
-          "id": "listening-7",
-          "type": "multiple-choice",
-          "prompt": "When is the science museum field trip scheduled?",
-          "options": [
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday"
-          ],
-          "answer": "Friday",
-          "audioScript": "Attention teachers: the annual science museum field trip is scheduled for Friday. Students will depart by bus from the main gate at 8:30 AM. Please verify all permission slips by Thursday evening."
-        },
-        {
-          "id": "listening-8",
-          "type": "multiple-choice",
-          "prompt": "Where will the student buses depart from?",
-          "options": [
-            "The main gate",
-            "The playground",
-            "The sports field",
-            "The reception area"
-          ],
-          "answer": "The main gate"
-        },
-        {
-          "id": "listening-9",
-          "type": "multiple-choice",
-          "prompt": "By when must teachers verify all student permission slips?",
-          "options": [
-            "Thursday evening",
-            "Friday morning",
-            "Wednesday afternoon",
-            "Monday noon"
-          ],
-          "answer": "Thursday evening"
-        },
-        {
-          "id": "listening-10",
-          "type": "multiple-choice",
-          "prompt": "Where will the parent-teacher conference be held?",
-          "options": [
-            "The school gym",
-            "The staff room",
-            "The cafeteria",
-            "Room 4"
-          ],
-          "answer": "The school gym",
-          "audioScript": "This year's parent-teacher conference will be held in the school gym this Thursday. It is scheduled to run from 4:00 PM until 7:30 PM. Tea and coffee will be provided for all parents and teachers."
-        },
-        {
-          "id": "listening-11",
-          "type": "multiple-choice",
-          "prompt": "What time does the conference end?",
-          "options": [
-            "6:00 PM",
-            "7:00 PM",
-            "7:30 PM",
-            "8:00 PM"
-          ],
-          "answer": "7:30 PM"
-        },
-        {
-          "id": "listening-12",
-          "type": "multiple-choice",
-          "prompt": "What refreshments will be provided at the event?",
-          "options": [
-            "Tea and coffee",
-            "Snacks and fruit juices",
-            "A full buffet dinner",
-            "Water only"
-          ],
-          "answer": "Tea and coffee"
-        },
-        {
-          "id": "listening-13",
-          "type": "multiple-choice",
-          "prompt": "On which day is the school network upgrade scheduled?",
-          "options": [
-            "Friday",
-            "Saturday",
-            "Sunday",
-            "Monday"
-          ],
-          "answer": "Saturday",
-          "audioScript": "Our IT department is upgrading the school network on Saturday morning. The Wi-Fi will be offline from 8:00 AM to 11:30 AM. Please save your work locally before Friday evening."
-        },
-        {
-          "id": "listening-14",
-          "type": "multiple-choice",
-          "prompt": "How long is the school Wi-Fi expected to be offline?",
-          "options": [
-            "Two hours",
-            "Three and a half hours",
-            "Five hours",
-            "All day"
-          ],
-          "answer": "Three and a half hours"
-        },
-        {
-          "id": "listening-15",
-          "type": "multiple-choice",
-          "prompt": "What action should staff take before the network upgrade?",
-          "options": [
-            "Save their work locally",
-            "Change their passwords",
-            "Shut down all computers",
-            "Report connection issues"
-          ],
-          "answer": "Save their work locally"
-        }
-      ]
-    },
-    {
       "id": "grammar-vocabulary",
-      "label": "Grammar & Vocabulary",
-      "durationMinutes": 15,
-      "instructions": "Choose the best answer for each original grammar and vocabulary question.",
+      "label": "Grammar & Vocabulary Placement Test",
+      "durationMinutes": 30,
+      "instructions": "Choose the correct letter for each question (50 questions · 30 minutes).",
       "questions": [
         {
-          "id": "grammar-vocabulary-1",
+          "id": "g-1",
           "type": "multiple-choice",
-          "prompt": "Choose the correct sentence.",
+          "prompt": "I’m 18 and my brother is 20, so he’s _____ me.",
           "options": [
-            "The teachers has completed the training.",
-            "The teachers have completed the training.",
-            "The teachers completing the training.",
-            "The teachers is completed the training."
+            "the oldest of",
+            "older than",
+            "as old as"
           ],
-          "answer": "The teachers have completed the training."
+          "answer": "older than"
         },
         {
-          "id": "grammar-vocabulary-2",
+          "id": "g-2",
           "type": "multiple-choice",
-          "prompt": "Choose the word that best completes the sentence: The workshop gave staff a useful _____ into effective feedback.",
+          "prompt": "Carl’s very _____. He’s never late, and he never forgets to do things.",
           "options": [
-            "insight",
-            "announce",
-            "decision",
-            "requirement"
+            "reliable",
+            "patient",
+            "strict"
           ],
-          "answer": "insight"
+          "answer": "reliable"
         },
         {
-          "id": "grammar-vocabulary-3",
+          "id": "g-3",
           "type": "multiple-choice",
-          "prompt": "If the meeting _____ earlier, we can discuss the new timetable.",
+          "prompt": "We stayed in a lovely villa _____ the sea.",
           "options": [
-            "finishes",
-            "finished",
-            "will finish",
-            "finishing"
+            "it overlooks",
+            "overlooked",
+            "overlooking"
           ],
-          "answer": "finishes"
+          "answer": "overlooking"
         },
         {
-          "id": "grammar-vocabulary-4",
+          "id": "g-4",
           "type": "multiple-choice",
-          "prompt": "Choose the best word: The principal asked staff to _____ their ideas before Friday.",
+          "prompt": "Not until the 1980s _____ for the average person to own a computer.",
           "options": [
-            "submit",
-            "submission",
-            "submitting",
-            "submitted"
+            "it was possible",
+            "was it possible",
+            "was possible"
           ],
-          "answer": "submit"
+          "answer": "was it possible"
         },
         {
-          "id": "grammar-vocabulary-5",
+          "id": "g-5",
           "type": "multiple-choice",
-          "prompt": "Which sentence is correct?",
+          "prompt": "Jan _____ her arm on a hot iron.",
           "options": [
-            "I have taught here since three years.",
-            "I teach here since three years.",
-            "I have been teaching here for three years.",
-            "I am teaching here for three years."
+            "broke",
+            "burned",
+            "sprained"
           ],
-          "answer": "I have been teaching here for three years."
+          "answer": "burned"
         },
         {
-          "id": "grammar-vocabulary-6",
+          "id": "g-6",
           "type": "multiple-choice",
-          "prompt": "The new policy will come into _____ next month.",
+          "prompt": "Tomorrow’s a holiday, so we _____ go to work.",
           "options": [
-            "effect",
-            "affect",
-            "effective",
-            "affection"
+            "have to",
+            "mustn’t",
+            "don’t have to"
           ],
-          "answer": "effect"
+          "answer": "don’t have to"
         },
         {
-          "id": "grammar-vocabulary-7",
+          "id": "g-7",
           "type": "multiple-choice",
-          "prompt": "She _____ the report before lunch.",
+          "prompt": "I usually _____ swimming at least once a week.",
           "options": [
-            "finished",
-            "finish",
-            "has finish",
-            "finishing"
+            "go",
+            "do",
+            "play"
           ],
-          "answer": "finished"
+          "answer": "go"
         },
         {
-          "id": "grammar-vocabulary-8",
+          "id": "g-8",
           "type": "multiple-choice",
-          "prompt": "Choose the best word: a _____ decision.",
+          "prompt": "My friend Siena _____ to Russia last year.",
           "options": [
-            "careful",
-            "carefully",
-            "care",
-            "caringly"
+            "went",
+            "has gone",
+            "has been"
           ],
-          "answer": "careful"
+          "answer": "went"
         },
         {
-          "id": "grammar-vocabulary-9",
+          "id": "g-9",
           "type": "multiple-choice",
-          "prompt": "Neither teacher _____ absent today.",
+          "prompt": "This is _____ area, with a lot of factories and warehouses.",
           "options": [
-            "is",
-            "are",
-            "were",
-            "be"
+            "an agricultural",
+            "an industrial",
+            "a residential"
           ],
-          "answer": "is"
+          "answer": "an industrial"
         },
         {
-          "id": "grammar-vocabulary-10",
+          "id": "g-10",
           "type": "multiple-choice",
-          "prompt": "We need _____ the parents soon.",
+          "prompt": "If I ........ well in my exams, I _____ to university.",
           "options": [
-            "to contact",
-            "contacting",
-            "contact",
-            "contacted"
+            "will do; will go",
+            "will do; go",
+            "do; will go"
           ],
-          "answer": "to contact"
+          "answer": "do; will go"
         },
         {
-          "id": "grammar-vocabulary-11",
+          "id": "g-11",
           "type": "multiple-choice",
-          "prompt": "The lesson was _____ than expected.",
+          "prompt": "She was so upset that she burst ........ tears.",
           "options": [
-            "more engaging",
-            "most engaging",
-            "engaging",
-            "engage"
+            "into",
+            "out",
+            "with"
           ],
-          "answer": "more engaging"
+          "answer": "into"
         },
         {
-          "id": "grammar-vocabulary-12",
+          "id": "g-12",
           "type": "multiple-choice",
-          "prompt": "Please turn _____ your homework.",
-          "options": [
-            "in",
-            "on",
-            "at",
-            "over"
-          ],
-          "answer": "in"
-        },
-        {
-          "id": "grammar-vocabulary-13",
-          "type": "multiple-choice",
-          "prompt": "By next year, they _____ the project.",
-          "options": [
-            "will have completed",
-            "complete",
-            "completed",
-            "are completing"
-          ],
-          "answer": "will have completed"
-        },
-        {
-          "id": "grammar-vocabulary-14",
-          "type": "multiple-choice",
-          "prompt": "The teacher explained it _____.",
-          "options": [
-            "clearly",
-            "clear",
-            "clarity",
-            "clearest"
-          ],
-          "answer": "clearly"
-        },
-        {
-          "id": "grammar-vocabulary-15",
-          "type": "multiple-choice",
-          "prompt": "I wish I _____ more time.",
-          "options": [
-            "had",
-            "have",
-            "will have",
-            "having"
-          ],
-          "answer": "had"
-        },
-        {
-          "id": "grammar-vocabulary-16",
-          "type": "multiple-choice",
-          "prompt": "Her advice was very _____.",
-          "options": [
-            "useful",
-            "usefully",
-            "use",
-            "usage"
-          ],
-          "answer": "useful"
-        },
-        {
-          "id": "grammar-vocabulary-17",
-          "type": "multiple-choice",
-          "prompt": "He asked me where I _____.",
-          "options": [
-            "lived",
-            "live",
-            "am living",
-            "will live"
-          ],
-          "answer": "lived"
-        },
-        {
-          "id": "grammar-vocabulary-18",
-          "type": "multiple-choice",
-          "prompt": "The school is responsible _____ student safety.",
+          "prompt": "Where did you go _____ holiday last year?",
           "options": [
             "for",
-            "to",
-            "with",
-            "at"
+            "on",
+            "to"
+          ],
+          "answer": "on"
+        },
+        {
+          "id": "g-13",
+          "type": "multiple-choice",
+          "prompt": "Ocean currents _____ play an important part in regulating global climate.",
+          "options": [
+            "are known to",
+            "thought to",
+            "are believed that they"
+          ],
+          "answer": "are known to"
+        },
+        {
+          "id": "g-14",
+          "type": "multiple-choice",
+          "prompt": "My cousin _____ getting a job in Bahrain.",
+          "options": [
+            "would like",
+            "is planning",
+            "is thinking of"
+          ],
+          "answer": "is thinking of"
+        },
+        {
+          "id": "g-15",
+          "type": "multiple-choice",
+          "prompt": "I can’t _____ your hair, because I haven’t got any scissors.",
+          "options": [
+            "brush",
+            "cut",
+            "wash"
+          ],
+          "answer": "cut"
+        },
+        {
+          "id": "g-16",
+          "type": "multiple-choice",
+          "prompt": "I wish I _____ have an exam tomorrow!",
+          "options": [
+            "don’t",
+            "didn’t",
+            "won’t"
+          ],
+          "answer": "didn’t"
+        },
+        {
+          "id": "g-17",
+          "type": "multiple-choice",
+          "prompt": "The government plans to _____ taxes on sales of luxury items.",
+          "options": [
+            "increase",
+            "expand",
+            "go up"
+          ],
+          "answer": "increase"
+        },
+        {
+          "id": "g-18",
+          "type": "multiple-choice",
+          "prompt": "When I first moved to Hong Kong, life in a different country was very strange, but now I’m used _____ here.",
+          "options": [
+            "living",
+            "to live",
+            "to living"
+          ],
+          "answer": "to living"
+        },
+        {
+          "id": "g-19",
+          "type": "multiple-choice",
+          "prompt": "There _____ milk in the fridge.",
+          "options": [
+            "is some",
+            "are some",
+            "is a"
+          ],
+          "answer": "is some"
+        },
+        {
+          "id": "g-20",
+          "type": "multiple-choice",
+          "prompt": "Criminals are people who are guilty of _____ the law.",
+          "options": [
+            "breaking",
+            "cheating",
+            "committing"
+          ],
+          "answer": "breaking"
+        },
+        {
+          "id": "g-21",
+          "type": "multiple-choice",
+          "prompt": "Why on earth isn’t Josh here yet? ........ for him for over an hour!",
+          "options": [
+            "I’m waiting",
+            "I’ve been waiting",
+            "I’ve waited"
+          ],
+          "answer": "I’ve been waiting"
+        },
+        {
+          "id": "g-22",
+          "type": "multiple-choice",
+          "prompt": "“It’s pouring down, and it’s freezing.” What are the weather conditions?",
+          "options": [
+            "high winds and snow",
+            "heavy rain and cold temperatures",
+            "thick cloud but quite warm"
+          ],
+          "answer": "heavy rain and cold temperatures"
+        },
+        {
+          "id": "g-23",
+          "type": "multiple-choice",
+          "prompt": "_____ feeling OK? You don’t look very well.",
+          "options": [
+            "Do you",
+            "You are",
+            "Are you"
+          ],
+          "answer": "Are you"
+        },
+        {
+          "id": "g-24",
+          "type": "multiple-choice",
+          "prompt": "Daniel’s hair is getting far too long; he should _____ soon.",
+          "options": [
+            "cut it",
+            "have cut it",
+            "have it cut"
+          ],
+          "answer": "have it cut"
+        },
+        {
+          "id": "g-25",
+          "type": "multiple-choice",
+          "prompt": "Mandy works for a computer software company. She got _____ recently, and so now she’s an area manager.",
+          "options": [
+            "made redundant",
+            "promoted",
+            "a raise"
+          ],
+          "answer": "promoted"
+        },
+        {
+          "id": "g-26",
+          "type": "multiple-choice",
+          "prompt": "I can’t hear you – it’s _____ noisy in here.",
+          "options": [
+            "too",
+            "too much",
+            "too many"
+          ],
+          "answer": "too"
+        },
+        {
+          "id": "g-27",
+          "type": "multiple-choice",
+          "prompt": "Jamal has just sent me _____ to arrange plans for this weekend.",
+          "options": [
+            "a blog",
+            "an email",
+            "a website"
+          ],
+          "answer": "an email"
+        },
+        {
+          "id": "g-28",
+          "type": "multiple-choice",
+          "prompt": "I promise I’ll call you as soon as I ........ .",
+          "options": [
+            "I arrive",
+            "I arrived",
+            "I’ll arrive"
+          ],
+          "answer": "I arrive"
+        },
+        {
+          "id": "g-29",
+          "type": "multiple-choice",
+          "prompt": "Photographers and designers need to be very ........ .",
+          "options": [
+            "creative",
+            "fit",
+            "annoying"
+          ],
+          "answer": "creative"
+        },
+        {
+          "id": "g-30",
+          "type": "multiple-choice",
+          "prompt": "The global financial crisis, _____ is forcing lots of small businesses to close, does not look set to end soon.",
+          "options": [
+            "it",
+            "that",
+            "which"
+          ],
+          "answer": "which"
+        },
+        {
+          "id": "g-31",
+          "type": "multiple-choice",
+          "prompt": "There _____ a terrible accident if the pilot hadn’t reacted so quickly.",
+          "options": [
+            "had been",
+            "was",
+            "would have been"
+          ],
+          "answer": "would have been"
+        },
+        {
+          "id": "g-32",
+          "type": "multiple-choice",
+          "prompt": "“Are you ready to order?”\n“Not yet – I’m still looking at the _____”",
+          "options": [
+            "bill",
+            "menu",
+            "service"
+          ],
+          "answer": "menu"
+        },
+        {
+          "id": "g-33",
+          "type": "multiple-choice",
+          "prompt": "“My job is never boring.”\nThe speaker’s job is always ........ .",
+          "options": [
+            "interesting",
+            "popular",
+            "difficult"
+          ],
+          "answer": "interesting"
+        },
+        {
+          "id": "g-34",
+          "type": "multiple-choice",
+          "prompt": "I’ve been working here _____ about the last two years.",
+          "options": [
+            "during",
+            "for",
+            "since"
           ],
           "answer": "for"
         },
         {
-          "id": "grammar-vocabulary-19",
+          "id": "g-35",
           "type": "multiple-choice",
-          "prompt": "This is the book _____ I borrowed.",
+          "prompt": "“It leaves from Platform 2 at 4.15.” The speaker is talking about ........ .",
           "options": [
-            "that",
-            "who",
-            "where",
-            "what"
+            "an airline flight",
+            "a train",
+            "a taxi"
           ],
-          "answer": "that"
+          "answer": "a train"
         },
         {
-          "id": "grammar-vocabulary-20",
+          "id": "g-36",
           "type": "multiple-choice",
-          "prompt": "The staff _____ meeting now.",
+          "prompt": "I went to a lovely _____ last Saturday. The bride was my best friend when we were at school.",
           "options": [
-            "are",
-            "is",
-            "be",
-            "was"
+            "anniversary",
+            "marriage",
+            "wedding"
           ],
-          "answer": "are"
-        }
-      ]
-    },
-    {
-      "id": "reading",
-      "label": "Reading",
-      "durationMinutes": 20,
-      "instructions": "Read the academic text below carefully and answer all 20 comprehension questions. Questions evaluate main ideas, specific factual details, inferences, vocabulary in context, and author intent.",
-      "passage": "Pedagogical Evolution: Differentiated Instruction, Formative Assessment, and Cognitive Engagement in Modern Education\n\n[A] In contemporary educational institutions, continuous professional development is no longer conceptualized as an isolated annual workshop, but rather as an ongoing, systematic inquiry into instructional efficacy. Traditional teacher development often relied heavily on passive lecture delivery; in contrast, modern pedagogical paradigms prioritize reflective practice, structured peer observation, and evidence-informed decision-making. When educators actively analyze classroom dynamics in light of tangible empirical evidence, their capacity to adapt to diverse student needs and improve learning outcomes increases substantially.\n\n[B] A central pillar of this reflective culture is collaborative peer observation. When peer observation is framed supportively rather than evaluatively or punitively, teachers feel safe to examine challenging classroom routines and discuss nuanced pedagogical refinements. Rather than assigning numerical scores or ranking colleagues, the observer serves as an objective documenter of classroom interactions, recording qualitative and quantitative data on student participation rates, the pacing of lesson phases, student engagement levels, and the clarity of instructional scaffolding.\n\n[C] A crucial dimension of classroom instruction scrutinized during peer reviews is cognitive load management. Grounded in Cognitive Load Theory, research demonstrates that learners possess strictly limited working memory capacities. When educators overwhelm students with convoluted simultaneous instructions, excessive unstructured text, or disorganized board presentations, cognitive overload ensues and comprehension falters. Effective practitioners mitigate this risk through deliberate instructional scaffolding—breaking intricate conceptual tasks into manageable sequences, providing explicit visual and verbal models, and verifying student comprehension before transitioning to independent practice.\n\n[D] Following the classroom observation, the educators participate in a structured post-observation conference. This dialogue is designed not as an administrative appraisal, but as a reflective professional discussion centered around the collected classroom evidence. Grounding the conversation in objective observations rather than subjective impressions enables teachers to collaboratively diagnose specific learning bottlenecks, celebrate successful pedagogical moments, and formulate concrete, actionable improvement milestones for upcoming teaching cycles.\n\n[E] Differentiated instruction represents another vital component of modern classroom pedagogy. In heterogeneous classrooms comprising multi-ability learners, mixed language proficiencies, and varying cognitive backgrounds, a rigid, uniform curriculum inevitably leaves struggling learners behind while failing to stretch advanced students. Differentiated instruction addresses this variance by modifying content access, instructional processes, and learning products according to students' readiness levels, individual learning profiles, and cognitive interests.\n\n[F] Operating in synergy with differentiation is the deliberate deployment of formative assessment. Unlike summative evaluations which merely measure and record student attainment at the culmination of an academic term, formative assessments function as continuous diagnostic checkpoints embedded directly into daily learning activities. Practices such as digital exit tickets, peer review protocols, and targeted questioning provide immediate feedback loops. This real-time insight allows teachers to dynamically adjust their instructional pacing while empowering students to cultivate metacognitive self-regulation over their own progress.\n\n[G] Ultimately, the long-term sustainability of classroom innovation rests upon an institutional culture of collaborative leadership and psychological safety. When school leaders foster an environment where educators can safely take calculated pedagogical risks, share interdisciplinary resources, and participate in constructive professional discourse, schoolwide instructional quality rises. Sustainable educational improvement is never the result of isolated individual effort, but the product of a unified institutional commitment to instructional excellence.",
-      "questions": [
-        {
-          "id": "reading-1",
-          "type": "multiple-choice",
-          "prompt": "According to Paragraph [A], how does modern professional development differ from traditional workshops?",
-          "options": [
-            "It emphasizes continuous reflective inquiry and evidence-informed practice rather than passive lectures",
-            "It eliminates the need for teachers to observe their peers in the classroom",
-            "It focuses solely on administrative compliance and annual examinations",
-            "It requires teachers to work completely independently without school support"
-          ],
-          "answer": "It emphasizes continuous reflective inquiry and evidence-informed practice rather than passive lectures"
+          "answer": "wedding"
         },
         {
-          "id": "reading-2",
+          "id": "g-37",
           "type": "multiple-choice",
-          "prompt": "In Paragraph [B], what is the primary role of the peer observer during a classroom visit?",
+          "prompt": "“I’ve got a headache.”\n“Maybe you _____ to take an aspirin.”",
           "options": [
-            "To act as an objective documenter collecting qualitative and quantitative classroom data",
-            "To assign formal grades and numerical rankings to the instructor",
-            "To take over classroom management and discipline disruptive students",
-            "To deliver the second half of the lesson plan to students"
+            "should",
+            "ought",
+            "don’t"
           ],
-          "answer": "To act as an objective documenter collecting qualitative and quantitative classroom data"
+          "answer": "ought"
         },
         {
-          "id": "reading-3",
+          "id": "g-38",
           "type": "multiple-choice",
-          "prompt": "Why is peer observation most effective when structured collaboratively rather than evaluatively (Paragraph [B])?",
+          "prompt": "The patient had an _____ to insert metal pins in his broken leg.",
           "options": [
-            "It fosters psychological safety so educators can examine challenging routines and refine practice",
-            "It allows school leadership to determine end-of-year salary deductions",
-            "It reduces the total number of classroom hours teachers must teach",
-            "It ensures that all teachers follow identical scripted lesson plans"
+            "injection",
+            "operation",
+            "X-ray"
           ],
-          "answer": "It fosters psychological safety so educators can examine challenging routines and refine practice"
+          "answer": "operation"
         },
         {
-          "id": "reading-4",
+          "id": "g-39",
           "type": "multiple-choice",
-          "prompt": "According to Cognitive Load Theory discussed in Paragraph [C], what creates learning barriers for students?",
+          "prompt": "She won a seat in parliament at the last ........ .",
           "options": [
-            "Overwhelming learners with convoluted directions and unstructured presentations that exceed working memory",
-            "Providing students with clear visual models and explicit worked examples",
-            "Checking for student understanding prior to independent practice",
-            "Allowing students sufficient time to process newly introduced concepts"
+            "general election",
+            "opinion poll",
+            "referendum"
           ],
-          "answer": "Overwhelming learners with convoluted directions and unstructured presentations that exceed working memory"
+          "answer": "general election"
         },
         {
-          "id": "reading-5",
+          "id": "g-40",
           "type": "multiple-choice",
-          "prompt": "Which technique is highlighted in Paragraph [C] as an effective method for reducing cognitive overload?",
+          "prompt": "I’m surprised you didn’t get upset. If someone said that to me, _____ really angry.",
           "options": [
-            "Instructional scaffolding that breaks complex tasks into manageable sequential steps",
-            "Assigning double homework tasks at the beginning of each week",
-            "Skipping introductory modeling and moving immediately to difficult tests",
-            "Presenting all lesson information purely in rapid spoken monologues"
+            "I’m",
+            "I was",
+            "I’d be"
           ],
-          "answer": "Instructional scaffolding that breaks complex tasks into manageable sequential steps"
+          "answer": "I’d be"
         },
         {
-          "id": "reading-6",
+          "id": "g-41",
           "type": "multiple-choice",
-          "prompt": "In Paragraph [D], what is the key characteristic of an effective post-observation conference?",
+          "prompt": "This used to be _____ part of the city, but since the old buildings were renovated it’s become a very fashionable area.",
           "options": [
-            "A collaborative dialogue grounded in factual evidence to diagnose bottlenecks and set actionable goals",
-            "A one-way critique where the observer lists all personal dislikes regarding the teacher",
-            "A formal hearing to determine whether a teacher's contract should be renewed",
-            "A brief written message sent by email without verbal discussion"
+            "an affluent",
+            "a run-down",
+            "a trendy"
           ],
-          "answer": "A collaborative dialogue grounded in factual evidence to diagnose bottlenecks and set actionable goals"
+          "answer": "a run-down"
         },
         {
-          "id": "reading-7",
+          "id": "g-42",
           "type": "multiple-choice",
-          "prompt": "What major drawback of a rigid, uniform curriculum is identified in Paragraph [E]?",
+          "prompt": "Cassie went to bed early because she was ........ .",
           "options": [
-            "It leaves struggling learners behind while failing to sufficiently challenge advanced students",
-            "It requires too many digital tools and textbooks to maintain",
-            "It forces schools to hire external consultants for every academic subject",
-            "It prevents teachers from ever administering formal summative assessments"
+            "tired",
+            "stressed",
+            "relaxed"
           ],
-          "answer": "It leaves struggling learners behind while failing to sufficiently challenge advanced students"
+          "answer": "tired"
         },
         {
-          "id": "reading-8",
+          "id": "g-43",
           "type": "multiple-choice",
-          "prompt": "How does differentiated instruction adapt to student diversity according to Paragraph [E]?",
+          "prompt": "In the 1960s, computers were ........ expensive that ordinary people couldn’t afford them.",
           "options": [
-            "By modifying content access, instructional processes, and learning products to match learner profiles",
-            "By placing students into separate classrooms permanently based on age alone",
-            "By lowering academic standards across all subjects for every student",
-            "By replacing all teacher-led instruction with autonomous online browsing"
+            "so",
+            "such",
+            "too"
           ],
-          "answer": "By modifying content access, instructional processes, and learning products to match learner profiles"
+          "answer": "so"
         },
         {
-          "id": "reading-9",
+          "id": "g-44",
           "type": "multiple-choice",
-          "prompt": "According to Paragraph [F], how do formative assessments fundamentally differ from summative evaluations?",
+          "prompt": "Do you want _____ the match tonight?",
           "options": [
-            "Formative assessments provide continuous real-time diagnostic feedback during lessons rather than merely grading at the end",
-            "Formative assessments determine official term marks and student grade point averages",
-            "Formative assessments can only be administered at the end of the school semester",
-            "Formative assessments are strictly designed for high-stakes university admissions"
+            "watching",
+            "watch",
+            "to watch"
           ],
-          "answer": "Formative assessments provide continuous real-time diagnostic feedback during lessons rather than merely grading at the end"
+          "answer": "to watch"
         },
         {
-          "id": "reading-10",
+          "id": "g-45",
           "type": "multiple-choice",
-          "prompt": "Which of the following is mentioned in Paragraph [F] as a practical formative assessment strategy?",
+          "prompt": "Researchers claim the new discovery is a major _____ in the fight against malaria.",
           "options": [
-            "Digital exit tickets, peer review protocols, and targeted questioning",
-            "Standardized national multiple-choice final exams",
-            "Annual parent satisfaction surveys",
-            "End-of-term handwritten report card comments"
+            "breakthrough",
+            "investigation",
+            "progress"
           ],
-          "answer": "Digital exit tickets, peer review protocols, and targeted questioning"
+          "answer": "breakthrough"
         },
         {
-          "id": "reading-11",
+          "id": "g-46",
           "type": "multiple-choice",
-          "prompt": "According to Paragraph [F], what student capacity is fostered by real-time formative feedback loops?",
+          "prompt": "The Maths problem was really difficult and I just couldn’t _____ the answer.",
           "options": [
-            "Metacognitive self-regulation over their own learning progress",
-            "Speed in completing standardized tests under time pressure",
-            "Memorization of complex dictionary definitions without context",
-            "Dependence on continuous teacher supervision during every task"
+            "check in",
+            "set off",
+            "work out"
           ],
-          "answer": "Metacognitive self-regulation over their own learning progress"
+          "answer": "work out"
         },
         {
-          "id": "reading-12",
+          "id": "g-47",
           "type": "multiple-choice",
-          "prompt": "In Paragraph [G], what institutional factor is described as essential for sustaining classroom innovation?",
+          "prompt": "When I was a child, I never _____ about the future.",
           "options": [
-            "An institutional culture of collaborative leadership and psychological safety",
-            "Strict penalties for any teacher whose lesson deviates from standard scripts",
-            "Reducing all teacher planning time to increase instructional hours",
-            "Relying entirely on external commercial textbook publishers"
+            "have worried",
+            "used to worry",
+            "was worrying"
           ],
-          "answer": "An institutional culture of collaborative leadership and psychological safety"
+          "answer": "used to worry"
         },
         {
-          "id": "reading-13",
+          "id": "g-48",
           "type": "multiple-choice",
-          "prompt": "The word 'scaffolding' in Paragraph [C] most nearly refers to:",
+          "prompt": "A local politician has _____ charges of corruption made by the opposition party.",
           "options": [
-            "Structured supportive frameworks that guide learners toward conceptual mastery",
-            "Physical construction equipment used to repair school buildings",
-            "A software program used to calculate school budgets",
-            "A method for seating students in alphabetical order"
+            "accused",
+            "blamed",
+            "denied"
           ],
-          "answer": "Structured supportive frameworks that guide learners toward conceptual mastery"
+          "answer": "denied"
         },
         {
-          "id": "reading-14",
+          "id": "g-49",
           "type": "multiple-choice",
-          "prompt": "The word 'heterogeneous' in Paragraph [E] describes classrooms that are:",
+          "prompt": "_____ worries me about society today is how completely we have come to depend on technology.",
           "options": [
-            "Diverse in learner abilities, backgrounds, and readiness levels",
-            "Composed entirely of students with identical test scores",
-            "Restricted to advanced honors students only",
-            "Conducted exclusively through remote online platforms"
+            "That",
+            "What",
+            "Which"
           ],
-          "answer": "Diverse in learner abilities, backgrounds, and readiness levels"
+          "answer": "What"
         },
         {
-          "id": "reading-15",
+          "id": "g-50",
           "type": "multiple-choice",
-          "prompt": "Which of the following data types would a collaborative peer observer record (Paragraph [B])?",
+          "prompt": "Cats and dogs are usually kept as ........ .",
           "options": [
-            "Student participation rates and pacing of lesson phases",
-            "The personal opinions of the observer regarding the teacher's dress code",
-            "The financial cost of classroom furniture",
-            "The teacher's private personnel record"
+            "farm animals",
+            "wild animals",
+            "pets"
           ],
-          "answer": "Student participation rates and pacing of lesson phases"
+          "answer": "pets"
         }
       ]
     },
     {
       "id": "writing",
-      "label": "Writing",
-      "durationMinutes": 15,
-      "instructions": "Complete both original writing tasks. Write thoughtful and well-structured paragraphs.",
-      "questions": [
+      "label": "Writing Placement Test",
+      "durationMinutes": 20,
+      "selectionType": "single_choice",
+      "requiredSelections": 1,
+      "instructions": "Choose ONE of these topics and write about it. Create 1 Essay based on your selected topic (20 minutes).",
+      "topics": [
         {
-          "id": "writing-1",
+          "id": "w-topic-1",
+          "title": "Personal Profile",
           "type": "essay",
-          "prompt": "Some people think professional development should be chosen by teachers, while others think school leaders should decide. Discuss both views and give your own opinion.",
-          "rubric": {
-            "criteria": [
-              "Task Response",
-              "Coherence and Cohesion",
-              "Lexical Resource",
-              "Grammatical Range and Accuracy"
-            ],
-            "weight": "equal"
-          }
+          "prompt": "Write a personal profile about yourself for a website where you can meet new Internet friends.",
+          "guidingQuestions": [
+            "What is your name, age, etc.?",
+            "Where you are from, and what do you do?",
+            "What do you look like, and what sort of person are you?",
+            "What are your interests and your likes/dislikes?",
+            "What sort of new friends do you want to meet?"
+          ]
         },
         {
-          "id": "writing-2",
-          "type": "short-essay",
-          "prompt": "Write a short response explaining one change that could improve communication between teachers and parents.",
-          "rubric": {
-            "criteria": [
-              "Task Response",
-              "Coherence and Cohesion",
-              "Lexical Resource",
-              "Grammatical Range and Accuracy"
-            ],
-            "weight": "equal"
-          }
+          "id": "w-topic-2",
+          "title": "Email to a Friend",
+          "type": "essay",
+          "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
+          "guidingQuestions": [
+            "How big the country is, where it is and what the land is like (forests, mountains, etc.)",
+            "Main cities, famous landmarks and tourist attractions",
+            "The local language(s) and culture",
+            "What the people are like",
+            "Traditional food, music, dances, etc. of your country",
+            "You should finish your email by inviting your friend to visit your country some time so that they can see what it is like."
+          ]
+        },
+        {
+          "id": "w-topic-3",
+          "title": "Childhood Memory",
+          "type": "essay",
+          "prompt": "Write about a strong childhood memory – for example, something that made you very happy or very frightened.",
+          "guidingQuestions": [
+            "Briefly explain how old you were and where you were, and tell the story of what happened.",
+            "Try to remember details such as sounds, smells, colours and the weather, and describe these in your story.",
+            "Explain how you felt and why you felt this way.",
+            "How do you feel now about the event?"
+          ]
+        },
+        {
+          "id": "w-topic-4",
+          "title": "Film, Play, or Book Review",
+          "type": "essay",
+          "prompt": "Write a review of your favourite film, play or book.",
+          "guidingQuestions": [
+            "Explain what type of work it is (for example, a comedy film, a romantic novel, etc.)",
+            "Say where and when the story takes place, and briefly describe what happens.",
+            "Describe the main characters, and say whether you like or dislike each of them, and why.",
+            "Try to explain why this work is your favourite."
+          ]
+        },
+        {
+          "id": "w-topic-5",
+          "title": "Opinion Essay",
+          "type": "essay",
+          "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
+          "guidingQuestions": [
+            "Medicine, scientific research, technology",
+            "War, conflict between countries/groups",
+            "Freedom and human rights",
+            "Education, knowledge and skills",
+            "Quality of life",
+            "You should finish your article with a short conclusion summarising the main argument."
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "id": "w-topic-1",
+          "title": "Personal Profile",
+          "type": "essay",
+          "prompt": "Write a personal profile about yourself for a website where you can meet new Internet friends.",
+          "guidingQuestions": [
+            "What is your name, age, etc.?",
+            "Where you are from, and what do you do?",
+            "What do you look like, and what sort of person are you?",
+            "What are your interests and your likes/dislikes?",
+            "What sort of new friends do you want to meet?"
+          ]
+        },
+        {
+          "id": "w-topic-2",
+          "title": "Email to a Friend",
+          "type": "essay",
+          "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
+          "guidingQuestions": [
+            "How big the country is, where it is and what the land is like (forests, mountains, etc.)",
+            "Main cities, famous landmarks and tourist attractions",
+            "The local language(s) and culture",
+            "What the people are like",
+            "Traditional food, music, dances, etc. of your country",
+            "You should finish your email by inviting your friend to visit your country some time so that they can see what it is like."
+          ]
+        },
+        {
+          "id": "w-topic-3",
+          "title": "Childhood Memory",
+          "type": "essay",
+          "prompt": "Write about a strong childhood memory – for example, something that made you very happy or very frightened.",
+          "guidingQuestions": [
+            "Briefly explain how old you were and where you were, and tell the story of what happened.",
+            "Try to remember details such as sounds, smells, colours and the weather, and describe these in your story.",
+            "Explain how you felt and why you felt this way.",
+            "How do you feel now about the event?"
+          ]
+        },
+        {
+          "id": "w-topic-4",
+          "title": "Film, Play, or Book Review",
+          "type": "essay",
+          "prompt": "Write a review of your favourite film, play or book.",
+          "guidingQuestions": [
+            "Explain what type of work it is (for example, a comedy film, a romantic novel, etc.)",
+            "Say where and when the story takes place, and briefly describe what happens.",
+            "Describe the main characters, and say whether you like or dislike each of them, and why.",
+            "Try to explain why this work is your favourite."
+          ]
+        },
+        {
+          "id": "w-topic-5",
+          "title": "Opinion Essay",
+          "type": "essay",
+          "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
+          "guidingQuestions": [
+            "Medicine, scientific research, technology",
+            "War, conflict between countries/groups",
+            "Freedom and human rights",
+            "Education, knowledge and skills",
+            "Quality of life",
+            "You should finish your article with a short conclusion summarising the main argument."
+          ]
         }
       ]
     },
     {
       "id": "speaking",
-      "label": "Speaking",
-      "durationMinutes": 10,
-      "instructions": "Record your spoken response for each interview question using your camera and microphone. Aim for 1 to 2 minutes per response.",
+      "label": "Oral Placement Test",
+      "durationMinutes": 20,
+      "navigationType": "sequential_next_button",
+      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 21 questions until all prompts are completed or the 20-minute time limit is reached[cite: 3].",
+      "scoring": {
+        "minScore": 1,
+        "maxScore": 5
+      },
       "questions": [
         {
-          "id": "speaking-1",
-          "type": "speaking-prompt",
-          "part": "Part 1: Teacher Introduction & Methodology",
-          "prompt": "Please introduce yourself, state your subject or grade area, and describe one active learning strategy or classroom routine you rely on to keep students engaged.",
-          "guidance": "Speak clearly for 1–2 minutes. Focus on practical classroom examples.",
-          "rubric": {
-            "criteria": [
-              "Fluency",
-              "Vocabulary",
-              "Grammar",
-              "Communication"
-            ],
-            "weight": "equal"
-          }
+          "id": "s-1",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Personal information",
+          "prompt": "What’s your name? How do you spell it? Where do you live? What’s your phone number? What’s your email address?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
         },
         {
-          "id": "speaking-2",
-          "type": "speaking-prompt",
-          "part": "Part 2: Classroom Challenge & Resolution",
-          "prompt": "Describe a difficult situation you encountered with a student or parent. How did you resolve the situation, and what insight did you gain from that experience?",
-          "guidance": "Explain the context, the actions you took, and the lasting learning outcome.",
-          "rubric": {
-            "criteria": [
-              "Fluency",
-              "Vocabulary",
-              "Grammar",
-              "Communication"
-            ],
-            "weight": "equal"
-          }
+          "id": "s-2",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Family",
+          "prompt": "How many people are there in your family? Tell me about your parents / brothers or sisters / children. What are their names, ages, etc?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-3",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "Where are you from? What is your home town or city? Do (or did) you like living there? Is it: – big? – beautiful? – noisy? – clean?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-4",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Studies",
+          "prompt": "What do (or did) you study? Is (or was) it: – interesting? – difficult? What will you do (or did you do) after finishing your studies?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-5",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Work",
+          "prompt": "What job do you do (or want to do)? When did (or will) you start working? Why did (or do) you want to do this job?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-6",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Appearance & character",
+          "prompt": "Tell me about your best friend. Describe his/her appearance (e.g. colour of hair/eyes, height) and character (e.g. kind, funny). When did you meet?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-7",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "What’s the weather like today? Which is your favourite season? What is the weather like then? What weather makes you feel happy/sad/etc?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-8",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "Do you enjoy shopping? How often do you go shopping? Do you go shopping alone or with friends? What sort of things do you usually buy?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-9",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "How much exercise do you do? Is exercise important? Why (not)? Do you like playing/watching sports? What sports do you like playing/watching?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-10",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Do you usually eat healthy meals? What is some of your favourite food? Do you like eating out (e.g. restaurants)? Why (not)? Do you like cooking?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-11",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "Do you like animals? What are some of your favourite animals? What pet(s) do you have (or would you like to have)? How do animals help people?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-12",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Computers & gadgets",
+          "prompt": "Do you often use computers, mp3 players, games consoles, etc? What do you mainly use the Internet for? What problems can computers/etc cause?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-13",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "What languages do you speak? Is it important to speak several languages? Why (not)? Is it a good or bad thing that most people in the world learn English?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-14",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Do you like to travel? Why (not)? What place would you most like to visit? Why? What’s your (least) favourite way to travel? Does travel really ‘broaden the mind’?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-15",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Crime",
+          "prompt": "Is crime a problem in this (or your) country? What can be done to reduce crime? Are the laws in this (or your) country generally too strict, or not strict enough?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-16",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Careers",
+          "prompt": "What sort of career do you want? What do you want most from it (e.g. money, creativity, etc)? Should a career be the most important thing in someone’s life?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-17",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "How often do you listen to music, read a book, visit an exhibition? Do you play an instrument/paint/write/etc? Are art/music/etc important to society? Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-18",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "How closely do you follow the news? Which media (e.g. TV, newspapers, online) cover the news best? Give examples. What will news media be like in the future?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-19",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Cities",
+          "prompt": "Why do people choose to live in cities? What are the (dis)advantages of city life, compared to living in the countryside? Which do/would you prefer?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-20",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Man & nature",
+          "prompt": "How do we affect nature (e.g. rainforests)? How does nature affect us (e.g. floods)? Will problems such as pollution or endangered species ever be solved?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-21",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Society & culture",
+          "prompt": "Do you often mix with people from a different culture to yours? Do you like or dislike this? What are the benefits and/or problems of a multicultural society?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
         }
       ]
     }

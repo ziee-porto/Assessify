@@ -1,158 +1,889 @@
 {
-  "id": "kbs-placement-template",
-  "version": "1.0",
-  "title": "Custom Placement Test Template",
-  "durationMinutes": 60,
-  "audience": "Candidate Teachers / Students",
-  "sourceNote": "Template for placement test question bank. Modify or add sections as needed.",
+  "id": "ielts-placement-bank-2026",
+  "version": "2026.3",
+  "title": "KBS Comprehensive Placement Assessment",
+  "durationMinutes": 65,
+  "audience": "Candidate Teachers / Academic Faculty & Students",
+  "sourceNote": "Final Placement Test Structure: Section 1 Grammar & Vocabulary (50 questions, 30 mins), Section 2 Writing Placement Test (User selects 1 question from 5 topics to write 1 Essay, 20 mins), Section 3 Oral Placement Test (21 questions, 20 mins).",
   "sections": [
     {
       "id": "grammar-vocabulary",
       "label": "Grammar & Vocabulary",
-      "durationMinutes": 10,
-      "instructions": "Choose the best answer for each question.",
+      "durationMinutes": 30,
+      "instructions": "Choose the correct letter for each question (50 questions · 30 minutes).",
       "questions": [
         {
-          "id": "grammar-1",
+          "id": "g-1",
           "type": "multiple-choice",
-          "prompt": "Choose the correct sentence to complete the statement.",
+          "prompt": "I’m 18 and my brother is 20, so he’s _____ me.",
           "options": [
-            "Option A: Sample incorrect answer",
-            "Option B: Sample correct answer",
-            "Option C: Sample incorrect answer",
-            "Option D: Sample incorrect answer"
+            "the oldest of",
+            "older than",
+            "as old as"
           ],
-          "answer": "Option B: Sample correct answer"
+          "answer": "older than"
         },
         {
-          "id": "grammar-2",
+          "id": "g-2",
           "type": "multiple-choice",
-          "prompt": "The teacher asked the class to _____ their assignments before Friday.",
+          "prompt": "Carl’s very _____. He’s never late, and he never forgets to do things.",
           "options": [
-            "submit",
-            "submission",
-            "submitting",
-            "submitted"
+            "reliable",
+            "patient",
+            "strict"
           ],
-          "answer": "submit"
-        }
-      ]
-    },
-    {
-      "id": "reading",
-      "label": "Reading",
-      "durationMinutes": 15,
-      "instructions": "Read the academic text below carefully and answer the comprehension questions.",
-      "passage": "[A] Insert your reading passage here. You can format paragraphs using line breaks and bracketed letters like [A], [B], [C] for reference.\n\n[B] Second paragraph of the reading text containing details, facts, arguments, or examples for candidates to analyze.",
-      "questions": [
+          "answer": "reliable"
+        },
         {
-          "id": "reading-1",
+          "id": "g-3",
           "type": "multiple-choice",
-          "prompt": "According to Paragraph [A], what is the primary focus of the text?",
+          "prompt": "We stayed in a lovely villa _____ the sea.",
           "options": [
-            "The correct main idea from paragraph A",
-            "A misleading detail mentioned elsewhere",
-            "An incorrect assumption",
-            "An irrelevant topic"
+            "it overlooks",
+            "overlooked",
+            "overlooking"
           ],
-          "answer": "The correct main idea from paragraph A"
-        }
-      ]
-    },
-    {
-      "id": "listening",
-      "label": "Listening",
-      "durationMinutes": 15,
-      "instructions": "Listen to each audio prompt and answer the questions.",
-      "questions": [
+          "answer": "overlooking"
+        },
         {
-          "id": "listening-1",
+          "id": "g-4",
           "type": "multiple-choice",
-          "prompt": "Where will the teacher workshop take place?",
+          "prompt": "Not until the 1980s _____ for the average person to own a computer.",
           "options": [
-            "Room 101",
-            "Main Auditorium",
-            "School Library",
-            "Science Lab"
+            "it was possible",
+            "was it possible",
+            "was possible"
           ],
-          "answer": "Main Auditorium",
-          "audioScript": "Good morning staff. Please note that today's teacher workshop will begin at 9:00 AM in the Main Auditorium. Please bring your notebooks."
+          "answer": "was it possible"
+        },
+        {
+          "id": "g-5",
+          "type": "multiple-choice",
+          "prompt": "Jan _____ her arm on a hot iron.",
+          "options": [
+            "broke",
+            "burned",
+            "sprained"
+          ],
+          "answer": "burned"
+        },
+        {
+          "id": "g-6",
+          "type": "multiple-choice",
+          "prompt": "Tomorrow’s a holiday, so we _____ go to work.",
+          "options": [
+            "have to",
+            "mustn’t",
+            "don’t have to"
+          ],
+          "answer": "don’t have to"
+        },
+        {
+          "id": "g-7",
+          "type": "multiple-choice",
+          "prompt": "I usually _____ swimming at least once a week.",
+          "options": [
+            "go",
+            "do",
+            "play"
+          ],
+          "answer": "go"
+        },
+        {
+          "id": "g-8",
+          "type": "multiple-choice",
+          "prompt": "My friend Siena _____ to Russia last year.",
+          "options": [
+            "went",
+            "has gone",
+            "has been"
+          ],
+          "answer": "went"
+        },
+        {
+          "id": "g-9",
+          "type": "multiple-choice",
+          "prompt": "This is _____ area, with a lot of factories and warehouses.",
+          "options": [
+            "an agricultural",
+            "an industrial",
+            "a residential"
+          ],
+          "answer": "an industrial"
+        },
+        {
+          "id": "g-10",
+          "type": "multiple-choice",
+          "prompt": "If I ........ well in my exams, I _____ to university.",
+          "options": [
+            "will do; will go",
+            "will do; go",
+            "do; will go"
+          ],
+          "answer": "do; will go"
+        },
+        {
+          "id": "g-11",
+          "type": "multiple-choice",
+          "prompt": "She was so upset that she burst ........ tears.",
+          "options": [
+            "into",
+            "out",
+            "with"
+          ],
+          "answer": "into"
+        },
+        {
+          "id": "g-12",
+          "type": "multiple-choice",
+          "prompt": "Where did you go _____ holiday last year?",
+          "options": [
+            "for",
+            "on",
+            "to"
+          ],
+          "answer": "on"
+        },
+        {
+          "id": "g-13",
+          "type": "multiple-choice",
+          "prompt": "Ocean currents _____ play an important part in regulating global climate.",
+          "options": [
+            "are known to",
+            "thought to",
+            "are believed that they"
+          ],
+          "answer": "are known to"
+        },
+        {
+          "id": "g-14",
+          "type": "multiple-choice",
+          "prompt": "My cousin _____ getting a job in Bahrain.",
+          "options": [
+            "would like",
+            "is planning",
+            "is thinking of"
+          ],
+          "answer": "is thinking of"
+        },
+        {
+          "id": "g-15",
+          "type": "multiple-choice",
+          "prompt": "I can’t _____ your hair, because I haven’t got any scissors.",
+          "options": [
+            "brush",
+            "cut",
+            "wash"
+          ],
+          "answer": "cut"
+        },
+        {
+          "id": "g-16",
+          "type": "multiple-choice",
+          "prompt": "I wish I _____ have an exam tomorrow!",
+          "options": [
+            "don’t",
+            "didn’t",
+            "won’t"
+          ],
+          "answer": "didn’t"
+        },
+        {
+          "id": "g-17",
+          "type": "multiple-choice",
+          "prompt": "The government plans to _____ taxes on sales of luxury items.",
+          "options": [
+            "increase",
+            "expand",
+            "go up"
+          ],
+          "answer": "increase"
+        },
+        {
+          "id": "g-18",
+          "type": "multiple-choice",
+          "prompt": "When I first moved to Hong Kong, life in a different country was very strange, but now I’m used _____ here.",
+          "options": [
+            "living",
+            "to live",
+            "to living"
+          ],
+          "answer": "to living"
+        },
+        {
+          "id": "g-19",
+          "type": "multiple-choice",
+          "prompt": "There _____ milk in the fridge.",
+          "options": [
+            "is some",
+            "are some",
+            "is a"
+          ],
+          "answer": "is some"
+        },
+        {
+          "id": "g-20",
+          "type": "multiple-choice",
+          "prompt": "Criminals are people who are guilty of _____ the law.",
+          "options": [
+            "breaking",
+            "cheating",
+            "committing"
+          ],
+          "answer": "breaking"
+        },
+        {
+          "id": "g-21",
+          "type": "multiple-choice",
+          "prompt": "Why on earth isn’t Josh here yet? ........ for him for over an hour!",
+          "options": [
+            "I’m waiting",
+            "I’ve been waiting",
+            "I’ve waited"
+          ],
+          "answer": "I’ve been waiting"
+        },
+        {
+          "id": "g-22",
+          "type": "multiple-choice",
+          "prompt": "“It’s pouring down, and it’s freezing.” What are the weather conditions?",
+          "options": [
+            "high winds and snow",
+            "heavy rain and cold temperatures",
+            "thick cloud but quite warm"
+          ],
+          "answer": "heavy rain and cold temperatures"
+        },
+        {
+          "id": "g-23",
+          "type": "multiple-choice",
+          "prompt": "_____ feeling OK? You don’t look very well.",
+          "options": [
+            "Do you",
+            "You are",
+            "Are you"
+          ],
+          "answer": "Are you"
+        },
+        {
+          "id": "g-24",
+          "type": "multiple-choice",
+          "prompt": "Daniel’s hair is getting far too long; he should _____ soon.",
+          "options": [
+            "cut it",
+            "have cut it",
+            "have it cut"
+          ],
+          "answer": "have it cut"
+        },
+        {
+          "id": "g-25",
+          "type": "multiple-choice",
+          "prompt": "Mandy works for a computer software company. She got _____ recently, and so now she’s an area manager.",
+          "options": [
+            "made redundant",
+            "promoted",
+            "a raise"
+          ],
+          "answer": "promoted"
+        },
+        {
+          "id": "g-26",
+          "type": "multiple-choice",
+          "prompt": "I can’t hear you – it’s _____ noisy in here.",
+          "options": [
+            "too",
+            "too much",
+            "too many"
+          ],
+          "answer": "too"
+        },
+        {
+          "id": "g-27",
+          "type": "multiple-choice",
+          "prompt": "Jamal has just sent me _____ to arrange plans for this weekend.",
+          "options": [
+            "a blog",
+            "an email",
+            "a website"
+          ],
+          "answer": "an email"
+        },
+        {
+          "id": "g-28",
+          "type": "multiple-choice",
+          "prompt": "I promise I’ll call you as soon as I ........ .",
+          "options": [
+            "I arrive",
+            "I arrived",
+            "I’ll arrive"
+          ],
+          "answer": "I arrive"
+        },
+        {
+          "id": "g-29",
+          "type": "multiple-choice",
+          "prompt": "Photographers and designers need to be very ........ .",
+          "options": [
+            "creative",
+            "fit",
+            "annoying"
+          ],
+          "answer": "creative"
+        },
+        {
+          "id": "g-30",
+          "type": "multiple-choice",
+          "prompt": "The global financial crisis, _____ is forcing lots of small businesses to close, does not look set to end soon.",
+          "options": [
+            "it",
+            "that",
+            "which"
+          ],
+          "answer": "which"
+        },
+        {
+          "id": "g-31",
+          "type": "multiple-choice",
+          "prompt": "There _____ a terrible accident if the pilot hadn’t reacted so quickly.",
+          "options": [
+            "had been",
+            "was",
+            "would have been"
+          ],
+          "answer": "would have been"
+        },
+        {
+          "id": "g-32",
+          "type": "multiple-choice",
+          "prompt": "“Are you ready to order?”\n“Not yet – I’m still looking at the _____”",
+          "options": [
+            "bill",
+            "menu",
+            "service"
+          ],
+          "answer": "menu"
+        },
+        {
+          "id": "g-33",
+          "type": "multiple-choice",
+          "prompt": "“My job is never boring.”\nThe speaker’s job is always ........ .",
+          "options": [
+            "interesting",
+            "popular",
+            "difficult"
+          ],
+          "answer": "interesting"
+        },
+        {
+          "id": "g-34",
+          "type": "multiple-choice",
+          "prompt": "I’ve been working here _____ about the last two years.",
+          "options": [
+            "during",
+            "for",
+            "since"
+          ],
+          "answer": "for"
+        },
+        {
+          "id": "g-35",
+          "type": "multiple-choice",
+          "prompt": "“It leaves from Platform 2 at 4.15.” The speaker is talking about ........ .",
+          "options": [
+            "an airline flight",
+            "a train",
+            "a taxi"
+          ],
+          "answer": "a train"
+        },
+        {
+          "id": "g-36",
+          "type": "multiple-choice",
+          "prompt": "I went to a lovely _____ last Saturday. The bride was my best friend when we were at school.",
+          "options": [
+            "anniversary",
+            "marriage",
+            "wedding"
+          ],
+          "answer": "wedding"
+        },
+        {
+          "id": "g-37",
+          "type": "multiple-choice",
+          "prompt": "“I’ve got a headache.”\n“Maybe you _____ to take an aspirin.”",
+          "options": [
+            "should",
+            "ought",
+            "don’t"
+          ],
+          "answer": "ought"
+        },
+        {
+          "id": "g-38",
+          "type": "multiple-choice",
+          "prompt": "The patient had an _____ to insert metal pins in his broken leg.",
+          "options": [
+            "injection",
+            "operation",
+            "X-ray"
+          ],
+          "answer": "operation"
+        },
+        {
+          "id": "g-39",
+          "type": "multiple-choice",
+          "prompt": "She won a seat in parliament at the last ........ .",
+          "options": [
+            "general election",
+            "opinion poll",
+            "referendum"
+          ],
+          "answer": "general election"
+        },
+        {
+          "id": "g-40",
+          "type": "multiple-choice",
+          "prompt": "I’m surprised you didn’t get upset. If someone said that to me, _____ really angry.",
+          "options": [
+            "I’m",
+            "I was",
+            "I’d be"
+          ],
+          "answer": "I’d be"
+        },
+        {
+          "id": "g-41",
+          "type": "multiple-choice",
+          "prompt": "This used to be _____ part of the city, but since the old buildings were renovated it’s become a very fashionable area.",
+          "options": [
+            "an affluent",
+            "a run-down",
+            "a trendy"
+          ],
+          "answer": "a run-down"
+        },
+        {
+          "id": "g-42",
+          "type": "multiple-choice",
+          "prompt": "Cassie went to bed early because she was ........ .",
+          "options": [
+            "tired",
+            "stressed",
+            "relaxed"
+          ],
+          "answer": "tired"
+        },
+        {
+          "id": "g-43",
+          "type": "multiple-choice",
+          "prompt": "In the 1960s, computers were ........ expensive that ordinary people couldn’t afford them.",
+          "options": [
+            "so",
+            "such",
+            "too"
+          ],
+          "answer": "so"
+        },
+        {
+          "id": "g-44",
+          "type": "multiple-choice",
+          "prompt": "Do you want _____ the match tonight?",
+          "options": [
+            "watching",
+            "watch",
+            "to watch"
+          ],
+          "answer": "to watch"
+        },
+        {
+          "id": "g-45",
+          "type": "multiple-choice",
+          "prompt": "Researchers claim the new discovery is a major _____ in the fight against malaria.",
+          "options": [
+            "breakthrough",
+            "investigation",
+            "progress"
+          ],
+          "answer": "breakthrough"
+        },
+        {
+          "id": "g-46",
+          "type": "multiple-choice",
+          "prompt": "The Maths problem was really difficult and I just couldn’t _____ the answer.",
+          "options": [
+            "check in",
+            "set off",
+            "work out"
+          ],
+          "answer": "work out"
+        },
+        {
+          "id": "g-47",
+          "type": "multiple-choice",
+          "prompt": "When I was a child, I never _____ about the future.",
+          "options": [
+            "have worried",
+            "used to worry",
+            "was worrying"
+          ],
+          "answer": "used to worry"
+        },
+        {
+          "id": "g-48",
+          "type": "multiple-choice",
+          "prompt": "A local politician has _____ charges of corruption made by the opposition party.",
+          "options": [
+            "accused",
+            "blamed",
+            "denied"
+          ],
+          "answer": "denied"
+        },
+        {
+          "id": "g-49",
+          "type": "multiple-choice",
+          "prompt": "_____ worries me about society today is how completely we have come to depend on technology.",
+          "options": [
+            "That",
+            "What",
+            "Which"
+          ],
+          "answer": "What"
+        },
+        {
+          "id": "g-50",
+          "type": "multiple-choice",
+          "prompt": "Cats and dogs are usually kept as ........ .",
+          "options": [
+            "farm animals",
+            "wild animals",
+            "pets"
+          ],
+          "answer": "pets"
         }
       ]
     },
     {
       "id": "writing",
-      "label": "Writing",
-      "durationMinutes": 15,
-      "instructions": "Complete the writing task. Write thoughtful and well-structured paragraphs.",
-      "questions": [
+      "label": "Writing Placement Test",
+      "durationMinutes": 20,
+      "selectionType": "single_choice",
+      "requiredSelections": 1,
+      "instructions": "Choose ONE of these topics and write about it. Create 1 Essay based on your selected topic (20 minutes).",
+      "topics": [
         {
-          "id": "writing-1",
+          "id": "w-topic-1",
+          "title": "Personal Profile",
           "type": "essay",
-          "prompt": "Some educators believe digital tools improve student engagement, while others argue they cause distractions. Discuss both views and give your opinion.",
-          "rubric": {
-            "criteria": [
-              "Task Response",
-              "Coherence and Cohesion",
-              "Lexical Resource",
-              "Grammatical Range and Accuracy"
-            ],
-            "weight": "equal"
-          }
+          "prompt": "Write a personal profile about yourself for a website where you can meet new Internet friends.",
+          "guidingQuestions": [
+            "What is your name, age, etc.?",
+            "Where you are from, and what do you do?",
+            "What do you look like, and what sort of person are you?",
+            "What are your interests and your likes/dislikes?",
+            "What sort of new friends do you want to meet?"
+          ]
         },
         {
-          "id": "writing-2",
-          "type": "short-essay",
-          "prompt": "Write a short paragraph explaining one method you use to give constructive feedback to learners.",
-          "rubric": {
-            "criteria": [
-              "Task Response",
-              "Coherence and Cohesion",
-              "Lexical Resource",
-              "Grammatical Range and Accuracy"
-            ],
-            "weight": "equal"
-          }
+          "id": "w-topic-2",
+          "title": "Email About Your Country",
+          "type": "essay",
+          "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
+          "guidingQuestions": [
+            "How big the country is, where it is and what the land is like (forests, mountains, etc.)",
+            "Main cities, famous landmarks and tourist attractions",
+            "The local language(s) and culture",
+            "What the people are like",
+            "Traditional food, music, dances, etc. of your country",
+            "You should finish your email by inviting your friend to visit your country some time so that they can see what it is like."
+          ]
+        },
+        {
+          "id": "w-topic-3",
+          "title": "Childhood Memory",
+          "type": "essay",
+          "prompt": "Write about a strong childhood memory – for example, something that made you very happy or very frightened.",
+          "guidingQuestions": [
+            "Briefly explain how old you were and where you were, and tell the story of what happened.",
+            "Try to remember details such as sounds, smells, colours and the weather, and describe these in your story.",
+            "Explain how you felt and why you felt this way.",
+            "How do you feel now about the event?"
+          ]
+        },
+        {
+          "id": "w-topic-4",
+          "title": "Film, Play, or Book Review",
+          "type": "essay",
+          "prompt": "Write a review of your favourite film, play or book.",
+          "guidingQuestions": [
+            "Explain what type of work it is (for example, a comedy film, a romantic novel, etc.)",
+            "Say where and when the story takes place, and briefly describe what happens.",
+            "Describe the main characters, and say whether you like or dislike each of them, and why.",
+            "Try to explain why this work is your favourite."
+          ]
+        },
+        {
+          "id": "w-topic-5",
+          "title": "World Progress Discussion Article",
+          "type": "essay",
+          "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
+          "guidingQuestions": [
+            "Medicine, scientific research, technology",
+            "War, conflict between countries/groups",
+            "Freedom and human rights",
+            "Education, knowledge and skills",
+            "Quality of life",
+            "You should finish your article with a short conclusion summarising the main argument."
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "id": "w-topic-1",
+          "title": "Personal Profile",
+          "type": "essay",
+          "prompt": "Write a personal profile about yourself for a website where you can meet new Internet friends.",
+          "guidingQuestions": [
+            "What is your name, age, etc.?",
+            "Where you are from, and what do you do?",
+            "What do you look like, and what sort of person are you?",
+            "What are your interests and your likes/dislikes?",
+            "What sort of new friends do you want to meet?"
+          ]
+        },
+        {
+          "id": "w-topic-2",
+          "title": "Email About Your Country",
+          "type": "essay",
+          "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
+          "guidingQuestions": [
+            "How big the country is, where it is and what the land is like (forests, mountains, etc.)",
+            "Main cities, famous landmarks and tourist attractions",
+            "The local language(s) and culture",
+            "What the people are like",
+            "Traditional food, music, dances, etc. of your country",
+            "You should finish your email by inviting your friend to visit your country some time so that they can see what it is like."
+          ]
+        },
+        {
+          "id": "w-topic-3",
+          "title": "Childhood Memory",
+          "type": "essay",
+          "prompt": "Write about a strong childhood memory – for example, something that made you very happy or very frightened.",
+          "guidingQuestions": [
+            "Briefly explain how old you were and where you were, and tell the story of what happened.",
+            "Try to remember details such as sounds, smells, colours and the weather, and describe these in your story.",
+            "Explain how you felt and why you felt this way.",
+            "How do you feel now about the event?"
+          ]
+        },
+        {
+          "id": "w-topic-4",
+          "title": "Film, Play, or Book Review",
+          "type": "essay",
+          "prompt": "Write a review of your favourite film, play or book.",
+          "guidingQuestions": [
+            "Explain what type of work it is (for example, a comedy film, a romantic novel, etc.)",
+            "Say where and when the story takes place, and briefly describe what happens.",
+            "Describe the main characters, and say whether you like or dislike each of them, and why.",
+            "Try to explain why this work is your favourite."
+          ]
+        },
+        {
+          "id": "w-topic-5",
+          "title": "World Progress Discussion Article",
+          "type": "essay",
+          "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
+          "guidingQuestions": [
+            "Medicine, scientific research, technology",
+            "War, conflict between countries/groups",
+            "Freedom and human rights",
+            "Education, knowledge and skills",
+            "Quality of life",
+            "You should finish your article with a short conclusion summarising the main argument."
+          ]
         }
       ]
     },
     {
       "id": "speaking",
-      "label": "Speaking",
-      "durationMinutes": 10,
-      "instructions": "Record your spoken response for each interview question using your camera and microphone.",
+      "label": "Oral Placement Test",
+      "durationMinutes": 20,
+      "navigationType": "sequential_next_button",
+      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 21 questions until all prompts are completed or the 20-minute time limit is reached.",
+      "scoring": {
+        "minScore": 1,
+        "maxScore": 5
+      },
       "questions": [
         {
-          "id": "speaking-1",
-          "type": "speaking-prompt",
-          "part": "Part 1: Introduction & Background",
-          "prompt": "Please introduce yourself and describe your teaching background and your primary subject area.",
-          "guidance": "Speak clearly for 1–2 minutes. Provide specific examples.",
-          "rubric": {
-            "criteria": [
-              "Fluency",
-              "Vocabulary",
-              "Grammar",
-              "Communication"
-            ],
-            "weight": "equal"
-          }
+          "id": "s-1",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Personal information",
+          "prompt": "What’s your name? How do you spell it? Where do you live? What’s your phone number? What’s your email address?",
+          "scoreRange": [1, 2, 3, 4, 5]
         },
         {
-          "id": "speaking-2",
-          "type": "speaking-prompt",
-          "part": "Part 2: Classroom Scenario",
-          "prompt": "Describe how you handle a situation where students have different levels of English proficiency in the same classroom.",
-          "guidance": "Explain your differentiation strategies and classroom management approach.",
-          "rubric": {
-            "criteria": [
-              "Fluency",
-              "Vocabulary",
-              "Grammar",
-              "Communication"
-            ],
-            "weight": "equal"
-          }
+          "id": "s-2",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Family",
+          "prompt": "How many people are there in your family? Tell me about your parents / brothers or sisters / children. What are their names, ages, etc?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-3",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "Where are you from? What is your home town or city? Do (or did) you like living there? Is it: – big? – beautiful? – noisy? – clean?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-4",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Studies",
+          "prompt": "What do (or did) you study? Is (or was) it: – interesting? – difficult? What will you do (or did you do) after finishing your studies?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-5",
+          "type": "speaking-audio",
+          "level": "Elementary",
+          "topic": "Work",
+          "prompt": "What job do you do (or want to do)? When did (or will) you start working? Why did (or do) you want to do this job?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-6",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Appearance & character",
+          "prompt": "Tell me about your best friend. Describe his/her appearance (e.g. colour of hair/eyes, height) and character (e.g. kind, funny). When did you meet?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-7",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "What’s the weather like today? Which is your favourite season? What is the weather like then? What weather makes you feel happy/sad/etc?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-8",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "Do you enjoy shopping? How often do you go shopping? Do you go shopping alone or with friends? What sort of things do you usually buy?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-9",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "How much exercise do you do? Is exercise important? Why (not)? Do you like playing/watching sports? What sports do you like playing/watching?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-10",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Do you usually eat healthy meals? What is some of your favourite food? Do you like eating out (e.g. restaurants)? Why (not)? Do you like cooking?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-11",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "Do you like animals? What are some of your favourite animals? What pet(s) do you have (or would you like to have)? How do animals help people?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-12",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Computers & gadgets",
+          "prompt": "Do you often use computers, mp3 players, games consoles, etc? What do you mainly use the Internet for? What problems can computers/etc cause?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-13",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "What languages do you speak? Is it important to speak several languages? Why (not)? Is it a good or bad thing that most people in the world learn English?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-14",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Do you like to travel? Why (not)? What place would you most like to visit? Why? What’s your (least) favourite way to travel? Does travel really ‘broaden the mind’?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-15",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Crime",
+          "prompt": "Is crime a problem in this (or your) country? What can be done to reduce crime? Are the laws in this (or your) country generally too strict, or not strict enough?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-16",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Careers",
+          "prompt": "What sort of career do you want? What do you want most from it (e.g. money, creativity, etc)? Should a career be the most important thing in someone’s life?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-17",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "How often do you listen to music, read a book, visit an exhibition? Do you play an instrument/paint/write/etc? Are art/music/etc important to society? Why (not)?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-18",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "How closely do you follow the news? Which media (e.g. TV, newspapers, online) cover the news best? Give examples. What will news media be like in the future?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-19",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Cities",
+          "prompt": "Why do people choose to live in cities? What are the (dis)advantages of city life, compared to living in the countryside? Which do/would you prefer?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-20",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Man & nature",
+          "prompt": "How do we affect nature (e.g. rainforests)? How does nature affect us (e.g. floods)? Will problems such as pollution or endangered species ever be solved?",
+          "scoreRange": [1, 2, 3, 4, 5]
+        },
+        {
+          "id": "s-21",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Society & culture",
+          "prompt": "Do you often mix with people from a different culture to yours? Do you like or dislike this? What are the benefits and/or problems of a multicultural society?",
+          "scoreRange": [1, 2, 3, 4, 5]
         }
       ]
     }

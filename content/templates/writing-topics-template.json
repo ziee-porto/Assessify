@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Assessify Selectable Writing Topics Template. Candidate selects 1 topic and writes 1 essay.",
+  "id": "writing",
+  "label": "Writing Placement Test",
+  "durationMinutes": 20,
+  "selectionType": "single_choice",
+  "requiredSelections": 1,
+  "instructions": "Choose ONE of these topics and write about it. Create 1 Essay based on your selected topic (20 minutes).",
+  "topics": [
+    {
+      "id": "w-topic-1",
+      "title": "Personal Profile",
+      "type": "essay",
+      "prompt": "Write a personal profile about yourself for a website where you can meet new Internet friends.",
+      "guidingQuestions": [
+        "What is your name, age, etc.?",
+        "Where you are from, and what do you do?",
+        "What do you look like, and what sort of person are you?",
+        "What are your interests and your likes/dislikes?",
+        "What sort of new friends do you want to meet?"
+      ]
+    },
+    {
+      "id": "w-topic-2",
+      "title": "Email About Your Country",
+      "type": "essay",
+      "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
+      "guidingQuestions": [
+        "How big the country is, where it is and what the land is like (forests, mountains, etc.)",
+        "Main cities, famous landmarks and tourist attractions",
+        "The local language(s) and culture",
+        "What the people are like",
+        "Traditional food, music, dances, etc. of your country",
+        "You should finish your email by inviting your friend to visit your country some time so that they can see what it is like."
+      ]
+    },
+    {
+      "id": "w-topic-3",
+      "title": "Childhood Memory",
+      "type": "essay",
+      "prompt": "Write about a strong childhood memory – for example, something that made you very frightened or very happy.",
+      "guidingQuestions": [
+        "Briefly explain how old you were and where you were, and tell the story of what happened.",
+        "Try to remember details such as sounds, smells, colours and the weather, and describe these in your story.",
+        "Explain how you felt and why you felt this way.",
+        "How do you feel now about the event?"
+      ]
+    },
+    {
+      "id": "w-topic-4",
+      "title": "Film, Play, or Book Review",
+      "type": "essay",
+      "prompt": "Write a review of your favourite film, play or book.",
+      "guidingQuestions": [
+        "Explain what type of work it is (for example, a comedy film, a romantic novel, etc.)",
+        "Say where and when the story takes place, and briefly describe what happens.",
+        "Describe the main characters, and say whether you like or dislike each of them, and why.",
+        "Try to explain why this work is your favourite."
+      ]
+    },
+    {
+      "id": "w-topic-5",
+      "title": "World Progress Discussion Article",
+      "type": "essay",
+      "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
+      "guidingQuestions": [
+        "Medicine, scientific research, technology",
+        "War, conflict between countries/groups",
+        "Freedom and human rights",
+        "Education, knowledge and skills",
+        "Quality of life",
+        "You should finish your article with a short conclusion summarising the main argument."
+      ]
+    }
+  ]
+}
