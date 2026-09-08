@@ -36,7 +36,20 @@
         "level": "C2 (Higher Level Series Recommended)"
       }
     ],
-    "criteria": []
+    "criteria": [
+      {
+        "name": "Complex Syntactic Control",
+        "description": "Mastery of sentence structures including subjunctive mood, inverted conditionals, relative clauses, and passive constructions."
+      },
+      {
+        "name": "Collocational & Register Precision",
+        "description": "Accurate deployment of formal academic collocations, prepositions, phrasal verbs, and appropriate institutional register."
+      },
+      {
+        "name": "Morphological Accuracy",
+        "description": "Precision in word formation, derivational prefixes/suffixes, subject-verb concord, and tense/aspect consistency."
+      }
+    ]
   },
   "writing": {
     "title": "WRITING",

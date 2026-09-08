@@ -136,8 +136,21 @@ const ICONS = {
   pin: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a3 3 0 0 0-6 0v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>`,
   save: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
   sliders: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`,
-  clipboardCheck: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 14 12 17 16 12"/></svg>`
+  clipboardCheck: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 14 12 17 16 12"/></svg>`,
+  shield: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  settings: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  copy: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`
 };
+
+function getLevelBadgeClass(level) {
+  if (!level) return 'pill';
+  const lvl = String(level).toUpperCase().trim();
+  if (lvl.includes('C2') || lvl.includes('C1')) return 'pill success';
+  if (lvl.includes('B2') || lvl.includes('B1')) return 'pill primary';
+  if (lvl.includes('A2')) return 'pill warning';
+  if (lvl.includes('A1')) return 'pill danger';
+  return 'pill';
+}
 
 const sectionIcons = {
   'Grammar & Vocabulary': ICONS.layers,
@@ -160,8 +173,11 @@ const renderQuestion = (question, section) => {
 };
 
 function renderLogin(initialRole) {
+  document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
   const logoutBtn = document.querySelector('#logout');
   if (logoutBtn) logoutBtn.hidden = true;
+  const burger = document.querySelector('#sidebar-burger');
+  if (burger) burger.setAttribute('aria-expanded', 'false');
   const roleLabel = document.querySelector('#role-label');
   if (roleLabel) roleLabel.textContent = 'Secure school workspace';
 
@@ -361,12 +377,20 @@ function renderCompletedTeacher(attempt, user) {
   const overallColor = cefrColorMap[overallBand] || '#1e40af';
   const overallDesc = cefrDescMap[overallBand] || (isReviewed ? 'Certified Placement' : 'Provisional Placement');
 
+  const schoolName = window.assessifySettings?.schoolName || 'Karya Bangsa School';
+  const certIssuer = window.assessifySettings?.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa';
+
+  const schoolPrefix = (schoolName || 'Karya Bangsa School').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 3).join('').toUpperCase() || 'KBS';
+  const subDateObj = new Date(attempt.submittedAt || attempt.startedAt || Date.now());
+  const year = !isNaN(subDateObj.getTime()) ? subDateObj.getUTCFullYear() : new Date().getUTCFullYear();
+  const serialNumber = `${schoolPrefix}-EN-${year}-${String(attempt.id).replace(/^ATT-/, '')}`;
+
   const candidateName = user.name || attempt.teacher || 'Candidate';
   const candidateInitials = candidateName.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   const analysisText = attempt.analysis || (
     isReviewed
-      ? `Overall CEFR Placement: ${overallBand} — ${overallDesc}. Assessment has been officially graded and archived by Karya Bangsa School Academic Evaluation Board.`
+      ? `Overall CEFR Placement: ${overallBand} — ${overallDesc}. Assessment has been officially graded and archived by ${schoolName} Academic Evaluation Board.`
       : `Your objective Grammar & Vocabulary placement is securely recorded. Manual evaluation of your essay and oral interview recording is underway.`
   );
 
@@ -378,7 +402,7 @@ function renderCompletedTeacher(attempt, user) {
           <div class="result-hero-top">
             <div class="result-institution-badge">
               ${ICONS.school}
-              <span>Karya Bangsa School · Faculty Placement Board</span>
+              <span>${schoolName} · Faculty Placement Board</span>
             </div>
             <div class="result-status-pill">
               ${ICONS.checkCircle}
@@ -412,8 +436,8 @@ function renderCompletedTeacher(attempt, user) {
               <div class="meta-value"><span class="unit-pill">${attempt.unit || user.unit || 'SMK KARYA BANGSA'}</span></div>
             </div>
             <div class="meta-item-box">
-              <span class="meta-label">${ICONS.pin} Attempt Reference</span>
-              <div class="meta-value"><span class="attempt-pill">${attempt.id}</span></div>
+              <span class="meta-label">${ICONS.pin} Serial Number</span>
+              <div class="meta-value"><span class="attempt-pill">${serialNumber}</span></div>
             </div>
             <div class="meta-item-box">
               <span class="meta-label">${ICONS.clock} Submission Date</span>
@@ -439,7 +463,7 @@ function renderCompletedTeacher(attempt, user) {
                 <h2>Overall CEFR Level ${overallBand}</h2>
                 <p>
                   ${isReviewed
-                    ? 'Evaluated across Grammar & Vocabulary, Writing, and Speaking according to Karya Bangsa CEFR Placement Rubrics.'
+                    ? `Evaluated across Grammar & Vocabulary, Writing, and Speaking according to ${schoolName} CEFR Placement Rubrics.`
                     : 'Provisional placement benchmark based on Grammar & Vocabulary. Writing & Speaking are queued for faculty review.'}
                 </p>
               </div>
@@ -540,7 +564,7 @@ function renderCompletedTeacher(attempt, user) {
           <div class="result-footer-bar">
             <div class="policy-compliance-tag">
               ${ICONS.lock}
-              <span><strong>Single Assessment Policy:</strong> Record is officially sealed and locked under institutional academic governance.</span>
+              <span><strong>Single Assessment Policy:</strong> Record is officially sealed and locked under institutional academic governance. - <em>Issued by: ${certIssuer}</em></span>
             </div>
             <div style="display:flex;align-items:center;gap:12px">
               <button class="button button-outline" id="completed-sign-out-btn" type="button" style="padding:10px 22px">
@@ -560,6 +584,9 @@ function renderCompletedTeacher(attempt, user) {
 }
 
 async function renderTeacher(test, user) {
+  document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
+  const burger = document.querySelector('#sidebar-burger');
+  if (burger) burger.setAttribute('aria-expanded', 'false');
   // Check if candidate already has a completed attempt or active in-progress attempt
   let inProgressAttempt = null;
   try {
@@ -570,6 +597,25 @@ async function renderTeacher(test, user) {
     }
     if (attemptStatus?.inProgressAttempt) {
       inProgressAttempt = attemptStatus.inProgressAttempt;
+      const durationMins = Number(test.durationMinutes) || 65;
+      const expiresAt = new Date(new Date(inProgressAttempt.startedAt).getTime() + durationMins * 60 * 1000).toISOString();
+      renderSectionFlow(test, expiresAt, inProgressAttempt.id, { ...inProgressAttempt, resumed: true }, user);
+      return;
+    } else {
+      // Candidate data is not in progress (e.g. deleted by admin or fresh): purge any stale autosaves
+      const userEmail = (user?.email || '').toLowerCase().trim();
+      if (userEmail) {
+        try {
+          localStorage.removeItem(`assessify_autosave_${userEmail}`);
+          const prefix = `assessify_autosave_${userEmail}`;
+          const toRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(prefix)) toRemove.push(k);
+          }
+          toRemove.forEach(k => localStorage.removeItem(k));
+        } catch (e) {}
+      }
     }
   } catch (err) {
     console.warn('Could not check attempt status:', err);
@@ -951,7 +997,7 @@ async function renderTeacher(test, user) {
       }
       return;
     }
-    renderSectionFlow(test, result.expiresAt, result.attempt.id, result.attempt, user);
+    renderSectionFlow(test, result.expiresAt, result.attempt.id, { ...result.attempt, resumed: Boolean(result.resumed) }, user);
   };
 }
 
@@ -964,42 +1010,80 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   let speechRecognizer = null;
   let speakingStep = 0;
   let speakingRecordingState = 'idle'; // 'idle' | 'recording' | 'stopped'
+  let isTerminated = false;
+  let heartbeatInterval = null;
   const playedAudio = {};
 
   const userEmail = (user?.email || attemptData?.email || 'candidate').toLowerCase().trim();
   const STORAGE_KEY = `assessify_autosave_${userEmail}_${attemptId}`;
   const LEGACY_STORAGE_KEY = `assessify_autosave_${userEmail}`;
 
+  // Only consider it a resume if candidate attempt exists in database and is flagged resumed or has active responses/timers
+  const isResume = Boolean(attemptData?.resumed || (attemptData?.status === 'In progress' && (attemptData?.responses || attemptData?.sectionRemainingMs)));
+
   let localState = {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (raw) localState = JSON.parse(raw);
-  } catch (err) {
-    console.warn('Could not read from localStorage:', err);
+  if (isResume) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (raw) localState = JSON.parse(raw);
+    } catch (err) {
+      console.warn('Could not read from localStorage:', err);
+    }
+  } else {
+    // If not a resume (new attempt after deletion or fresh start), completely wipe any stale autosaves
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      const prefix = `assessify_autosave_${userEmail}`;
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) toRemove.push(k);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
   }
 
-  // Restore answers from server database attempt responses AND local device storage
-  const answers = Object.assign(
-    {},
-    attemptData?.responses || {},
-    localState.answers || {}
-  );
-  if (attemptData?.writing && !answers['writing-essay'] && !answers['writing-0']) {
+  // Ensure Grammar & Vocabulary questions follow the candidate's specific scrambled order
+  const candidateOrder = isResume
+    ? (attemptData?.grammarVocabularyOrder || localState?.grammarVocabularyOrder)
+    : (attemptData?.grammarVocabularyOrder || null);
+  if (Array.isArray(candidateOrder) && candidateOrder.length > 0) {
+    const gvSec = (test.sections || []).find((s) => s.id === 'grammar-vocabulary');
+    if (gvSec && Array.isArray(gvSec.questions)) {
+      const qMap = new Map(gvSec.questions.map((q) => [q.id, q]));
+      const ordered = candidateOrder.map((id) => qMap.get(id)).filter(Boolean);
+      for (const q of gvSec.questions) {
+        if (!candidateOrder.includes(q.id)) ordered.push(q);
+      }
+      if (ordered.length === gvSec.questions.length) {
+        gvSec.questions = ordered;
+      }
+    }
+  }
+
+  // Restore answers: only restore if isResume is true. If fresh, start completely empty.
+  const answers = isResume
+    ? Object.assign({}, attemptData?.responses || {}, localState.answers || {})
+    : {};
+  if (isResume && attemptData?.writing && !answers['writing-essay'] && !answers['writing-0']) {
     answers['writing-essay'] = attemptData.writing;
   }
 
   // Restore section index
-  if (localState.sectionIndex !== undefined && Number.isInteger(localState.sectionIndex) && localState.sectionIndex >= 0 && localState.sectionIndex < test.sections.length) {
-    sectionIndex = localState.sectionIndex;
-  } else if (attemptData?.sectionIndex !== undefined && Number.isInteger(attemptData.sectionIndex) && attemptData.sectionIndex >= 0 && attemptData.sectionIndex < test.sections.length) {
-    sectionIndex = attemptData.sectionIndex;
-  }
+  if (isResume) {
+    if (localState.sectionIndex !== undefined && Number.isInteger(localState.sectionIndex) && localState.sectionIndex >= 0 && localState.sectionIndex < test.sections.length) {
+      sectionIndex = localState.sectionIndex;
+    } else if (attemptData?.sectionIndex !== undefined && Number.isInteger(attemptData.sectionIndex) && attemptData.sectionIndex >= 0 && attemptData.sectionIndex < test.sections.length) {
+      sectionIndex = attemptData.sectionIndex;
+    }
 
-  // Restore speaking step
-  if (localState.speakingStep !== undefined && Number.isInteger(localState.speakingStep)) {
-    speakingStep = localState.speakingStep;
-  } else if (attemptData?.speakingStep !== undefined && Number.isInteger(attemptData.speakingStep)) {
-    speakingStep = attemptData.speakingStep;
+    // Restore speaking step
+    if (localState.speakingStep !== undefined && Number.isInteger(localState.speakingStep)) {
+      speakingStep = localState.speakingStep;
+    } else if (attemptData?.speakingStep !== undefined && Number.isInteger(attemptData.speakingStep)) {
+      speakingStep = attemptData.speakingStep;
+    }
   }
 
   const sectionDurations = {
@@ -1007,15 +1091,80 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     'writing': 20 * 60 * 1000,
     'speaking': 15 * 60 * 1000
   };
-  const sectionEndTimes = {};
-  if (localState.sectionEndTimes && typeof localState.sectionEndTimes === 'object') {
-    Object.assign(sectionEndTimes, localState.sectionEndTimes);
+  const sectionStartTimes = isResume
+    ? Object.assign({}, attemptData?.sectionStartTimes || {}, localState?.sectionStartTimes || {})
+    : { 0: new Date().toISOString() };
+  if (!sectionStartTimes[0] && !sectionStartTimes['0']) {
+    sectionStartTimes[0] = attemptData?.startedAt || new Date().toISOString();
   }
+  const sectionRemainingMs = isResume
+    ? Object.assign({}, attemptData?.sectionRemainingMs || {}, localState.sectionRemainingMs || {})
+    : { 0: 30 * 60 * 1000, 1: 20 * 60 * 1000, 2: 15 * 60 * 1000 };
+  const sectionEndTimes = isResume
+    ? Object.assign({}, attemptData?.sectionEndTimes || {}, localState.sectionEndTimes || {})
+    : {};
   let timerTimeoutId = null;
   let saveDebounceTimer = null;
   let hasRestoredToastShown = false;
 
+  const handleAttemptDeleted = () => {
+    if (isTerminated) return;
+    isTerminated = true;
+
+    if (timerTimeoutId) clearTimeout(timerTimeoutId);
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+
+    window.removeEventListener('beforeunload', handlePageUnload);
+    window.removeEventListener('pagehide', handlePageUnload);
+
+    stopMedia().catch(() => {});
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      const prefix = `assessify_autosave_${userEmail}`;
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) toRemove.push(k);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+
+    const modalContainer = document.querySelector('#modal-root') || document.body;
+    modalContainer.innerHTML = `
+      <div class="modal-backdrop" id="attempt-deleted-modal" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.75);z-index:99999;backdrop-filter:blur(6px)">
+        <div class="modal-card" role="dialog" aria-modal="true" style="max-width:480px;background:#ffffff;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;padding:0;text-align:center">
+          <div style="padding:32px 28px 24px">
+            <div style="width:60px;height:60px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:26px;margin:0 auto 16px">
+              ${ICONS.trash}
+            </div>
+            <h2 style="font:700 22px 'Space Grotesk';color:#0f172a;margin:0 0 10px">Assessment Session Terminated</h2>
+            <p style="font-size:14px;color:#64748b;margin:0 0 16px;line-height:1.6">
+              Your candidate assessment record (<strong style="color:#0f172a">${attemptId}</strong>) has been removed or reset by an administrator.
+            </p>
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;font-size:13px;color:#991b1b;text-align:left;line-height:1.5">
+              The test record and timer have been stopped. Ongoing responses or recordings have been discontinued.
+            </div>
+          </div>
+          <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:center">
+            <button class="button" id="btn-return-home" type="button" style="background:#2563eb;color:#ffffff;padding:10px 24px;font-size:14px;font-weight:600;border-radius:8px">
+              Return to Candidate Home →
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.querySelector('#btn-return-home')?.addEventListener('click', () => {
+      modalContainer.innerHTML = '';
+      renderTeacher(test, user);
+    });
+  };
+
   const updateSaveIndicator = (status = 'saved') => {
+    if (isTerminated) return;
     const indicator = document.querySelector('#autosave-indicator');
     if (!indicator) return;
     if (status === 'saving') {
@@ -1039,15 +1188,19 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   };
 
   const persistProgress = (immediate = false) => {
+    if (isTerminated) return;
     // 1. Instantly save to local device storage (protects against browser crash, power loss, or tab close)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         attemptId,
         userEmail,
         answers,
+        grammarVocabularyOrder: candidateOrder || attemptData?.grammarVocabularyOrder || localState?.grammarVocabularyOrder,
         sectionIndex,
         speakingStep,
+        sectionStartTimes,
         sectionEndTimes,
+        sectionRemainingMs,
         savedAt: new Date().toISOString()
       }));
     } catch (e) {
@@ -1056,19 +1209,27 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
     // 2. Sync with database
     const syncServer = async () => {
+      if (isTerminated) return;
       updateSaveIndicator('saving');
       try {
         const payload = {
           responses: answers,
           writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '',
           sectionIndex,
-          speakingStep
+          speakingStep,
+          sectionStartTimes,
+          sectionRemainingMs,
+          sectionEndTimes
         };
         const res = await fetch(`/api/attempts/${attemptId}/draft`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        if (res.status === 404) {
+          handleAttemptDeleted();
+          return;
+        }
         if (res.ok) {
           updateSaveIndicator('saved');
         } else {
@@ -1091,14 +1252,21 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
   // Safe window unload handler (device power off, accidental tab close)
   const handlePageUnload = () => {
+    if (isTerminated) return;
     try {
+      if (sectionEndTimes[sectionIndex]) {
+        sectionRemainingMs[sectionIndex] = Math.max(0, Number(sectionEndTimes[sectionIndex]) - Date.now());
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         attemptId,
         userEmail,
         answers,
+        grammarVocabularyOrder: candidateOrder || attemptData?.grammarVocabularyOrder || localState?.grammarVocabularyOrder,
         sectionIndex,
         speakingStep,
+        sectionStartTimes,
         sectionEndTimes,
+        sectionRemainingMs,
         savedAt: new Date().toISOString()
       }));
       if (navigator.sendBeacon) {
@@ -1106,7 +1274,10 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           responses: answers,
           writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '',
           sectionIndex,
-          speakingStep
+          speakingStep,
+          sectionStartTimes,
+          sectionRemainingMs,
+          sectionEndTimes
         })], { type: 'application/json' });
         navigator.sendBeacon(`/api/attempts/${attemptId}/draft`, blob);
       }
@@ -1194,16 +1365,42 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       })
     });
 
+    if (result?.error) {
+      if (result.error === 'Attempt not found' || result.attemptDeleted) {
+        handleAttemptDeleted();
+        return;
+      }
+      showToast(result.error, 'error');
+      const nextBtn = document.querySelector('#next');
+      if (nextBtn) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Submit responses';
+      }
+      return;
+    }
+
     app.innerHTML = `
-      <div class="teacher-shell" style="max-width:680px;margin:60px auto;text-align:center">
-        <div class="panel" style="padding:48px 36px">
+      <div class="teacher-shell submission-shell" style="max-width:680px;margin:50px auto;text-align:center">
+        <div class="panel submission-panel" style="padding:48px 36px">
           <div style="width:64px;height:64px;border-radius:50%;background:#dcfce7;color:#16a34a;display:grid;place-items:center;font-size:32px;margin:0 auto 20px">✓</div>
           <h1 style="font:700 34px 'Space Grotesk';margin:0 0 12px;color:var(--ink)">Assessment Submitted!</h1>
-          <p style="color:var(--muted);line-height:1.6;font-size:15px;margin-bottom:24px">
+          <p style="color:var(--muted);line-height:1.6;font-size:15px;margin-bottom:20px">
             Your placement responses have been securely recorded. Grammar & Vocabulary is scored automatically, and your Writing and Speaking (including auditory prompt comprehension) submissions are queued for admin rubric review.
-            ${isEarlyEnd ? '<br><span class="pill" style="margin-top:8px;background:#fee2e2;color:#991b1b;border-color:#fecaca;display:inline-block">⚠️ Notice: Speaking test was concluded early by examiner</span>' : ''}
-            ${isAutoTimeLimit ? '<br><span class="pill" style="margin-top:8px;background:#fef3c7;color:#92400e;border-color:#fde68a;display:inline-block">⏱ Notice: Concluded automatically at 15-minute time limit</span>' : ''}
           </p>
+          ${isEarlyEnd ? `
+            <div style="display:flex;justify-content:center;margin:0 auto 24px;width:100%">
+              <span class="notice-pill notice-pill-danger">
+                ⚠️ Notice: Speaking test was concluded early by examiner
+              </span>
+            </div>
+          ` : ''}
+          ${isAutoTimeLimit ? `
+            <div style="display:flex;justify-content:center;margin:0 auto 24px;width:100%">
+              <span class="notice-pill notice-pill-warning">
+                ⏱ Notice: Concluded automatically at 15-minute time limit
+              </span>
+            </div>
+          ` : ''}
           <div style="background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:16px;font-size:13px;color:var(--ink);margin-bottom:28px">
             <strong>Attempt Reference:</strong> <code>${attemptId}</code><br>
             <span style="color:var(--muted)">Provisional scores and recordings are now available in the administration dashboard.</span>
@@ -1223,6 +1420,13 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     await stopMedia();
     sectionIndex += 1;
     speakingStep = 0;
+    const nextSec = test.sections[sectionIndex];
+    if (nextSec && sectionRemainingMs[sectionIndex] === undefined) {
+      const nextDur = sectionDurations[nextSec.id] || (nextSec.durationMinutes || 15) * 60 * 1000;
+      sectionRemainingMs[sectionIndex] = nextDur;
+      sectionEndTimes[sectionIndex] = Date.now() + nextDur;
+    }
+    persistProgress(true);
     draw();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1231,15 +1435,44 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     if (timerTimeoutId) clearTimeout(timerTimeoutId);
     const currSec = section();
     if (!currSec) return;
-    if (!sectionEndTimes[sectionIndex]) {
-      const dur = sectionDurations[currSec.id] || (currSec.durationMinutes || 15) * 60 * 1000;
-      sectionEndTimes[sectionIndex] = Date.now() + dur;
+
+    const defaultDur = sectionDurations[currSec.id] || (currSec.durationMinutes || 15) * 60 * 1000;
+
+    // Check if we have remaining time saved from before (resume scenario)
+    let remaining = sectionRemainingMs[sectionIndex];
+    if (isResume && typeof remaining === 'number' && !isNaN(remaining) && remaining > 0) {
+      // User is resuming with remaining time
+      if (sectionEndTimes[sectionIndex]) {
+        const wallClockLeft = sectionEndTimes[sectionIndex] - Date.now();
+        if (wallClockLeft > 0 && wallClockLeft <= remaining) {
+          remaining = wallClockLeft;
+        }
+      }
+      remaining = Math.min(remaining, defaultDur);
+      sectionEndTimes[sectionIndex] = Date.now() + remaining;
+      sectionRemainingMs[sectionIndex] = remaining;
+    } else if (isResume && remaining === 0) {
+      remaining = 0;
+      sectionEndTimes[sectionIndex] = Date.now();
+    } else {
+      // First time starting this section (or fresh test after deletion)
+      remaining = defaultDur;
+      sectionEndTimes[sectionIndex] = Date.now() + remaining;
+      sectionRemainingMs[sectionIndex] = remaining;
     }
 
+    // Persist immediately on timer start
+    persistProgress(false);
+
+    let lastTickSave = Date.now();
+
     const tick = () => {
+      if (isTerminated) return;
       const end = sectionEndTimes[sectionIndex];
       const now = Date.now();
       const left = Math.max(0, end - now);
+      sectionRemainingMs[sectionIndex] = left;
+
       const timerEl = document.querySelector('#timer');
       const timerBox = document.querySelector('#timer-box');
       if (timerEl) {
@@ -1256,6 +1489,25 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           timerEl.style.color = '';
         }
       }
+
+      // Periodically update local storage every 5 seconds so tab close/refresh has up-to-date remaining time
+      if (now - lastTickSave >= 5000) {
+        lastTickSave = now;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            attemptId,
+            userEmail,
+            answers,
+            grammarVocabularyOrder: candidateOrder || attemptData?.grammarVocabularyOrder || localState?.grammarVocabularyOrder,
+            sectionIndex,
+            speakingStep,
+            sectionEndTimes,
+            sectionRemainingMs,
+            savedAt: new Date().toISOString()
+          }));
+        } catch { }
+      }
+
       if (left <= 0) {
         if (sectionIndex < test.sections.length - 1) {
           showToast(`Time limit reached for ${currSec.label}. Advancing to next section...`, 'info', 4500);
@@ -1272,6 +1524,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   };
 
   const draw = () => {
+    if (isTerminated) return;
     const current = section();
     const speaking = current.id === 'speaking' || current.label.toLowerCase().includes('speaking');
     const isLastSection = sectionIndex === test.sections.length - 1;
@@ -1531,6 +1784,10 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     }
 
     const canSubmitSpeaking = !speaking || speakingRecordingState === 'stopped' || speakingRecordingState === 'idle';
+    const hasOptions = !speaking && current.questions && current.questions.length > 0 && current.questions[0].options;
+    const answeredCount = hasOptions
+      ? current.questions.filter((q) => answers[q.id] && String(answers[q.id]).trim() !== '').length
+      : 0;
 
     app.innerHTML = `
       <div class="teacher-shell">
@@ -1567,20 +1824,36 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         <section class="panel">
           <div class="panel-head">
             <h2>${current.label} ${speaking ? 'Interview' : 'Questions'}</h2>
-            <span class="status">${current.questions.length} ${speaking ? 'interview prompts' : 'questions'} · ${current.durationMinutes} mins allocated</span>
+            <span class="status" id="section-status-counter">
+              ${hasOptions ? `<strong id="live-answered-count" style="color:${answeredCount === current.questions.length ? '#16a34a' : 'var(--blue)'};font-weight:700">${answeredCount}/${current.questions.length} answered</strong> · ` : ''}
+              ${current.questions.length} ${speaking ? 'interview prompts' : 'questions'} · ${current.durationMinutes} mins allocated
+            </span>
           </div>
 
           ${contentHtml}
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--line);flex-wrap:wrap">
             <button class="ghost" id="previous" ${sectionIndex === 0 || speaking ? 'hidden' : ''} type="button">
               ← Previous Section
             </button>
-            <button class="button" id="next" type="button" style="margin-left:auto;padding:12px 24px">
-              ${isLastSection ? 'Submit Assessment ✓' : 'Next Section →'}
-            </button>
+            <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
+              <button class="ghost" id="bottom-scroll-top" type="button" style="padding:10px 18px;font-size:13.5px;display:inline-flex;align-items:center;gap:6px" title="Scroll back to top of questions">
+                <span>↑ Scroll to Top</span>
+              </button>
+              <button class="button" id="next" type="button" style="padding:12px 24px">
+                ${isLastSection ? 'Submit Assessment ✓' : 'Next Section →'}
+              </button>
+            </div>
           </div>
         </section>
+
+        <!-- Floating Action Button for Auto Scroll to Top -->
+        <button id="btn-scroll-top" class="btn-scroll-top" type="button" title="Scroll to top of questions" aria-label="Scroll to top">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+          <span>Top</span>
+        </button>
       </div>
     `;
 
@@ -1590,6 +1863,22 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         const parentTiles = input.closest('.options-container')?.querySelectorAll('.option-tile');
         parentTiles?.forEach((tile) => tile.classList.remove('selected'));
         input.closest('.option-tile')?.classList.add('selected');
+
+        // Clear unanswered error highlight on this question
+        const qWrap = input.closest('.question');
+        if (qWrap) {
+          qWrap.classList.remove('unanswered-highlight');
+          qWrap.querySelector('.unanswered-badge')?.remove();
+        }
+
+        // Live update the answered count in panel header
+        const countEl = document.querySelector('#live-answered-count');
+        if (countEl && current.questions) {
+          const c = current.questions.filter((q) => answers[q.id] && String(answers[q.id]).trim() !== '').length;
+          countEl.textContent = `${c}/${current.questions.length} answered`;
+          countEl.style.color = c === current.questions.length ? '#16a34a' : 'var(--blue)';
+        }
+
         persistProgress(true);
       });
     });
@@ -1853,6 +2142,27 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       }
     }
 
+    // Scroll to Top Handlers
+    const scrollTopBtn = document.querySelector('#btn-scroll-top');
+    const bottomScrollBtn = document.querySelector('#bottom-scroll-top');
+    const handleScrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    scrollTopBtn?.addEventListener('click', handleScrollToTop);
+    bottomScrollBtn?.addEventListener('click', handleScrollToTop);
+
+    const onWindowScroll = () => {
+      const btn = document.querySelector('#btn-scroll-top');
+      if (!btn) return;
+      if (window.scrollY > 220) {
+        btn.classList.add('visible');
+      } else {
+        btn.classList.remove('visible');
+      }
+    };
+    window.removeEventListener('scroll', onWindowScroll);
+    window.addEventListener('scroll', onWindowScroll, { passive: true });
+
     document.querySelector('#previous')?.addEventListener('click', async () => {
       await stopMedia();
       sectionIndex -= 1;
@@ -1863,6 +2173,70 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     });
 
     document.querySelector('#next').onclick = async () => {
+      // Validation before advancing to next section
+      const currSec = section();
+      if (currSec && !speaking) {
+        // Multiple-choice questions validation (e.g., Grammar & Vocabulary)
+        if (currSec.questions && currSec.questions.length > 0 && currSec.questions[0].options) {
+          const unanswered = [];
+          currSec.questions.forEach((q, idx) => {
+            const val = answers[q.id];
+            if (!val || String(val).trim() === '') {
+              unanswered.push({ q, number: idx + 1 });
+            }
+          });
+
+          if (unanswered.length > 0) {
+            // Clear previous error highlights
+            document.querySelectorAll('.question.unanswered-highlight').forEach((el) => {
+              el.classList.remove('unanswered-highlight');
+              el.querySelector('.unanswered-badge')?.remove();
+            });
+
+            // Highlight all unanswered questions
+            unanswered.forEach(({ q, number }) => {
+              const wrap = document.querySelector(`#q-wrap-${q.id}`);
+              if (wrap) {
+                wrap.classList.add('unanswered-highlight');
+                if (!wrap.querySelector('.unanswered-badge')) {
+                  const badge = document.createElement('span');
+                  badge.className = 'unanswered-badge';
+                  badge.innerHTML = `⚠️ Number ${number} is not answered yet`;
+                  wrap.prepend(badge);
+                }
+              }
+            });
+
+            // Auto-scroll to the first unanswered question
+            const firstUnfilled = document.querySelector(`#q-wrap-${unanswered[0].q.id}`);
+            if (firstUnfilled) {
+              firstUnfilled.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            const count = unanswered.length;
+            const sampleNums = unanswered.slice(0, 6).map((u) => `#${u.number}`).join(', ');
+            const moreStr = count > 6 ? ` and ${count - 6} more` : '';
+            showToast(`⚠️ Please complete all questions before proceeding! ${count} question${count === 1 ? '' : 's'} still not answered: ${sampleNums}${moreStr}.`, 'error');
+            return;
+          }
+        } else if (currSec.id === 'writing' || currSec.label?.toLowerCase().includes('writing')) {
+          // Writing section validation
+          const essayText = answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '';
+          const wordCount = essayText.trim() ? essayText.trim().split(/\s+/).filter(Boolean).length : 0;
+          if (wordCount < 10) {
+            const essayInput = document.querySelector('#writing-essay') || document.querySelector('.writing-input');
+            if (essayInput) {
+              essayInput.focus();
+              essayInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              essayInput.style.borderColor = '#ef4444';
+              essayInput.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.15)';
+            }
+            showToast('⚠️ Please write your essay response before proceeding to the next section.', 'error');
+            return;
+          }
+        }
+      }
+
       persistProgress(true);
       if (sectionIndex < test.sections.length - 1) {
         await advanceToNextSection();
@@ -1878,13 +2252,30 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   };
 
   draw();
+
+  // Background heartbeat verifying attempt has not been deleted by administrator
+  heartbeatInterval = setInterval(async () => {
+    if (isTerminated || !document.querySelector('.test-screen')) {
+      clearInterval(heartbeatInterval);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/attempts/${attemptId}/status`);
+      if (res.status === 401 || res.status === 403 || res.status === 404) {
+        clearInterval(heartbeatInterval);
+        if (res.status === 404) {
+          handleAttemptDeleted();
+        }
+      }
+    } catch {}
+  }, 8000);
 }
 
 const getStoredAdminTab = () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'questions', 'rubrics'].includes(hash)) return hash;
+  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash)) return hash;
   const stored = localStorage.getItem('assessify_admin_tab');
-  if (['results', 'users', 'questions', 'rubrics'].includes(stored)) return stored;
+  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(stored)) return stored;
   return 'results';
 };
 
@@ -1896,13 +2287,13 @@ const adminState = {
 
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'questions', 'rubrics'].includes(hash) && adminState.activeTab !== hash) {
+  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash) && adminState.activeTab !== hash) {
     renderAdmin(hash);
   }
 });
 
 async function renderAdmin(tab) {
-  if (!tab || !['results', 'users', 'questions', 'rubrics'].includes(tab)) {
+  if (!tab || !['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(tab)) {
     tab = getStoredAdminTab();
   }
   adminState.activeTab = tab;
@@ -1911,11 +2302,28 @@ async function renderAdmin(tab) {
     history.replaceState(null, '', `#${tab}`);
   }
 
-  // Render base shell with sidebar
+  document.body.classList.add('has-admin-sidebar');
+  const topbarBurger = document.querySelector('#sidebar-burger');
+  if (topbarBurger) topbarBurger.hidden = false;
+
+  // Render base shell with sidebar and backdrop
   app.innerHTML = `
     <div class="admin-shell">
-      <aside class="admin-sidebar">
-        <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+      <aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin Navigation">
+        <div class="sidebar-mobile-header">
+          <div class="sidebar-mobile-title">
+            <span class="sidebar-mobile-badge">Assessify</span>
+          </div>
+          <button class="sidebar-close-btn" id="sidebar-close-btn" type="button" aria-label="Close navigation menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="sidebar-sections-wrapper">
+          <!-- Main Menu -->
           <div class="sidebar-section">
             <div class="sidebar-title">Main Menu</div>
             <nav class="sidebar-nav">
@@ -1926,13 +2334,10 @@ async function renderAdmin(tab) {
             </nav>
           </div>
 
-          <div class="sidebar-section" style="border-top:1px solid var(--line);padding-top:18px">
-            <div class="sidebar-title">Settings</div>
+          <!-- Academic & Content -->
+          <div class="sidebar-section" style="border-top:1px solid var(--line);padding-top:16px">
+            <div class="sidebar-title">Academic & Content</div>
             <nav class="sidebar-nav">
-              <button class="sidebar-btn ${tab === 'users' ? 'active' : ''}" id="nav-users" type="button">
-                <span class="sidebar-icon">${ICONS.users}</span>
-                <span>User Manager</span>
-              </button>
               <button class="sidebar-btn ${tab === 'questions' ? 'active' : ''}" id="nav-questions" type="button">
                 <span class="sidebar-icon">${ICONS.questions}</span>
                 <span>Question Bank</span>
@@ -1945,8 +2350,41 @@ async function renderAdmin(tab) {
               </button>
             </nav>
           </div>
+
+          <!-- User Management -->
+          <div class="sidebar-section" style="border-top:1px solid var(--line);padding-top:16px">
+            <div class="sidebar-title">User Management</div>
+            <nav class="sidebar-nav">
+              <button class="sidebar-btn ${tab === 'users' ? 'active' : ''}" id="nav-users" type="button">
+                <span class="sidebar-icon">${ICONS.users}</span>
+                <span>User Manager</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Security -->
+          <div class="sidebar-section" style="border-top:1px solid var(--line);padding-top:16px">
+            <div class="sidebar-title">Security</div>
+            <nav class="sidebar-nav">
+              <button class="sidebar-btn ${tab === 'audit' ? 'active' : ''}" id="nav-audit" type="button">
+                <span class="sidebar-icon">${ICONS.shield}</span>
+                <span>Audit Log</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- System -->
+          <div class="sidebar-section" style="border-top:1px solid var(--line);padding-top:16px">
+            <div class="sidebar-title">System</div>
+            <nav class="sidebar-nav">
+              <button class="sidebar-btn ${tab === 'settings' ? 'active' : ''}" id="nav-settings" type="button">
+                <span class="sidebar-icon">${ICONS.settings}</span>
+                <span>System Setting</span>
+              </button>
+            </nav>
+          </div>
         </div>
-        <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center">
+        <div class="sidebar-footer">
           <div>English Assessment</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">Version: <strong>2026.1</strong></div>
         </div>
@@ -1957,10 +2395,44 @@ async function renderAdmin(tab) {
     </div>
   `;
 
-  document.querySelector('#nav-results').onclick = () => renderAdmin('results');
-  document.querySelector('#nav-users').onclick = () => renderAdmin('users');
-  document.querySelector('#nav-questions').onclick = () => renderAdmin('questions');
-  document.querySelector('#nav-rubrics').onclick = () => renderAdmin('rubrics');
+  const closeMobileSidebar = () => {
+    document.body.classList.remove('sidebar-open');
+    const sb = document.querySelector('#admin-sidebar');
+    if (sb) sb.classList.remove('open');
+    const burger = document.querySelector('#sidebar-burger');
+    if (burger) {
+      burger.setAttribute('aria-expanded', 'false');
+      burger.setAttribute('aria-label', 'Open navigation menu');
+    }
+  };
+
+  const navTabClick = (tabKey) => {
+    closeMobileSidebar();
+    renderAdmin(tabKey);
+  };
+
+  document.querySelector('#nav-results').onclick = () => navTabClick('results');
+  document.querySelector('#nav-questions').onclick = () => navTabClick('questions');
+  document.querySelector('#nav-rubrics').onclick = () => navTabClick('rubrics');
+  document.querySelector('#nav-users').onclick = () => navTabClick('users');
+  document.querySelector('#nav-audit').onclick = () => navTabClick('audit');
+  document.querySelector('#nav-settings').onclick = () => navTabClick('settings');
+
+  const closeBtn = document.querySelector('#sidebar-close-btn');
+  if (closeBtn) closeBtn.onclick = closeMobileSidebar;
+
+  const backdrop = document.querySelector('#sidebar-backdrop');
+  if (backdrop) backdrop.onclick = closeMobileSidebar;
+
+  // Clear active background live polling timers from previous tabs
+  if (window.adminAuditLiveTimer) {
+    clearInterval(window.adminAuditLiveTimer);
+    window.adminAuditLiveTimer = null;
+  }
+  if (window.adminResultsLiveTimer) {
+    clearInterval(window.adminResultsLiveTimer);
+    window.adminResultsLiveTimer = null;
+  }
 
   const mainContainer = document.querySelector('#admin-content');
 
@@ -1972,6 +2444,10 @@ async function renderAdmin(tab) {
     await renderAdminQuestionsTab(mainContainer);
   } else if (tab === 'rubrics') {
     await renderAdminRubricsTab(mainContainer);
+  } else if (tab === 'audit') {
+    await renderAdminAuditTab(mainContainer);
+  } else if (tab === 'settings') {
+    await renderAdminSettingsTab(mainContainer);
   }
 }
 
@@ -1981,6 +2457,28 @@ async function renderAdminResultsTab(container) {
 
   const completedCount = data.results.filter((item) => item.status === 'Completed').length;
   const pendingCount = data.results.filter((item) => item.review === 'Pending' || item.review?.includes('required')).length;
+
+  // Real-time live polling for candidate assessments without page refresh
+  if (window.adminResultsLiveTimer) clearInterval(window.adminResultsLiveTimer);
+  window.adminResultsLiveTimer = setInterval(async () => {
+    if (localStorage.getItem('assessify_admin_tab') !== 'results') {
+      clearInterval(window.adminResultsLiveTimer);
+      window.adminResultsLiveTimer = null;
+      return;
+    }
+    const isSearching = document.activeElement && document.activeElement.id === 'search';
+    const isModalOpen = Boolean(modalRoot && modalRoot.innerHTML !== '');
+    const hasChecked = document.querySelectorAll('.attempt-checkbox:checked').length > 0;
+    if (isSearching || isModalOpen || hasChecked) return;
+
+    const liveData = await request('/api/admin/results');
+    if (liveData.error || !Array.isArray(liveData.results)) return;
+
+    const currentTotalEl = document.querySelector('.kpi-indigo strong');
+    if (currentTotalEl && currentTotalEl.textContent !== String(liveData.total)) {
+      renderAdminResultsTab(container);
+    }
+  }, 4000);
 
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
@@ -2077,14 +2575,13 @@ async function renderAdminResultsTab(container) {
               <th style="width:40px;text-align:center;padding:12px 8px">
                 <input type="checkbox" id="select-all-attempts" class="custom-table-checkbox" title="Select all visible candidates">
               </th>
-              <th style="width:24%">Teacher Candidate</th>
+              <th style="width:26%">Teacher Candidate</th>
               <th style="width:16%">School Unit</th>
-              <th style="width:10%">Attempt ID</th>
-              <th style="width:11%">Started</th>
-              <th style="width:11%">Status</th>
-              <th style="width:10%">Overall Band</th>
-              <th style="width:11%">Review Status</th>
-              <th style="width:14%;text-align:right">Actions</th>
+              <th style="width:11%">Attempt ID</th>
+              <th style="width:12%">Status</th>
+              <th style="width:11%">Overall Band</th>
+              <th style="width:12%">Review Status</th>
+              <th style="width:12%;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="results">${renderTableRows(data.results)}</tbody>
@@ -2092,6 +2589,52 @@ async function renderAdminResultsTab(container) {
       </div>
     </div>
   `;
+
+  function renderRow(row) {
+    const isReviewed = row.review === 'Teacher reviewed';
+    const isCompleted = row.status === 'Completed';
+    const initials = (row.teacher || 'T').split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'T';
+    const overallBand = row.overall || row.overallBand || (isCompleted ? 'Pending' : '—');
+
+    return `
+      <tr data-attempt-id="${row.id}">
+        <td style="text-align:center;padding:12px 8px">
+          <input type="checkbox" class="attempt-checkbox custom-table-checkbox" data-id="${row.id}" data-name="${(row.teacher || '').replaceAll('"', '&quot;')}">
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, #1e40af, #3b82f6);color:#fff;display:inline-grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0">${initials}</span>
+            <div>
+              <div style="font-weight:700;color:var(--ink);font-size:13.5px">${row.teacher || 'Candidate'}</div>
+              <div style="font-size:12px;color:var(--muted)">${row.email || 'No email'}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="unit-pill">${row.unit || 'SMK KARYA BANGSA'}</span></td>
+        <td><span class="attempt-pill">${row.id}</span></td>
+        <td><span class="pill ${isCompleted ? 'success' : 'pending'}">${row.status || 'In progress'}</span></td>
+        <td>
+          ${overallBand !== '—' && overallBand !== 'Pending'
+            ? `<span class="${getLevelBadgeClass(overallBand)}" style="font-size:12.5px;font-weight:700">${overallBand}</span>`
+            : `<span style="color:var(--muted);font-size:12.5px">${overallBand}</span>`}
+        </td>
+        <td><span class="pill ${isReviewed ? 'success' : 'pending'}">${row.review || 'Pending'}</span></td>
+        <td style="text-align:right">
+          <div style="display:inline-flex;align-items:center;gap:6px">
+            <button type="button" class="button button-sm detail" data-id="${row.id}" style="padding:6px 12px;font-size:12.5px" title="Evaluate and grade candidate responses">
+              <span>Grade</span>
+            </button>
+            <a class="btn-action-icon" href="/api/attempts/${row.id}/certificate" target="_blank" title="Download Official Placement Certificate">
+              ${ICONS.pdf}
+            </a>
+            <button type="button" class="btn-delete-ghost btn-delete-attempt" data-id="${row.id}" data-name="${(row.teacher || '').replaceAll('"', '&quot;')}" title="Delete candidate attempt">
+              ${ICONS.trash}
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
 
   function renderTableRows(list) {
     if (!list || !list.length) {
@@ -2106,6 +2649,87 @@ async function renderAdminResultsTab(container) {
       `;
     }
     return list.map(renderRow).join('');
+  }
+
+  function bindDetails() {
+    const selectAllCb = document.querySelector('#select-all-attempts');
+    const checkboxes = document.querySelectorAll('.attempt-checkbox');
+    const bulkBar = document.querySelector('#bulk-actions-bar');
+    const countBadge = document.querySelector('#bulk-selected-count');
+
+    const updateBulkBar = () => {
+      const checked = document.querySelectorAll('.attempt-checkbox:checked');
+      const count = checked.length;
+      if (countBadge) countBadge.textContent = String(count);
+      if (bulkBar) bulkBar.style.display = count > 0 ? 'flex' : 'none';
+      if (selectAllCb) {
+        selectAllCb.checked = checkboxes.length > 0 && count === checkboxes.length;
+        selectAllCb.indeterminate = count > 0 && count < checkboxes.length;
+      }
+    };
+
+    if (selectAllCb) {
+      selectAllCb.onchange = () => {
+        checkboxes.forEach((cb) => { cb.checked = selectAllCb.checked; });
+        updateBulkBar();
+      };
+    }
+
+    checkboxes.forEach((cb) => {
+      cb.onchange = updateBulkBar;
+    });
+
+    const deselectBtn = document.querySelector('#bulk-deselect-btn');
+    if (deselectBtn) {
+      deselectBtn.onclick = () => {
+        checkboxes.forEach((cb) => { cb.checked = false; });
+        updateBulkBar();
+      };
+    }
+
+    const bulkExportExcel = document.querySelector('#bulk-export-excel-btn');
+    if (bulkExportExcel) {
+      bulkExportExcel.onclick = () => {
+        const ids = Array.from(document.querySelectorAll('.attempt-checkbox:checked')).map((cb) => cb.dataset.id);
+        if (!ids.length) return;
+        window.open(`/api/admin/results/export?format=xlsx&ids=${encodeURIComponent(ids.join(','))}`, '_blank');
+      };
+    }
+
+    const bulkExportPdf = document.querySelector('#bulk-export-pdf-btn');
+    if (bulkExportPdf) {
+      bulkExportPdf.onclick = () => {
+        const ids = Array.from(document.querySelectorAll('.attempt-checkbox:checked')).map((cb) => cb.dataset.id);
+        if (!ids.length) return;
+        window.open(`/api/admin/results/export?format=pdf&ids=${encodeURIComponent(ids.join(','))}`, '_blank');
+      };
+    }
+
+    const bulkDeleteBtn = document.querySelector('#bulk-delete-btn');
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.onclick = () => {
+        const checkboxes = Array.from(document.querySelectorAll('.attempt-checkbox:checked'));
+        const ids = checkboxes.map((cb) => cb.dataset.id);
+        if (!ids.length) return;
+        const names = checkboxes.map((cb) => cb.dataset.name || cb.closest('tr')?.querySelector('strong')?.textContent?.trim() || cb.dataset.id);
+        openBulkDeleteModal(ids, names, () => renderAdminResultsTab(container));
+      };
+    }
+
+    document.querySelectorAll('.detail').forEach((btn) => {
+      btn.onclick = () => {
+        const attemptId = btn.dataset.id;
+        if (attemptId) openGradingModal(attemptId);
+      };
+    });
+
+    document.querySelectorAll('.btn-delete-attempt').forEach((btn) => {
+      btn.onclick = () => {
+        const attemptId = btn.dataset.id;
+        const teacherName = btn.dataset.name || btn.closest('tr')?.querySelector('strong')?.textContent?.trim() || '';
+        openDeleteModal(attemptId, teacherName, () => renderAdminResultsTab(container));
+      };
+    });
   }
 
   const filter = () => {
@@ -2556,18 +3180,10 @@ async function renderAdminUsersTab(container) {
     container.querySelector('#btn-bulk-activate').onclick = () => applyBulkStatus('active');
     container.querySelector('#btn-bulk-suspend').onclick = () => applyBulkStatus('suspended');
     container.querySelector('#btn-bulk-archive').onclick = () => applyBulkStatus('archived');
-    container.querySelector('#btn-bulk-delete').onclick = async () => {
+    container.querySelector('#btn-bulk-delete').onclick = () => {
       const targets = getSelectedTargets();
       if (!targets.length) return;
-      if (!confirm(`Are you sure you want to delete ${targets.length} selected accounts?`)) return;
-      const res = await request('/api/admin/users/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targets })
-      });
-      if (res.error) return showToast(res.error, 'error');
-      showToast(`✓ Deleted ${res.deletedCount || targets.length} accounts.`, 'success');
-      renderAdmin('users');
+      openBulkDeleteUsersModal(targets, findUser);
     };
 
     if (searchInput) searchInput.oninput = updateTable;
@@ -2872,6 +3488,78 @@ function openDeleteUserModal(user) {
 
     closeModal();
     showToast(`✓ Account "${user.name}" deleted successfully.`, 'success');
+    renderAdmin('users');
+  };
+}
+
+function openBulkDeleteUsersModal(targets, findUser) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+
+  const names = targets.map((t) => {
+    const u = typeof findUser === 'function' ? findUser(t.id, t.role) : null;
+    return u ? `${u.name} (${u.role === 'admin' ? `@${u.username}` : u.email || u.unit || 'Candidate'})` : `${t.role} #${t.id}`;
+  });
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="delete-bulk-users-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
+      <div class="modal-card" style="max-width:480px;background:#ffffff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;padding:0" role="dialog" aria-modal="true">
+        <div style="padding:28px 24px 20px;text-align:center">
+          <div class="modal-icon-danger" style="width:56px;height:56px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;margin:0 auto 16px">
+            ${ICONS.trash}
+          </div>
+          <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">Delete ${targets.length} User Accounts?</h3>
+          <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5">
+            Are you sure you want to permanently delete <strong>${targets.length} selected account${targets.length > 1 ? 's' : ''}</strong>?
+          </p>
+          <div style="max-height:120px;overflow-y:auto;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:12px 0 0;font-size:12px;text-align:left;color:var(--ink)">
+            ${names.map((n) => `<div>• <strong>${n}</strong></div>`).join('')}
+          </div>
+          <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;padding:10px 12px;border-radius:8px;margin-top:14px;text-align:left;display:flex;align-items:flex-start;gap:8px">
+            <span style="flex-shrink:0;color:#dc2626">${ICONS.alertTriangle}</span>
+            <span><strong>Warning:</strong> Selected administrator and candidate accounts will be permanently removed. This cannot be undone.</span>
+          </div>
+          <div id="delete-bulk-users-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-top:12px"></div>
+        </div>
+        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+          <button class="ghost" id="btn-cancel-bulk-del-users" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
+          <button class="button" id="btn-confirm-bulk-del-users" type="button" style="background:#dc2626;border-color:#dc2626;color:#ffffff;padding:8px 18px;font-size:13px;font-weight:600">
+            ${ICONS.trash} <span>Yes, Delete ${targets.length} Accounts</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#btn-cancel-bulk-del-users').onclick = closeModal;
+  modalRoot.querySelector('#delete-bulk-users-backdrop').onclick = (e) => {
+    if (e.target.id === 'delete-bulk-users-backdrop') closeModal();
+  };
+
+  const confirmBtn = modalRoot.querySelector('#btn-confirm-bulk-del-users');
+  const errEl = modalRoot.querySelector('#delete-bulk-users-error');
+
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting…';
+
+    const res = await request('/api/admin/users/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets })
+    });
+
+    if (res.error) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `${ICONS.trash} <span>Yes, Delete ${targets.length} Accounts</span>`;
+      errEl.textContent = res.error;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    closeModal();
+    showToast(`✓ Deleted ${res.deletedCount || targets.length} accounts.`, 'success');
     renderAdmin('users');
   };
 }
@@ -4018,7 +4706,6 @@ function renderRow(row) {
         <span class="unit-pill">${row.unit || 'SD KARYA BANGSA'}</span>
       </td>
       <td><span class="attempt-pill">${row.id}</span></td>
-      <td style="color:var(--muted);font-size:13px">${new Date(row.startedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
       <td>
         <span class="${statusPillClass}">
           <span class="pill-dot"></span>
@@ -4052,8 +4739,9 @@ function renderRow(row) {
   `;
 }
 
-function openBulkDeleteModal(selectedIds, selectedNames) {
+function openBulkDeleteModal(selectedIds, selectedNames, onSuccess) {
   const modalContainer = document.querySelector('#modal-root') || document.body;
+  const names = (selectedNames && selectedNames.length) ? selectedNames : selectedIds;
   modalContainer.innerHTML = `
     <div class="modal-backdrop" id="delete-modal-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
       <div class="modal-card" role="dialog" aria-modal="true" style="max-width:480px;background:#ffffff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;padding:0">
@@ -4061,17 +4749,18 @@ function openBulkDeleteModal(selectedIds, selectedNames) {
           <div class="modal-icon-danger" style="width:56px;height:56px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;margin:0 auto 16px">
             ${ICONS.trash}
           </div>
-          <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">Delete ${selectedIds.length} Assessment Records?</h3>
+          <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">Delete ${selectedIds.length} Assessment Record${selectedIds.length > 1 ? 's' : ''}?</h3>
           <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5">
-            Are you sure you want to permanently delete <strong>${selectedIds.length} candidate attempts</strong>?
+            Are you sure you want to permanently delete <strong>${selectedIds.length} candidate attempt${selectedIds.length > 1 ? 's' : ''}</strong>?
           </p>
-          <div style="max-height:100px;overflow-y:auto;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:12px 0 0;font-size:12px;text-align:left;color:var(--ink)">
-            ${selectedNames.map((n, i) => `<div>• <strong>${n}</strong> (${selectedIds[i]})</div>`).join('')}
+          <div style="max-height:120px;overflow-y:auto;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:12px 0 0;font-size:12px;text-align:left;color:var(--ink)">
+            ${names.map((n, i) => `<div>• <strong>${n || selectedIds[i]}</strong> <span style="color:var(--muted)">(${selectedIds[i]})</span></div>`).join('')}
           </div>
           <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;padding:10px 12px;border-radius:8px;margin-top:14px;text-align:left;display:flex;align-items:flex-start;gap:8px">
             <span style="flex-shrink:0;color:#dc2626">${ICONS.alertTriangle}</span>
             <span><strong>Warning:</strong> All answers, scores, and recordings for these candidates will be permanently erased. This cannot be undone.</span>
           </div>
+          <div id="bulk-delete-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-top:12px"></div>
         </div>
         <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
           <button class="ghost" id="modal-cancel-delete" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
@@ -4093,6 +4782,7 @@ function openBulkDeleteModal(selectedIds, selectedNames) {
 
   document.querySelector('#bulk-delete-confirm-btn').onclick = async () => {
     const btn = document.querySelector('#bulk-delete-confirm-btn');
+    const errEl = document.querySelector('#bulk-delete-error');
     btn.disabled = true;
     btn.textContent = 'Deleting…';
 
@@ -4101,17 +4791,28 @@ function openBulkDeleteModal(selectedIds, selectedNames) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: selectedIds })
     });
-    closeModal();
     if (res.error) {
-      showToast(`Error: ${res.error}`, 'error');
+      btn.disabled = false;
+      btn.innerHTML = `${ICONS.trash} <span>Yes, Delete ${selectedIds.length} Records</span>`;
+      if (errEl) {
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+      } else {
+        showToast(`Error: ${res.error}`, 'error');
+      }
+      return;
+    }
+    closeModal();
+    showToast(`✓ ${selectedIds.length} candidate attempts deleted successfully.`, 'success');
+    if (typeof onSuccess === 'function') {
+      onSuccess();
     } else {
-      showToast(`✓ ${selectedIds.length} candidate attempts deleted successfully.`, 'success');
-      renderAdmin();
+      renderAdmin('results');
     }
   };
 }
 
-function openDeleteModal(attemptId, teacherName) {
+function openDeleteModal(attemptId, teacherName, onSuccess) {
   const modalContainer = document.querySelector('#modal-root') || document.body;
   modalContainer.innerHTML = `
     <div class="modal-backdrop" id="delete-modal-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
@@ -4128,6 +4829,7 @@ function openDeleteModal(attemptId, teacherName) {
             <span style="flex-shrink:0;color:#dc2626">${ICONS.alertTriangle}</span>
             <span><strong>Warning:</strong> This will permanently erase all test answers, grading rubrics, and video recordings. This action cannot be undone.</span>
           </div>
+          <div id="single-delete-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-top:12px"></div>
         </div>
         <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
           <button class="ghost" id="modal-cancel-delete" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
@@ -4153,16 +4855,28 @@ function openDeleteModal(attemptId, teacherName) {
 
   document.querySelector('#delete-confirm-btn').onclick = async () => {
     const btn = document.querySelector('#delete-confirm-btn');
+    const errEl = document.querySelector('#single-delete-error');
     btn.disabled = true;
     btn.textContent = 'Deleting…';
 
     const res = await request(`/api/admin/results/${attemptId}`, { method: 'DELETE' });
-    closeModal();
     if (res.error) {
-      showToast(`Error: ${res.error}`, 'error');
+      btn.disabled = false;
+      btn.innerHTML = `${ICONS.trash} <span>Delete Permanently</span>`;
+      if (errEl) {
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+      } else {
+        showToast(`Error: ${res.error}`, 'error');
+      }
+      return;
+    }
+    closeModal();
+    showToast(`✓ Candidate attempt ${attemptId} deleted successfully.`, 'success');
+    if (typeof onSuccess === 'function') {
+      onSuccess();
     } else {
-      showToast(`Attempt ${attemptId} deleted successfully.`, 'success');
-      renderAdmin();
+      renderAdmin('results');
     }
   };
 }
@@ -4285,19 +4999,9 @@ const calculateLevel = (total) => {
   return 'C1';
 };
 
-const getLevelBadgeClass = (level) => {
-  switch (level) {
-    case 'C2': return 'cefr-badge c2';
-    case 'C1': return 'cefr-badge c1';
-    case 'B2': return 'cefr-badge b2';
-    case 'B1': return 'cefr-badge b1';
-    case 'A2': return 'cefr-badge a2';
-    case 'A1': return 'cefr-badge a1';
-    default: return 'cefr-badge';
-  }
-};
 
-async function openGradingModal(attemptId) {
+async function openGradingModal(attemptInput) {
+  const attemptId = typeof attemptInput === 'object' && attemptInput !== null ? (attemptInput.id || attemptInput.attemptId) : attemptInput;
   const modalContainer = document.querySelector('#modal-root') || document.body;
   modalContainer.innerHTML = `
     <div class="modal-backdrop" id="grading-modal-backdrop">
@@ -4529,10 +5233,14 @@ async function openGradingModal(attemptId) {
                   <div class="candidate-email">${attempt.email || 'Teacher Account'}</div>
                 </div>
               </div>
-              <div class="candidate-tags">
+              <div class="candidate-tags" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span class="pill">Attempt: ${attempt.id}</span>
                 <span class="pill ${attempt.status === 'Completed' ? 'success' : 'pending'}">${attempt.status}</span>
                 <span class="pill ${attempt.review === 'Teacher reviewed' ? 'success' : 'pending'}">${attempt.review || 'Pending'}</span>
+                <button class="btn-ai-grade" id="modal-ai-grade-btn" type="button" title="Auto-grade Writing & Speaking responses using Google Gemini AI">
+                  <span class="ai-sparkle-icon">✨</span>
+                  <span>Auto-Grade with Gemini AI</span>
+                </button>
               </div>
             </div>
 
@@ -4555,6 +5263,9 @@ async function openGradingModal(attemptId) {
                 <strong style="color:#1e40af">${attempt.overall || (totals.writing.level && totals.speaking.level ? 'Ready to finalize' : 'Pending')}</strong>
               </div>
             </div>
+
+            <!-- AI Evaluation Results Container -->
+            <div id="ai-evaluation-results-container"></div>
 
             <!-- Candidate Written Submissions Preview -->
             ${isSingleEssay ? `
@@ -4765,6 +5476,163 @@ async function openGradingModal(attemptId) {
   document.querySelector('#modal-close-btn').onclick = closeGradingModal;
   document.querySelector('#modal-cancel-btn').onclick = closeGradingModal;
 
+  // Auto-Grade with Gemini AI
+  const aiGradeBtn = document.querySelector('#modal-ai-grade-btn');
+  if (aiGradeBtn) {
+    aiGradeBtn.onclick = async () => {
+      aiGradeBtn.disabled = true;
+      const originalHtml = aiGradeBtn.innerHTML;
+      aiGradeBtn.innerHTML = '<span class="ai-sparkle-icon">⏳</span> <span>Gemini AI is analyzing…</span>';
+
+      try {
+        const res = await request(`/api/admin/results/${attemptId}/ai-grade`, { method: 'POST' });
+        if (res.error) {
+          showToast(res.error, 'error');
+          aiGradeBtn.disabled = false;
+          aiGradeBtn.innerHTML = originalHtml;
+          return;
+        }
+
+        // 1. Populate Writing scores if available
+        if (res.writing && res.writing.scores) {
+          Object.entries(res.writing.scores).forEach(([field, val]) => {
+            scores.writing[field] = Number(val);
+            const siblingBtns = document.querySelectorAll(`.scale-btn[data-skill="writing"][data-field="${field.replaceAll('"', '\\"')}"]`);
+            siblingBtns.forEach((b) => {
+              b.classList.toggle('active', Number(b.dataset.val) === Number(val));
+            });
+          });
+        }
+
+        // 2. Populate Speaking scores if available
+        if (res.speaking && res.speaking.scores) {
+          Object.entries(res.speaking.scores).forEach(([field, val]) => {
+            scores.speaking[field] = Number(val);
+            const siblingBtns = document.querySelectorAll(`.scale-btn[data-skill="speaking"][data-field="${field.replaceAll('"', '\\"')}"]`);
+            siblingBtns.forEach((b) => {
+              b.classList.toggle('active', Number(b.dataset.val) === Number(val));
+            });
+          });
+        }
+
+        // 3. Update summary badges and chip totals
+        const totals = computeTotals();
+
+        const wBadge = document.querySelector('#w-calc-badge');
+        if (wBadge) {
+          wBadge.innerHTML = totals.writing.complete
+            ? `<span class="${getLevelBadgeClass(totals.writing.level)}">${totals.writing.level} (${totals.writing.total}/${totals.writing.max})</span>`
+            : `<span class="pill pending">Incomplete (${totals.writing.selected}/${totals.writing.count} criteria)</span>`;
+        }
+
+        const sBadge = document.querySelector('#s-calc-badge');
+        if (sBadge) {
+          sBadge.innerHTML = totals.speaking.complete
+            ? `<span class="${getLevelBadgeClass(totals.speaking.level)}">${totals.speaking.level} (${totals.speaking.total}/${totals.speaking.max})</span>`
+            : `<span class="pill pending">Incomplete (${totals.speaking.selected}/${totals.speaking.count} criteria)</span>`;
+        }
+
+        const wSum = document.querySelector('#w-summary-chip');
+        if (wSum) {
+          wSum.textContent = totals.writing.level ? `${totals.writing.level} (${totals.writing.total}/${totals.writing.max})` : 'Pending';
+        }
+
+        const sSum = document.querySelector('#s-summary-chip');
+        if (sSum) {
+          sSum.textContent = totals.speaking.level ? `${totals.speaking.level} (${totals.speaking.total}/${totals.speaking.max})` : 'Pending';
+        }
+
+        const footerSummary = document.querySelector('#modal-footer-summary');
+        if (footerSummary) {
+          footerSummary.innerHTML = totals.writing.complete && totals.speaking.complete
+            ? `<span>Ready to save: <strong>Writing ${totals.writing.level} (${totals.writing.total}/${totals.writing.max})</strong> · <strong>Speaking ${totals.speaking.level} (${totals.speaking.total}/${totals.speaking.max})</strong></span>`
+            : `<span style="color:var(--warning)">⚠️ Please select a score for all criteria.</span>`;
+        }
+
+        // 4. Render AI Feedback Box in Modal
+        const resultsBox = document.querySelector('#ai-evaluation-results-container');
+        if (resultsBox) {
+          resultsBox.innerHTML = `
+            <div class="ai-evaluation-box">
+              <div class="ai-box-header">
+                <div class="ai-box-title">
+                  <span class="ai-sparkle-icon">✨</span>
+                  <span>Google Gemini AI Evaluation Report</span>
+                </div>
+                <span class="ai-box-badge">Suggested Placement: ${res.suggestedOverall || 'Evaluated'}</span>
+              </div>
+
+              <!-- Writing Feedback -->
+              <div style="margin-bottom:14px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <strong style="color:#4338ca;font-size:13px">Writing Assessment (Band ${res.writing.level || 'Evaluated'})</strong>
+                </div>
+                <div class="ai-feedback-text">${res.writing.feedback || 'Completed against CEFR writing criteria.'}</div>
+                ${(res.writing.strengths?.length > 0 || res.writing.improvements?.length > 0) ? `
+                  <div class="ai-bullets-grid">
+                    ${res.writing.strengths?.length > 0 ? `
+                      <div class="ai-bullet-col">
+                        <div class="ai-bullet-col-title strengths"><span>✓</span> Strengths</div>
+                        <ul class="ai-bullet-list">
+                          ${res.writing.strengths.map((s) => `<li>${s.replace(/</g, '&lt;')}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    ${res.writing.improvements?.length > 0 ? `
+                      <div class="ai-bullet-col">
+                        <div class="ai-bullet-col-title improvements"><span>↑</span> Areas for Growth</div>
+                        <ul class="ai-bullet-list">
+                          ${res.writing.improvements.map((i) => `<li>${i.replace(/</g, '&lt;')}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Speaking Feedback -->
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <strong style="color:#4338ca;font-size:13px">Speaking Assessment (Band ${res.speaking.level || 'Evaluated'})</strong>
+                </div>
+                <div class="ai-feedback-text">${res.speaking.feedback || 'Completed against CEFR speaking criteria.'}</div>
+                ${(res.speaking.strengths?.length > 0 || res.speaking.improvements?.length > 0) ? `
+                  <div class="ai-bullets-grid">
+                    ${res.speaking.strengths?.length > 0 ? `
+                      <div class="ai-bullet-col">
+                        <div class="ai-bullet-col-title strengths"><span>✓</span> Strengths</div>
+                        <ul class="ai-bullet-list">
+                          ${res.speaking.strengths.map((s) => `<li>${s.replace(/</g, '&lt;')}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    ${res.speaking.improvements?.length > 0 ? `
+                      <div class="ai-bullet-col">
+                        <div class="ai-bullet-col-title improvements"><span>↑</span> Areas for Growth</div>
+                        <ul class="ai-bullet-list">
+                          ${res.speaking.improvements.map((i) => `<li>${i.replace(/</g, '&lt;')}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        // Trigger autosave with populated scores
+        triggerAutoSave();
+        showToast('✨ Gemini AI populated rubric ratings and feedback successfully!', 'success');
+      } catch (err) {
+        showToast(err.message || 'AI grading failed', 'error');
+      } finally {
+        aiGradeBtn.disabled = false;
+        aiGradeBtn.innerHTML = originalHtml;
+      }
+    };
+  }
+
   // Backdrop click
   const backdrop = document.querySelector('#grading-modal-backdrop');
   if (backdrop) {
@@ -4938,17 +5806,1083 @@ function closeGradingModal() {
   }
 }
 
+// ==========================================================================
+// Security & Audit Log Tab
+// ==========================================================================
+let auditFilterState = {
+  search: '',
+  category: 'all',
+  status: 'all',
+  actorType: 'all'
+};
+
+async function renderAdminAuditTab(container) {
+  // Clear any existing live audit timer before starting fresh
+  if (window.adminAuditLiveTimer) {
+    clearInterval(window.adminAuditLiveTimer);
+    window.adminAuditLiveTimer = null;
+  }
+
+  const query = new URLSearchParams({
+    category: auditFilterState.category,
+    status: auditFilterState.status,
+    actorType: auditFilterState.actorType,
+    search: auditFilterState.search,
+    limit: '150'
+  });
+
+  const res = await request(`/api/admin/audit-logs?${query.toString()}`);
+  if (res.error) {
+    if (res.error === 'Unauthorized' || res.error.includes('access')) return renderLogin('admin');
+    return showToast(res.error, 'error');
+  }
+
+  let currentLogs = res.logs || [];
+  let stats = res.stats || {
+    total: currentLogs.length,
+    todayCount: 0,
+    securityAlertsCount: 0,
+    activeActorsCount: 0
+  };
+
+  const hasActiveFilters = () =>
+    auditFilterState.category !== 'all' ||
+    auditFilterState.status !== 'all' ||
+    auditFilterState.actorType !== 'all' ||
+    auditFilterState.search.trim() !== '';
+
+  const formatDateTimeParts = (ts) => {
+    if (!ts) return { date: '-', time: '' };
+    try {
+      const d = new Date(ts);
+      const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      return { date, time };
+    } catch {
+      return { date: ts, time: '' };
+    }
+  };
+
+  const getActionClass = (cat) => {
+    switch (cat) {
+      case 'AUTH': return 'audit-act-auth';
+      case 'ASSESSMENT': return 'audit-act-assess';
+      case 'EVALUATION': return 'audit-act-eval';
+      case 'USER_MGMT': return 'audit-act-user';
+      case 'CONTENT': return 'audit-act-content';
+      case 'SECURITY': return 'audit-act-security';
+      default: return 'audit-act-system';
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    if (status === 'SUCCESS') {
+      return `<span class="audit-status-badge audit-status-success">${ICONS.check} Success</span>`;
+    }
+    if (status === 'WARNING') {
+      return `<span class="audit-status-badge audit-status-warning">${ICONS.alertTriangle} Warning</span>`;
+    }
+    return `<span class="audit-status-badge audit-status-failure">${ICONS.x} Failed</span>`;
+  };
+
+  const getActorAvatarClass = (role) => {
+    if (role === 'admin') return 'audit-avatar-admin';
+    if (role === 'teacher') return 'audit-avatar-teacher';
+    return 'audit-avatar-system';
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'SYS';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const renderRowHtml = (log) => {
+    const dt = formatDateTimeParts(log.timestamp);
+    return `
+      <tr data-log-id="${log.id}">
+        <td style="padding:12px 16px">
+          <div class="audit-time-cell">
+            <span class="audit-time-date">${dt.date}</span>
+            <span class="audit-time-clock">${dt.time}</span>
+          </div>
+        </td>
+        <td style="padding:12px 16px">
+          <div class="audit-actor-cell">
+            <div class="audit-actor-avatar ${getActorAvatarClass(log.actorType)}">
+              ${getInitials(log.actorName || log.actorId)}
+            </div>
+            <div class="audit-actor-info">
+              <span class="audit-actor-name" title="${log.actorName || 'System'}">${log.actorName || 'System'}</span>
+              <span class="audit-actor-meta" title="${log.actorId || 'system'}">${log.actorId || 'system'}</span>
+              <span class="audit-role-badge ${log.actorType || 'system'}">${log.actorType || 'system'}</span>
+            </div>
+          </div>
+        </td>
+        <td style="padding:12px 16px">
+          <span class="audit-action-chip ${getActionClass(log.category)}">
+            ${log.action}
+          </span>
+        </td>
+        <td style="padding:12px 16px">
+          <span class="audit-cat-tag">${log.category}</span>
+        </td>
+        <td style="padding:12px 16px">
+          <span class="audit-target-text" title="${log.target || '-'}">${log.target || '-'}</span>
+        </td>
+        <td style="padding:12px 16px">
+          <span class="audit-ip-pill">${log.ipAddress || '127.0.0.1'}</span>
+        </td>
+        <td style="padding:12px 16px">
+          ${getStatusBadge(log.status)}
+        </td>
+        <td style="padding:12px 16px;text-align:center">
+          <button class="btn-inspect-audit" data-id="${log.id}" type="button" title="View event details">
+            ${ICONS.eye} Inspect
+          </button>
+        </td>
+      </tr>
+    `;
+  };
+
+  const renderEmptyHtml = () => `
+    <tr>
+      <td colspan="8" style="padding:0">
+        ${hasActiveFilters() ? `
+          <div class="audit-empty-card">
+            <div class="audit-empty-icon-wrap" style="background:#eff6ff;color:#2563eb">${ICONS.search}</div>
+            <h3 style="font:700 18px 'Space Grotesk';color:var(--ink);margin:12px 0 4px">No Matching Audit Events</h3>
+            <p style="color:var(--muted);font-size:13.5px;max-width:420px;margin:0 auto 16px">No logs match your filter criteria. Try adjusting your search keywords or resetting your dropdown filters.</p>
+            <button class="button ghost" id="btn-reset-filters-empty" type="button">Reset All Filters</button>
+          </div>
+        ` : `
+          <div class="audit-empty-card">
+            <div class="audit-empty-icon-wrap" style="background:#f0fdf4;color:#16a34a">${ICONS.shield}</div>
+            <h3 style="font:700 18px 'Space Grotesk';color:var(--ink);margin:12px 0 4px">Audit Log Initialized (Clean State)</h3>
+            <p style="color:var(--muted);font-size:13.5px;max-width:480px;margin:0 auto">All real user and system operations (teacher logins, assessment starts, draft saves, submissions, evaluations, and setting updates) will be automatically recorded here in real-time as they occur.</p>
+          </div>
+        `}
+      </td>
+    </tr>
+  `;
+
+  const showInspectModal = (entry) => {
+    const dt = formatDateTimeParts(entry.timestamp);
+
+    // Clean formatted detail rows if any extra details exist (NO raw JSON!)
+    let extraDetailsHtml = '';
+    if (entry.details && typeof entry.details === 'object' && Object.keys(entry.details).length > 0) {
+      const labels = {
+        unit: 'School Unit',
+        overallBand: 'Overall Band Score',
+        earlyTermination: 'Early Termination',
+        durationMinutes: 'Duration (Minutes)',
+        passingBand: 'Passing Band Threshold',
+        schoolName: 'School Name',
+        maintenanceMode: 'Maintenance Mode',
+        username: 'Username',
+        name: 'Full Name',
+        email: 'Email Address',
+        count: 'Record Count',
+        reason: 'Reason'
+      };
+
+      const rows = Object.entries(entry.details)
+        .filter(([k, v]) => v !== null && v !== undefined && typeof v !== 'object')
+        .map(([k, v]) => {
+          const title = labels[k] || k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+          const displayVal = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v);
+          return `
+            <div>
+              <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">${title}:</span>
+              <strong style="color:var(--ink)">${displayVal}</strong>
+            </div>
+          `;
+        }).join('');
+
+      if (rows) {
+        extraDetailsHtml = rows;
+      }
+    }
+
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" id="audit-detail-modal">
+        <div class="modal-card" style="max-width:520px;padding:24px;border-radius:14px;margin:auto;box-shadow:var(--shadow-lg)">
+          <!-- Centered Modal Header -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:14px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span class="audit-cat-tag">${entry.category}</span>
+                ${getStatusBadge(entry.status)}
+              </div>
+              <h2 style="font:700 20px 'Space Grotesk';margin:0;color:var(--ink)">${entry.action}</h2>
+            </div>
+            <button class="ghost" id="modal-close-audit" type="button" style="padding:6px 10px;font-size:16px;border-radius:8px">✕</button>
+          </div>
+
+          <!-- Clean Info Grid (NO RAW JSON DISPLAYED) -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f8fafc;padding:16px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px">
+            <div>
+              <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Timestamp:</span>
+              <strong style="color:var(--ink)">${dt.date} <span style="font-family:'SFMono-Regular',Consolas,monospace;color:#64748b">${dt.time}</span></strong>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Client IP Address:</span>
+              <span style="font-family:'SFMono-Regular',Consolas,monospace;font-weight:600;color:var(--ink)">${entry.ipAddress || '127.0.0.1'}</span>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Actor Identity:</span>
+              <strong style="color:var(--ink)">${entry.actorName || 'System'}</strong>
+              <div style="font-size:11.5px;color:var(--muted)">${entry.actorId || 'system'} (${entry.actorType || 'system'})</div>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Target Resource:</span>
+              <strong style="color:var(--ink)">${entry.target || '-'}</strong>
+            </div>
+            ${extraDetailsHtml}
+          </div>
+
+          <!-- Modal Action Footer -->
+          <div style="display:flex;justify-content:flex-end;margin-top:20px">
+            <button class="button" id="modal-ok-audit" type="button" style="min-width:110px">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.querySelector('#modal-close-audit').onclick = () => { modalRoot.innerHTML = ''; };
+    document.querySelector('#modal-ok-audit').onclick = () => { modalRoot.innerHTML = ''; };
+  };
+
+  const bindInspectButtons = () => {
+    container.querySelectorAll('.btn-inspect-audit').forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.dataset.id;
+        const entry = currentLogs.find((l) => String(l.id) === String(id));
+        if (entry) showInspectModal(entry);
+      };
+    });
+  };
+
+  container.innerHTML = `
+    <!-- Header with Live Pulse & Export Actions -->
+    <div class="audit-header-wrap">
+      <div>
+        <div class="eyebrow" style="display:inline-flex;align-items:center;gap:8px">
+          <span>SECURITY & GOVERNANCE</span>
+          <span class="audit-live-status-pill" title="Live stream is active and updating automatically">
+            <span class="audit-live-dot"></span> Live Real-time Stream
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin:6px 0 4px;flex-wrap:wrap">
+          <h1 style="font:700 32px 'Space Grotesk';margin:0;color:var(--ink)">Audit Log</h1>
+          <span class="audit-count-pill" id="audit-total-pill">${stats.total} Total Events</span>
+        </div>
+        <p style="color:var(--muted);font-size:14px;margin:0">Real-time immutable audit trail capturing authentication, candidate tests, evaluations, and system configurations.</p>
+      </div>
+      <div class="admin-toolbar">
+        <a class="btn-icon audit-btn-export" id="btn-export-audit" href="/api/admin/audit-logs/export?${query.toString()}" download="assessify-audit-logs.xlsx" title="Export audit logs to Excel (.xlsx)">
+          ${ICONS.excel} <span>Export Audit (.xlsx)</span>
+        </a>
+        <button class="button ghost" id="btn-refresh-audit" type="button" title="Refresh audit log feed" style="display:flex;align-items:center;gap:6px">
+          ${ICONS.refresh} <span>Refresh</span>
+        </button>
+        <button class="button danger" id="btn-clear-audit" type="button" title="Clear all audit logs to null / empty" style="display:flex;align-items:center;gap:6px;background:#ef4444;color:#fff;border:none">
+          ${ICONS.trash} <span>Clear Logs</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4-Column KPI Summary Grid -->
+    <div class="admin-kpis-grid cols-4">
+      <div class="kpi-card kpi-indigo">
+        <div class="kpi-card-info">
+          <strong id="kpi-audit-total">${stats.total}</strong>
+          <span>Total Events</span>
+        </div>
+        <div class="kpi-card-icon">${ICONS.fileText}</div>
+      </div>
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-card-info">
+          <strong id="kpi-audit-today">${stats.todayCount}</strong>
+          <span>Recorded Today</span>
+        </div>
+        <div class="kpi-card-icon">${ICONS.clock}</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-card-info">
+          <strong id="kpi-audit-alerts">${stats.securityAlertsCount}</strong>
+          <span>Security & Warnings</span>
+        </div>
+        <div class="kpi-card-icon">${ICONS.alertTriangle}</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-card-info">
+          <strong id="kpi-audit-actors">${stats.activeActorsCount}</strong>
+          <span>Unique Actors</span>
+        </div>
+        <div class="kpi-card-icon">${ICONS.users}</div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="audit-toolbar">
+      <div class="audit-search-wrap">
+        <span class="search-icon">${ICONS.search}</span>
+        <input class="audit-search-input" id="audit-search" type="search" placeholder="Search by actor name, ID, action, target, or IP address..." value="${auditFilterState.search}">
+        ${auditFilterState.search ? `<button class="audit-search-clear" id="audit-clear-search" type="button" title="Clear search">✕</button>` : ''}
+      </div>
+
+      <div class="audit-filters-group">
+        <select class="audit-select" id="audit-category-filter">
+          <option value="all" ${auditFilterState.category === 'all' ? 'selected' : ''}>All Categories</option>
+          <option value="AUTH" ${auditFilterState.category === 'AUTH' ? 'selected' : ''}>AUTH (Authentication)</option>
+          <option value="ASSESSMENT" ${auditFilterState.category === 'ASSESSMENT' ? 'selected' : ''}>ASSESSMENT (Test Taking)</option>
+          <option value="EVALUATION" ${auditFilterState.category === 'EVALUATION' ? 'selected' : ''}>EVALUATION (Scoring)</option>
+          <option value="USER_MGMT" ${auditFilterState.category === 'USER_MGMT' ? 'selected' : ''}>USER_MGMT (User Accounts)</option>
+          <option value="CONTENT" ${auditFilterState.category === 'CONTENT' ? 'selected' : ''}>CONTENT (Questions/Rubrics)</option>
+          <option value="SYSTEM" ${auditFilterState.category === 'SYSTEM' ? 'selected' : ''}>SYSTEM (Settings)</option>
+          <option value="SECURITY" ${auditFilterState.category === 'SECURITY' ? 'selected' : ''}>SECURITY (Security Events)</option>
+        </select>
+
+        <select class="audit-select" id="audit-status-filter">
+          <option value="all" ${auditFilterState.status === 'all' ? 'selected' : ''}>All Statuses</option>
+          <option value="SUCCESS" ${auditFilterState.status === 'SUCCESS' ? 'selected' : ''}>Success Only</option>
+          <option value="WARNING" ${auditFilterState.status === 'WARNING' ? 'selected' : ''}>Warnings Only</option>
+          <option value="FAILURE" ${auditFilterState.status === 'FAILURE' ? 'selected' : ''}>Failures Only</option>
+        </select>
+
+        <select class="audit-select" id="audit-actor-filter">
+          <option value="all" ${auditFilterState.actorType === 'all' ? 'selected' : ''}>All Roles</option>
+          <option value="teacher" ${auditFilterState.actorType === 'teacher' ? 'selected' : ''}>Teachers / Candidates</option>
+          <option value="admin" ${auditFilterState.actorType === 'admin' ? 'selected' : ''}>Administrators</option>
+          <option value="system" ${auditFilterState.actorType === 'system' ? 'selected' : ''}>System Engine</option>
+        </select>
+
+        ${hasActiveFilters() ? `
+          <button class="btn-reset-filters" id="btn-reset-filters" type="button" title="Reset all active filters">
+            Reset Filters
+          </button>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- Audit Log Records Table Card -->
+    <div class="audit-table-card">
+      <div class="audit-table-scroll">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th style="width:160px">Timestamp</th>
+              <th style="width:210px">Actor</th>
+              <th style="width:180px">Action</th>
+              <th style="width:110px">Category</th>
+              <th style="width:140px">Target</th>
+              <th style="width:105px">IP Address</th>
+              <th style="width:105px">Status</th>
+              <th style="width:85px;text-align:center">Details</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            ${currentLogs.length === 0 ? renderEmptyHtml() : currentLogs.map(renderRowHtml).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  bindInspectButtons();
+
+  // Filter Listeners
+  let searchTimer = null;
+  const searchInput = document.querySelector('#audit-search');
+  if (searchInput) {
+    searchInput.oninput = (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        auditFilterState.search = e.target.value.trim();
+        renderAdminAuditTab(container);
+      }, 300);
+    };
+  }
+
+  const clearSearchBtn = document.querySelector('#audit-clear-search');
+  if (clearSearchBtn) {
+    clearSearchBtn.onclick = () => {
+      auditFilterState.search = '';
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const catFilter = document.querySelector('#audit-category-filter');
+  if (catFilter) {
+    catFilter.onchange = (e) => {
+      auditFilterState.category = e.target.value;
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const statusFilter = document.querySelector('#audit-status-filter');
+  if (statusFilter) {
+    statusFilter.onchange = (e) => {
+      auditFilterState.status = e.target.value;
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const actorFilter = document.querySelector('#audit-actor-filter');
+  if (actorFilter) {
+    actorFilter.onchange = (e) => {
+      auditFilterState.actorType = e.target.value;
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const resetFilterBtn = document.querySelector('#btn-reset-filters') || document.querySelector('#btn-reset-filters-empty');
+  if (resetFilterBtn) {
+    resetFilterBtn.onclick = () => {
+      auditFilterState.category = 'all';
+      auditFilterState.status = 'all';
+      auditFilterState.actorType = 'all';
+      auditFilterState.search = '';
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const refreshBtn = document.querySelector('#btn-refresh-audit');
+  if (refreshBtn) {
+    refreshBtn.onclick = () => {
+      renderAdminAuditTab(container);
+    };
+  }
+
+  const clearBtn = document.querySelector('#btn-clear-audit');
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      const modal = document.querySelector('#modal-root') || document.body;
+      modal.innerHTML = `
+        <div class="modal-backdrop" id="clear-audit-backdrop">
+          <div class="modal-card" style="max-width:480px">
+            <div class="modal-header">
+              <div class="modal-title-wrap">
+                <div class="modal-icon danger" style="background:#fee2e2;color:#dc2626">${ICONS.alertTriangle}</div>
+                <div>
+                  <h2 style="color:#b91c1c;margin:0 0 4px">Clear Audit Trail</h2>
+                  <p style="margin:0;font-size:13px;color:var(--muted)">Reset audit log history to null / empty (0 events)</p>
+                </div>
+              </div>
+              <button class="modal-close" id="modal-close-clear-audit" type="button">✕</button>
+            </div>
+            <div class="modal-body" style="padding:16px 20px">
+              <p style="font-size:14px;color:var(--ink);line-height:1.5;margin:0 0 12px">
+                Are you sure you want to completely clear the entire audit trail? All historical records will be deleted, and only real new events will be logged.
+              </p>
+              <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:8px;font-size:12.5px;color:#991b1b">
+                This action is permanent and cannot be undone.
+              </div>
+            </div>
+            <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 20px;border-top:1px solid var(--line)">
+              <button class="button ghost" id="modal-cancel-clear-audit" type="button">Cancel</button>
+              <button class="button danger" id="modal-confirm-clear-audit" type="button" style="background:#dc2626;color:#fff">Yes, Clear All Logs</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const closeModal = () => { modal.innerHTML = ''; };
+      document.querySelector('#modal-close-clear-audit').onclick = closeModal;
+      document.querySelector('#modal-cancel-clear-audit').onclick = closeModal;
+      document.querySelector('#clear-audit-backdrop').onclick = (e) => {
+        if (e.target.id === 'clear-audit-backdrop') closeModal();
+      };
+
+      document.querySelector('#modal-confirm-clear-audit').onclick = async () => {
+        const btn = document.querySelector('#modal-confirm-clear-audit');
+        btn.disabled = true;
+        btn.textContent = 'Clearing…';
+        const res = await request('/api/admin/audit-logs/clear', { method: 'POST' });
+        closeModal();
+        if (res.error) {
+          showToast(`Error: ${res.error}`, 'error');
+        } else {
+          showToast('Audit log repository cleared to null.', 'success');
+          renderAdminAuditTab(container);
+        }
+      };
+    };
+  }
+
+  // Real-time Live Update Engine (Auto-sync without page refresh)
+  window.adminAuditLiveTimer = setInterval(async () => {
+    if (localStorage.getItem('assessify_admin_tab') !== 'audit') {
+      clearInterval(window.adminAuditLiveTimer);
+      window.adminAuditLiveTimer = null;
+      return;
+    }
+
+    // Skip DOM update if user is actively searching or has modal open
+    const isSearching = document.activeElement && document.activeElement.id === 'audit-search';
+    const isModalOpen = Boolean(modalRoot && modalRoot.innerHTML !== '');
+    if (isSearching || isModalOpen) return;
+
+    const liveQuery = new URLSearchParams({
+      category: auditFilterState.category,
+      status: auditFilterState.status,
+      actorType: auditFilterState.actorType,
+      search: auditFilterState.search,
+      limit: '150'
+    });
+
+    const liveRes = await request(`/api/admin/audit-logs?${liveQuery.toString()}`);
+    if (liveRes.error || !Array.isArray(liveRes.logs)) return;
+
+    const liveLogs = liveRes.logs;
+    const lStats = liveRes.stats || { total: liveLogs.length, todayCount: 0, securityAlertsCount: 0, activeActorsCount: 0 };
+
+    // Update KPI numbers smoothly
+    const elTotal = document.querySelector('#kpi-audit-total');
+    if (elTotal && elTotal.textContent !== String(lStats.total)) elTotal.textContent = lStats.total;
+    const elToday = document.querySelector('#kpi-audit-today');
+    if (elToday && elToday.textContent !== String(lStats.todayCount)) elToday.textContent = lStats.todayCount;
+    const elAlerts = document.querySelector('#kpi-audit-alerts');
+    if (elAlerts && elAlerts.textContent !== String(lStats.securityAlertsCount)) elAlerts.textContent = lStats.securityAlertsCount;
+    const elActors = document.querySelector('#kpi-audit-actors');
+    if (elActors && elActors.textContent !== String(lStats.activeActorsCount)) elActors.textContent = lStats.activeActorsCount;
+    const elPill = document.querySelector('#audit-total-pill');
+    if (elPill) elPill.textContent = `${lStats.total} Total Events`;
+
+    // Compare with current table rows
+    const tableBody = document.querySelector('#audit-table-body');
+    if (!tableBody) return;
+
+    const firstRowId = tableBody.querySelector('tr[data-log-id]')?.dataset?.logId;
+    const newFirstId = liveLogs[0] ? String(liveLogs[0].id) : null;
+    const currentRowsCount = tableBody.querySelectorAll('tr[data-log-id]').length;
+
+    if (firstRowId !== newFirstId || currentRowsCount !== liveLogs.length) {
+      currentLogs = liveLogs;
+      stats = lStats;
+      if (liveLogs.length === 0) {
+        tableBody.innerHTML = renderEmptyHtml();
+      } else {
+        tableBody.innerHTML = liveLogs.map(renderRowHtml).join('');
+        bindInspectButtons();
+      }
+    }
+  }, 2500);
+}
+
+// ==========================================================================
+// System Setting Tab
+// ==========================================================================
+async function renderAdminSettingsTab(container) {
+  const [data, aiDataRes] = await Promise.all([
+    request('/api/admin/settings'),
+    request('/api/admin/ai-settings').catch(() => ({ configured: false, model: 'gemini-1.5-flash' }))
+  ]);
+  if (data.error) {
+    if (data.error === 'Unauthorized' || data.error.includes('access')) return renderLogin('admin');
+    return showToast(data.error, 'error');
+  }
+
+  const s = data.settings || {};
+  const aiData = aiDataRes || { configured: false, model: 'gemini-1.5-flash' };
+  const storageMode = data.storageMode || 'mysql';
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
+      <div>
+        <div class="eyebrow">System Management</div>
+        <h1 style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">System Setting</h1>
+        <p style="color:var(--muted);font-size:14px;margin:0">Configure institutional assessment duration, passing thresholds, access policies, and platform maintenance mode.</p>
+      </div>
+      <div class="admin-toolbar">
+        <button class="button ghost" id="btn-reset-settings" type="button" style="display:flex;align-items:center;gap:6px">
+          ${ICONS.refresh} <span>Reset to Defaults</span>
+        </button>
+        <button class="button" id="btn-save-settings" type="button" style="display:flex;align-items:center;gap:6px">
+          ${ICONS.save} <span>Save Settings</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="settings-container">
+      <!-- Status Notice Banner -->
+      <div class="system-status-banner ${s.maintenanceMode ? 'system-status-warning' : 'system-status-healthy'}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">${s.maintenanceMode ? '⚠️' : '✅'}</span>
+          <div>
+            <strong>${s.maintenanceMode ? 'Maintenance Mode is Active' : 'System Operating Normally'}</strong>
+            <span style="display:block;font-size:12px;opacity:0.9">
+              ${s.maintenanceMode ? 'Teachers and candidates cannot start new placement assessments while maintenance is active.' : 'All services, teacher assessments, and automatic grading engines are accessible.'}
+            </span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,0.06)">Storage: ${storageMode.toUpperCase()}</span>
+          <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,0.06)">v2026.1</span>
+        </div>
+      </div>
+
+      <!-- Settings Cards Grid -->
+      <div class="settings-grid">
+        <!-- 1. Assessment Rules -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon">${ICONS.clock}</div>
+            <div>
+              <h2 class="setting-card-title">Assessment Session Rules</h2>
+              <p class="setting-card-subtitle">Timing and candidate progress enforcement</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Assessment Time Limit (Minutes)</label>
+              <span class="setting-desc">Total assessment limit (allocated across Grammar, Writing, and Speaking).</span>
+            </div>
+            <div class="setting-control" style="max-width:120px">
+              <input class="setting-input-text" id="setting-duration" type="number" min="15" max="180" step="5" value="${s.durationMinutes || 65}">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Allow In-Progress Assessment Resume</label>
+              <span class="setting-desc">Enables disconnected candidates to resume their existing timer without restarting.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-allow-resume" ${s.allowResume !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Draft Autosave Frequency</label>
+              <span class="setting-desc">Interval for background responses draft synchronization to server.</span>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="setting-autosave-interval">
+                <option value="15" ${s.autosaveIntervalSeconds === 15 ? 'selected' : ''}>Every 15 seconds</option>
+                <option value="30" ${s.autosaveIntervalSeconds === 30 || !s.autosaveIntervalSeconds ? 'selected' : ''}>Every 30 seconds</option>
+                <option value="60" ${s.autosaveIntervalSeconds === 60 ? 'selected' : ''}>Every 60 seconds</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Require Camera & Microphone</label>
+              <span class="setting-desc">Enforces webcam and audio recording capture during Speaking module.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-require-camera" ${s.requireCameraAudio !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Listening Audio Replays</label>
+              <span class="setting-desc">Maximum times candidate may play question speech synthesis.</span>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="setting-audio-plays">
+                <option value="1" ${s.maxAudioPlayCount === 1 ? 'selected' : ''}>1 Play (Strict Exam)</option>
+                <option value="2" ${s.maxAudioPlayCount === 2 || !s.maxAudioPlayCount ? 'selected' : ''}>2 Plays (Standard)</option>
+                <option value="0" ${s.maxAudioPlayCount === 0 ? 'selected' : ''}>Unlimited</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Standards & Certification -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#f0fdf4;color:#16a34a">${ICONS.award}</div>
+            <div>
+              <h2 class="setting-card-title">Placement Standards & Rubrics</h2>
+              <p class="setting-card-subtitle">CEFR benchmark and automatic scoring</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Passing CEFR / Band Threshold</label>
+              <span class="setting-desc">Minimum target placement recommended for school certification.</span>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="setting-passing-band">
+                <option value="5.5" ${s.passingBand === '5.5' ? 'selected' : ''}>Band 5.5 (B2 Foundation)</option>
+                <option value="6.0" ${s.passingBand === '6.0' ? 'selected' : ''}>Band 6.0 (Competent B2)</option>
+                <option value="6.5" ${s.passingBand === '6.5' || !s.passingBand ? 'selected' : ''}>Band 6.5 (Proficient B2/C1)</option>
+                <option value="7.0" ${s.passingBand === '7.0' ? 'selected' : ''}>Band 7.0 (Good User C1)</option>
+                <option value="7.5" ${s.passingBand === '7.5' ? 'selected' : ''}>Band 7.5 (Advanced C1)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Automated Provisional Placement</label>
+              <span class="setting-desc">Calculates provisional placement instantly upon candidate test submission.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-auto-score" ${s.provisionalScoringAuto !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Certificate Issuing Body</label>
+              <span class="setting-desc">Official institution entity printed on PDF placement records.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:240px">
+              <input class="setting-input-text" id="setting-issuer" type="text" value="${s.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa'}">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Institution Policy & Whitelist -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#fef3c7;color:#d97706">${ICONS.school}</div>
+            <div>
+              <h2 class="setting-card-title">Institution & Access Policy</h2>
+              <p class="setting-card-subtitle">Identity verification and domain validation</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">School Name</label>
+              <span class="setting-desc">Primary institution branding displayed in headers and certificates.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:220px">
+              <input class="setting-input-text" id="setting-school-name" type="text" value="${s.schoolName || 'Karya Bangsa School'}">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">School Email Domain</label>
+              <span class="setting-desc">Strict domain required for candidate logins.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:220px">
+              <input class="setting-input-text" id="setting-school-domain" type="text" value="${s.schoolDomain || 'karyabangsa.sch.id'}">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Support Email Contact</label>
+              <span class="setting-desc">Contact email presented when candidates face issues.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:220px">
+              <input class="setting-input-text" id="setting-support-email" type="email" value="${s.supportEmail || 'admin@karyabangsa.sch.id'}">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Strict Teacher Whitelist</label>
+              <span class="setting-desc">Only pre-authorized teachers in User Manager may take the test.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-enforce-whitelist" ${s.enforceTeacherWhitelist !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Strict School Unit Matching</label>
+              <span class="setting-desc">Candidate must select the exact school unit they are registered under.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-enforce-unit" ${s.enforceUnitMatch !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. System Maintenance & Availability -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#fee2e2;color:#dc2626">${ICONS.lock}</div>
+            <div>
+              <h2 class="setting-card-title">Maintenance & Availability</h2>
+              <p class="setting-card-subtitle">Control candidate access during maintenance</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">System Maintenance Mode</label>
+              <span class="setting-desc">Immediately pauses test taking. Administrators retain full access.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-maintenance-mode" ${s.maintenanceMode ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row" style="flex-direction:column;align-items:stretch">
+            <div class="setting-info" style="margin-bottom:8px">
+              <label class="setting-label">Maintenance Announcement Notice</label>
+              <span class="setting-desc">Message displayed to candidates trying to start an assessment.</span>
+            </div>
+            <textarea class="setting-textarea" id="setting-maintenance-msg">${s.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.'}</textarea>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Session Timeout</label>
+              <span class="setting-desc">Duration of user session authentication cookie validity.</span>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="setting-session-timeout">
+                <option value="6" ${s.sessionTimeoutHours === 6 ? 'selected' : ''}>6 Hours</option>
+                <option value="12" ${s.sessionTimeoutHours === 12 || !s.sessionTimeoutHours ? 'selected' : ''}>12 Hours (Default)</option>
+                <option value="24" ${s.sessionTimeoutHours === 24 ? 'selected' : ''}>24 Hours</option>
+                <option value="168" ${s.sessionTimeoutHours === 168 ? 'selected' : ''}>7 Days</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Google Gemini AI Evaluation -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#ede9fe;color:#7c3aed">✨</div>
+            <div>
+              <h2 class="setting-card-title">Google Gemini AI Evaluation</h2>
+              <p class="setting-card-subtitle">AI-assisted CEFR scoring for Writing essays and Speaking audio/video</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Gemini API Status</label>
+              <span class="setting-desc">State of institutional Google Gemini AI evaluation engine.</span>
+            </div>
+            <div class="setting-control">
+              <span class="pill ${aiData.configured ? 'success' : 'pending'}">${aiData.configured ? 'Active & Configured' : 'Key Not Set'}</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Gemini API Key</label>
+              <span class="setting-desc">Google AI Studio API key. Stored securely and masked.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:240px">
+              <input class="setting-input-text" id="setting-gemini-key" type="password" placeholder="${aiData.configured ? aiData.maskedKey : 'Enter Gemini API key…'}" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Gemini Multimodal Model</label>
+              <span class="setting-desc">Model used to grade essays and listen to candidate oral speech.</span>
+            </div>
+            <div class="setting-control">
+              <select class="setting-select" id="setting-gemini-model">
+                <option value="gemini-flash-latest" ${(aiData.model === 'gemini-flash-latest' || !aiData.model) ? 'selected' : ''}>Gemini Flash (Fast & Multimodal - Recommended)</option>
+                <option value="gemini-3.6-flash" ${aiData.model === 'gemini-3.6-flash' ? 'selected' : ''}>Gemini 3.6 Flash</option>
+                <option value="gemini-pro-latest" ${aiData.model === 'gemini-pro-latest' ? 'selected' : ''}>Gemini Pro Latest (Deep Reasoning)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-row" style="border-top:1px solid var(--line);padding-top:14px;justify-content:flex-end">
+            <button class="button ghost" id="btn-test-ai-key" type="button" style="display:flex;align-items:center;gap:6px">
+              <span>⚡ Test Gemini Connection</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Test Gemini Connection
+  const testAiBtn = document.querySelector('#btn-test-ai-key');
+  if (testAiBtn) {
+    testAiBtn.onclick = async () => {
+      testAiBtn.disabled = true;
+      testAiBtn.innerHTML = '<span>Testing connection…</span>';
+      try {
+        const testRes = await request('/api/admin/ai-settings/test', { method: 'POST' });
+        if (testRes.error) {
+          showToast(testRes.error, 'error');
+        } else {
+          showToast(testRes.message || 'Gemini API connection succeeded!', 'success');
+        }
+      } catch (err) {
+        showToast(err.message || 'Connection test failed', 'error');
+      } finally {
+        testAiBtn.disabled = false;
+        testAiBtn.innerHTML = '<span>⚡ Test Gemini Connection</span>';
+      }
+    };
+  }
+
+  // Save Settings
+  document.querySelector('#btn-save-settings').onclick = async () => {
+    const saveBtn = document.querySelector('#btn-save-settings');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span>Saving…</span>`;
+
+    const payload = {
+      durationMinutes: Number(document.querySelector('#setting-duration').value) || 65,
+      allowResume: document.querySelector('#setting-allow-resume').checked,
+      autosaveIntervalSeconds: Number(document.querySelector('#setting-autosave-interval').value) || 30,
+      requireCameraAudio: document.querySelector('#setting-require-camera').checked,
+      maxAudioPlayCount: Number(document.querySelector('#setting-audio-plays').value),
+      passingBand: document.querySelector('#setting-passing-band').value,
+      provisionalScoringAuto: document.querySelector('#setting-auto-score').checked,
+      certificateIssuer: document.querySelector('#setting-issuer').value.trim(),
+      schoolName: document.querySelector('#setting-school-name').value.trim(),
+      schoolDomain: document.querySelector('#setting-school-domain').value.trim(),
+      supportEmail: document.querySelector('#setting-support-email').value.trim(),
+      enforceTeacherWhitelist: document.querySelector('#setting-enforce-whitelist').checked,
+      enforceUnitMatch: document.querySelector('#setting-enforce-unit').checked,
+      maintenanceMode: document.querySelector('#setting-maintenance-mode').checked,
+      maintenanceMessage: document.querySelector('#setting-maintenance-msg').value.trim(),
+      sessionTimeoutHours: Number(document.querySelector('#setting-session-timeout').value) || 12
+    };
+
+    const geminiKeyInput = document.querySelector('#setting-gemini-key');
+    if (geminiKeyInput && geminiKeyInput.value.trim()) {
+      payload.gemini_api_key = geminiKeyInput.value.trim();
+    }
+    const geminiModelSelect = document.querySelector('#setting-gemini-model');
+    if (geminiModelSelect) {
+      payload.gemini_model = geminiModelSelect.value;
+    }
+
+    const res = await request('/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = `${ICONS.save} <span>Save Settings</span>`;
+
+    if (res.error) {
+      showToast(res.error, 'error');
+    } else {
+      if (res.settings) window.assessifySettings = res.settings;
+      showToast('System settings saved successfully', 'success');
+      renderAdminSettingsTab(container);
+    }
+  };
+
+  // Reset to Defaults
+  document.querySelector('#btn-reset-settings').onclick = () => {
+    modalRoot.innerHTML = `
+      <div class="modal-overlay" id="confirm-reset-settings-modal">
+        <div class="modal-card" style="max-width:440px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center">
+              ${ICONS.alertTriangle}
+            </div>
+            <div>
+              <h2 style="font:700 18px 'Space Grotesk';margin:0;color:var(--ink)">Reset System Settings?</h2>
+              <span style="font-size:12px;color:var(--muted)">Restore default institutional configuration.</span>
+            </div>
+          </div>
+          <p style="font-size:13.5px;line-height:1.5;color:#475569;margin-bottom:20px">
+            This will reset all timing, passing bands, and access rules to the standard Karya Bangsa School defaults. Are you sure you wish to proceed?
+          </p>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button class="button ghost" id="modal-cancel-reset" type="button">Cancel</button>
+            <button class="button" id="modal-confirm-reset" type="button" style="background:#d97706;border-color:#d97706">Reset to Defaults</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.querySelector('#modal-cancel-reset').onclick = () => { modalRoot.innerHTML = ''; };
+    document.querySelector('#modal-confirm-reset').onclick = async () => {
+      const resetBtn = document.querySelector('#modal-confirm-reset');
+      resetBtn.disabled = true;
+      resetBtn.textContent = 'Resetting…';
+      const rRes = await request('/api/admin/settings/reset', { method: 'POST' });
+      modalRoot.innerHTML = '';
+      if (rRes.error) {
+        showToast(rRes.error, 'error');
+      } else {
+        if (rRes.settings) window.assessifySettings = rRes.settings;
+        showToast('System settings restored to defaults', 'success');
+        renderAdminSettingsTab(container);
+      }
+    };
+  };
+}
+
+// Mobile Sidebar Controls
+const sidebarBurger = document.querySelector('#sidebar-burger');
+if (sidebarBurger) {
+  sidebarBurger.onclick = (e) => {
+    e.stopPropagation();
+    const isOpen = document.body.classList.toggle('sidebar-open');
+    const sb = document.querySelector('#admin-sidebar');
+    if (sb) sb.classList.toggle('open', isOpen);
+    sidebarBurger.setAttribute('aria-expanded', String(isOpen));
+    sidebarBurger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+  };
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+    document.body.classList.remove('sidebar-open');
+    const sb = document.querySelector('#admin-sidebar');
+    if (sb) sb.classList.remove('open');
+    const burger = document.querySelector('#sidebar-burger');
+    if (burger) {
+      burger.setAttribute('aria-expanded', 'false');
+      burger.setAttribute('aria-label', 'Open navigation menu');
+    }
+  }
+});
+
 // Global Auth & Logout
 document.querySelector('#logout').onclick = async () => {
   await request('/api/auth/logout', { method: 'POST' });
   document.querySelector('#logout').hidden = true;
+  document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
   localStorage.removeItem('assessify_admin_tab');
   localStorage.removeItem('assessify_user');
   history.replaceState(null, '', window.location.pathname);
   renderLogin();
 };
 
+async function loadPublicSettings() {
+  try {
+    const s = await request('/api/public-settings');
+    if (s) window.assessifySettings = s;
+  } catch {}
+}
+
 async function init() {
+  await loadPublicSettings();
   try {
     const data = await request('/api/auth/me');
     if (data && data.user) {

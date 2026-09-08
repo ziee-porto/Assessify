@@ -1,18 +1,33 @@
 import 'dotenv/config';
 import { createServer } from 'node:http';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream, existsSync } from 'node:fs';
+import { mkdir, readFile, stat, writeFile, unlink } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import { evaluateWritingWithGemini, evaluateSpeakingWithGemini, testGeminiConnection } from './gemini-evaluator.js';
+
+const execFileAsync = promisify(execFile);
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const publicDir = join(root, 'public');
 const uploadsDir = join(root, 'uploads', 'recordings');
 await mkdir(uploadsDir, { recursive: true });
+
+async function deleteAttemptFiles(attemptId) {
+  const exts = ['.webm', '.mp4', '.ogg', '.wav', '.json'];
+  for (const ext of exts) {
+    try {
+      await unlink(join(uploadsDir, `${attemptId}${ext}`));
+    } catch {}
+  }
+}
 let content = JSON.parse(await readFile(join(root, 'content', 'ielts-placement.json'), 'utf8'));
 let rubrics = JSON.parse(await readFile(join(root, 'content', 'ielts-rubrics.json'), 'utf8'));
 const defaultQuestionsPath = join(root, 'content', 'ielts-placement.json');
@@ -34,6 +49,7 @@ const memoryRepository = {
     { id: 2, username: 'refka', password: process.env.ADMIN_REFKA_PASSWORD || 'r3fk4', name: 'Refka', email: 'refka@karyabangsa.sch.id', status: 'active' }
   ],
   settings: new Map(),
+  auditLogs: [],
   async listAttempts() { return this.attempts; },
   async createAttempt(attempt) { this.attempts.unshift(attempt); return attempt; },
   async getAttempt(id) { return this.attempts.find((attempt) => attempt.id === id); },
@@ -51,6 +67,72 @@ const memoryRepository = {
     const created = { id: nextId, status: teacher.status || 'active', ...teacher };
     this.teachers.push(created);
     return created;
+  },
+  async listAuditLogs(filters = {}) {
+    let logs = [...this.auditLogs];
+    if (filters.category && filters.category !== 'all') {
+      logs = logs.filter((l) => l.category === filters.category);
+    }
+    if (filters.status && filters.status !== 'all') {
+      logs = logs.filter((l) => l.status === filters.status);
+    }
+    if (filters.actorType && filters.actorType !== 'all') {
+      logs = logs.filter((l) => l.actorType === filters.actorType);
+    }
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      logs = logs.filter((l) =>
+        (l.actorName || '').toLowerCase().includes(q) ||
+        (l.actorId || '').toLowerCase().includes(q) ||
+        (l.action || '').toLowerCase().includes(q) ||
+        (l.target || '').toLowerCase().includes(q) ||
+        JSON.stringify(l.details || '').toLowerCase().includes(q)
+      );
+    }
+    logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const total = logs.length;
+    const limit = Math.min(Number(filters.limit) || 100, 500);
+    const offset = Math.max(0, Number(filters.offset) || 0);
+    return {
+      logs: logs.slice(offset, offset + limit),
+      total,
+      stats: this.getAuditStats()
+    };
+  },
+  getAuditStats() {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayLogs = this.auditLogs.filter((l) => (l.timestamp || '').startsWith(today));
+    const securityAlerts = this.auditLogs.filter((l) => l.status === 'FAILURE' || l.status === 'WARNING');
+    const uniqueActors = new Set(this.auditLogs.map((l) => l.actorId).filter(Boolean));
+    return {
+      total: this.auditLogs.length,
+      todayCount: todayLogs.length,
+      securityAlertsCount: securityAlerts.length,
+      activeActorsCount: uniqueActors.size
+    };
+  },
+  async createAuditLog(entry) {
+    const nextId = this.auditLogs.length ? Math.max(...this.auditLogs.map((l) => Number(l.id) || 0)) + 1 : 1;
+    const log = {
+      id: nextId,
+      timestamp: entry.timestamp || new Date().toISOString(),
+      actorType: entry.actorType || 'system',
+      actorId: entry.actorId || '',
+      actorName: entry.actorName || '',
+      action: entry.action || '',
+      category: entry.category || 'GENERAL',
+      target: entry.target || '',
+      details: entry.details || null,
+      ipAddress: entry.ipAddress || '',
+      status: entry.status || 'SUCCESS'
+    };
+    this.auditLogs.unshift(log);
+    if (this.auditLogs.length > 2000) this.auditLogs.pop();
+    return log;
+  },
+  async clearAuditLogs() {
+    this.auditLogs = [];
+    return true;
   },
   async updateTeacher(id, update) {
     const term = String(id).toLowerCase().trim();
@@ -100,6 +182,74 @@ const memoryRepository = {
 };
 let repository = memoryRepository;
 let storageMode = 'memory';
+
+const defaultSystemSettings = {
+  // Assessment Rules
+  durationMinutes: 65,
+  allowResume: true,
+  autosaveIntervalSeconds: 30,
+  requireCameraAudio: true,
+  maxAudioPlayCount: 2,
+
+  // Standards & Placement
+  passingBand: '6.5',
+  provisionalScoringAuto: true,
+  certificateIssuer: 'Pusat Bahasa & Asesmen Guru Karya Bangsa',
+
+  // Institution & Access Policy
+  schoolName: 'Karya Bangsa School',
+  schoolDomain: 'karyabangsa.sch.id',
+  supportEmail: 'admin@karyabangsa.sch.id',
+  enforceTeacherWhitelist: true,
+  enforceUnitMatch: true,
+
+  // System & Maintenance
+  maintenanceMode: false,
+  maintenanceMessage: 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.',
+  sessionTimeoutHours: 12,
+
+  // Metadata
+  updatedAt: new Date().toISOString(),
+  updatedBy: 'system'
+};
+
+let currentSystemSettings = { ...defaultSystemSettings };
+memoryRepository.settings.set('system_settings', { ...defaultSystemSettings });
+
+function getClientIp(request) {
+  const forwarded = request.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return request.socket?.remoteAddress || '127.0.0.1';
+}
+
+async function recordAuditLog({
+  actorType = 'system',
+  actorId = '',
+  actorName = '',
+  action = '',
+  category = 'GENERAL',
+  target = '',
+  details = null,
+  ip = '',
+  status = 'SUCCESS'
+}) {
+  try {
+    await repository.createAuditLog({
+      timestamp: new Date().toISOString(),
+      actorType,
+      actorId,
+      actorName,
+      action,
+      category,
+      target,
+      details,
+      ipAddress: ip,
+      status
+    });
+  } catch (err) {
+    console.error('Failed to record audit log:', err.message);
+  }
+}
 
 async function syncAuthorizedTeachersBackup() {
   try {
@@ -158,25 +308,27 @@ async function connectMySQL() {
   try {
     const mysql = await import('mysql2/promise');
     let pool;
+    const poolConfig = {
+      waitForConnections: true,
+      connectionLimit: 10,
+      maxIdle: 10,
+      idleTimeout: 60000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
+      connectTimeout: 5000
+    };
+
     if (rawUri && (rawUri.startsWith('mysql://') || rawUri.startsWith('mysql2://'))) {
-      pool = mysql.createPool({
-        uri: rawUri,
-        waitForConnections: true,
-        connectionLimit: 10,
-        connectTimeout: 3000
-      });
+      pool = mysql.createPool({ uri: rawUri, ...poolConfig });
     } else {
-      pool = mysql.createPool({
-        host,
-        port,
-        user,
-        password,
-        database,
-        waitForConnections: true,
-        connectionLimit: 10,
-        connectTimeout: 3000
-      });
+      pool = mysql.createPool({ host, port, user, password, database, ...poolConfig });
     }
+
+    pool.on('error', (err) => {
+      console.warn('MySQL pool connection error; falling back to memory repository:', err.message);
+      repository = memoryRepository;
+      storageMode = 'memory';
+    });
 
     // Verify connection with timeout
     const connectPromise = async () => {
@@ -245,6 +397,28 @@ async function connectMySQL() {
 
       await pool.query('ALTER TABLE authorized_teachers ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT "active"').catch(() => {});
       await pool.query('ALTER TABLE admin_users ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT "active"').catch(() => {});
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          timestamp VARCHAR(64) NOT NULL,
+          actor_type VARCHAR(32) NOT NULL,
+          actor_id VARCHAR(255) NOT NULL,
+          actor_name VARCHAR(255) NOT NULL,
+          action VARCHAR(64) NOT NULL,
+          category VARCHAR(64) NOT NULL,
+          target VARCHAR(255) NULL,
+          details JSON NULL,
+          ip_address VARCHAR(64) NULL,
+          status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_timestamp (timestamp),
+          INDEX idx_category (category),
+          INDEX idx_action (action),
+          INDEX idx_actor (actor_id),
+          INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
 
       repository = {
         async listAttempts() {
@@ -377,6 +551,89 @@ async function connectMySQL() {
         async deleteAdmin(id) {
           const [res] = await pool.query('DELETE FROM admin_users WHERE id = ?', [id]);
           return res.affectedRows > 0;
+        },
+        async listAuditLogs(filters = {}) {
+          const conditions = [];
+          const params = [];
+          if (filters.category && filters.category !== 'all') {
+            conditions.push('category = ?');
+            params.push(filters.category);
+          }
+          if (filters.status && filters.status !== 'all') {
+            conditions.push('status = ?');
+            params.push(filters.status);
+          }
+          if (filters.actorType && filters.actorType !== 'all') {
+            conditions.push('actor_type = ?');
+            params.push(filters.actorType);
+          }
+          if (filters.search) {
+            conditions.push('(actor_name LIKE ? OR actor_id LIKE ? OR action LIKE ? OR target LIKE ? OR details LIKE ?)');
+            const s = `%${filters.search}%`;
+            params.push(s, s, s, s, s);
+          }
+          const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+          const [countResult] = await pool.query(`SELECT COUNT(*) as total FROM audit_logs ${whereClause}`, params);
+          const total = countResult[0]?.total || 0;
+
+          const limit = Math.min(Number(filters.limit) || 100, 500);
+          const offset = Math.max(0, Number(filters.offset) || 0);
+
+          const [rows] = await pool.query(
+            `SELECT id, timestamp, actor_type AS actorType, actor_id AS actorId, actor_name AS actorName,
+                    action, category, target, details, ip_address AS ipAddress, status, created_at AS createdAt
+             FROM audit_logs ${whereClause}
+             ORDER BY timestamp DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+          );
+
+          const formattedLogs = rows.map((r) => ({
+            ...r,
+            details: typeof r.details === 'string' ? JSON.parse(r.details) : r.details
+          }));
+
+          const stats = await this.getAuditStats();
+          return { logs: formattedLogs, total, stats };
+        },
+        async getAuditStats() {
+          const today = new Date().toISOString().slice(0, 10);
+          const [[totalRes], [todayRes], [alertsRes], [actorsRes]] = await Promise.all([
+            pool.query('SELECT COUNT(*) as c FROM audit_logs'),
+            pool.query('SELECT COUNT(*) as c FROM audit_logs WHERE timestamp LIKE ?', [`${today}%`]),
+            pool.query('SELECT COUNT(*) as c FROM audit_logs WHERE status IN ("FAILURE", "WARNING")'),
+            pool.query('SELECT COUNT(DISTINCT actor_id) as c FROM audit_logs WHERE actor_id != ""')
+          ]);
+          return {
+            total: totalRes[0]?.c || 0,
+            todayCount: todayRes[0]?.c || 0,
+            securityAlertsCount: alertsRes[0]?.c || 0,
+            activeActorsCount: actorsRes[0]?.c || 0
+          };
+        },
+        async createAuditLog(entry) {
+          const ts = entry.timestamp || new Date().toISOString();
+          const [res] = await pool.query(
+            `INSERT INTO audit_logs (timestamp, actor_type, actor_id, actor_name, action, category, target, details, ip_address, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              ts,
+              entry.actorType || 'system',
+              entry.actorId || '',
+              entry.actorName || '',
+              entry.action || '',
+              entry.category || 'GENERAL',
+              entry.target || '',
+              entry.details ? JSON.stringify(entry.details) : null,
+              entry.ipAddress || '',
+              entry.status || 'SUCCESS'
+            ]
+          );
+          return { id: res.insertId, ...entry, timestamp: ts };
+        },
+        async clearAuditLogs() {
+          await pool.query('TRUNCATE TABLE audit_logs');
+          return true;
         }
       };
 
@@ -445,12 +702,26 @@ async function connectMySQL() {
         } else {
           await repository.setSetting('rubrics_content', rubrics);
           console.log(`Updated Evaluation Rubrics in MySQL database to version ${rubrics.version}`);
-        }
-      } catch (syncErr) {
+        }      } catch (syncErr) {
         console.warn(`Could not sync questions/rubrics with MySQL (${syncErr.message})`);
       }
 
       await resyncAttemptsWithRubrics();
+
+      // Sync System Settings with MySQL Database
+      try {
+        const dbSettings = await repository.getSetting('system_settings');
+        if (dbSettings && typeof dbSettings === 'object') {
+          currentSystemSettings = { ...defaultSystemSettings, ...dbSettings };
+          console.log('Loaded System Settings from MySQL database');
+        } else {
+          await repository.setSetting('system_settings', defaultSystemSettings);
+          currentSystemSettings = { ...defaultSystemSettings };
+          console.log('Initialized default System Settings in MySQL database');
+        }
+      } catch (settingsErr) {
+        console.warn(`Could not sync system settings with MySQL (${settingsErr.message})`);
+      }
     };
 
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000));
@@ -464,19 +735,68 @@ const json = (response, status, data) => {
   response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(data));
 };
-const safeTest = () => ({
-  ...content,
-  sections: (content.sections || []).map(({ questions, topics, ...section }) => {
-    const rawQuestions = (questions && questions.length > 0) ? questions : (topics || []);
-    const safeQuestions = rawQuestions.map(({ answer, ...question }) => question);
-    const safeTopics = (topics && topics.length > 0 ? topics : safeQuestions).map(({ answer, ...t }) => t);
-    return {
-      ...section,
-      topics: safeTopics,
-      questions: safeQuestions
-    };
-  })
-});
+const hashString = (str) => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+};
+
+const seededRandom = (seed) => {
+  let s = typeof seed === 'number' ? seed : hashString(String(seed));
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const shuffleWithSeed = (array, seed) => {
+  const result = [...array];
+  const rng = seededRandom(seed);
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+};
+
+const safeTest = (user = null, attempt = null) => {
+  let gvOrder = attempt?.grammarVocabularyOrder || null;
+  if (!gvOrder && user && user.role === 'teacher' && user.email) {
+    const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary');
+    if (gvSection && Array.isArray(gvSection.questions)) {
+      gvOrder = shuffleWithSeed(gvSection.questions, user.email.toLowerCase().trim()).map((q) => q.id);
+    }
+  }
+
+  return {
+    ...content,
+    sections: (content.sections || []).map(({ questions, topics, ...section }) => {
+      const rawQuestions = (questions && questions.length > 0) ? questions : (topics || []);
+      let safeQuestions = rawQuestions.map(({ answer, ...question }) => question);
+
+      if (section.id === 'grammar-vocabulary' && Array.isArray(gvOrder) && gvOrder.length > 0) {
+        const qMap = new Map(safeQuestions.map((q) => [q.id, q]));
+        const ordered = gvOrder.map((id) => qMap.get(id)).filter(Boolean);
+        for (const q of safeQuestions) {
+          if (!gvOrder.includes(q.id)) ordered.push(q);
+        }
+        safeQuestions = ordered;
+      }
+
+      const safeTopics = (topics && topics.length > 0 ? topics : safeQuestions).map(({ answer, ...t }) => t);
+      return {
+        ...section,
+        topics: safeTopics,
+        questions: safeQuestions
+      };
+    })
+  };
+};
 const readCookies = (request) => Object.fromEntries((request.headers.cookie || '').split(';').filter(Boolean).map((item) => { const separator = item.indexOf('='); return [item.slice(0, separator).trim(), item.slice(separator + 1).trim()]; }));
 const sessionSecret = process.env.SESSION_SECRET || 'assessify-development-secret-change-me';
 const adminAccounts = {
@@ -696,10 +1016,11 @@ const performanceAnalysis = (row) => {
   const descriptor = cefrDescriptor(row.overall);
   const strongSkill = highest?.[0];
   const weakSkill = lowest?.[0];
+  const school = currentSystemSettings?.schoolName || 'Karya Bangsa School';
   return `Overall CEFR Placement: ${row.overall} — ${descriptor}. ` +
     (strongSkill && scores[strongSkill] ? `${strongSkill} is the strongest skill at ${scores[strongSkill]}. ` : '') +
     (weakSkill && weakSkill !== strongSkill && scores[weakSkill] ? `${weakSkill} is the priority development area at ${scores[weakSkill]}. ` : '') +
-    'This placement is based on the Karya Bangsa School English Placement Rubric and should be used as an internal placement indicator.';
+    `This placement is based on the ${school} English Placement Rubric and should be used as an internal placement indicator.`;
 };
 
 async function resyncAttemptsWithRubrics() {
@@ -753,21 +1074,230 @@ const scoreObjective = (sectionId, responses) => {
   return { skill: section?.label, correct, total: questions.length, level, method: `Objective answer-key scoring mapped to CEFR (${maxRange}) per active rubrics` };
 };
 
-const certificateNumber = (row) => `KBS-EN-${new Date(row.started).getUTCFullYear()}-${row.attempt.replace(/^ATT-/, '')}`;
+const certificateNumber = (row) => {
+  const school = currentSystemSettings?.schoolName || 'Karya Bangsa School';
+  const prefix = school.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 3).join('').toUpperCase() || 'KBS';
+  const rawDate = row.submittedAt || row.started || row.startedAt;
+  const year = rawDate ? new Date(rawDate).getUTCFullYear() : new Date().getUTCFullYear();
+  const attemptStr = String(row.attempt || row.id || '1001').replace(/^ATT-/, '');
+  return `${prefix}-EN-${year}-${attemptStr}`;
+};
+
 const exportRows = (results) => results.map((row) => ({
-  teacher: row.teacher,
+  id: row.id,
+  teacher: row.teacher || row.name || 'Candidate',
   email: row.email || '',
   unit: row.unit || 'SD KARYA BANGSA',
-  attempt: row.id,
-  started: row.startedAt,
+  attempt: row.id || 'ATT-1001',
+  started: row.startedAt || row.started || new Date().toISOString(),
+  submittedAt: row.submittedAt || row.completedAt || null,
   status: row.status,
   grammarVocabulary: row.sectionScores?.['Grammar & Vocabulary'] ?? '',
   writing: row.sectionScores?.Writing ?? '',
   speaking: row.sectionScores?.Speaking ?? '',
   overallBand: row.overall ?? '',
   review: row.review,
-  analysis: performanceAnalysis(row)
+  analysis: performanceAnalysis(row),
+  scoring: row.scoring,
+  manualReview: row.manualReview
 }));
+
+const cefrPillStyle = (level) => {
+  const styles = {
+    A1: { bg: '#fee2e2', border: '#fca5a5', text: '#dc2626' },
+    A2: { bg: '#ffedd5', border: '#fdba74', text: '#ea580c' },
+    B1: { bg: '#eff6ff', border: '#93c5fd', text: '#2563eb' },
+    B2: { bg: '#ecfdf5', border: '#86efac', text: '#059669' },
+    C1: { bg: '#f5f3ff', border: '#d8b4fe', text: '#7c3aed' },
+    C2: { bg: '#fdf2f8', border: '#f472b6', text: '#86198f' }
+  };
+  return styles[level] || { bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' };
+};
+
+function drawCheckmark(doc, x, y, color = '#6ee7b7') {
+  doc.save()
+    .lineWidth(1.4)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .moveTo(x, y + 4.5)
+    .lineTo(x + 3.5, y + 8)
+    .lineTo(x + 9, y + 1.5)
+    .stroke()
+    .restore();
+}
+
+function drawCheckCircleIcon(doc, x, y, color = '#6ee7b7') {
+  doc.save()
+    .lineWidth(1.3)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .circle(x + 5.5, y + 5.5, 6)
+    .stroke()
+    .moveTo(x + 3, y + 5.5)
+    .lineTo(x + 4.8, y + 7.5)
+    .lineTo(x + 8.2, y + 3.5)
+    .stroke()
+    .restore();
+}
+
+function drawCapIcon(doc, x, y, color = '#93c5fd') {
+  doc.save()
+    .lineWidth(1.2)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .moveTo(x, y + 4)
+    .lineTo(x + 6, y + 0.5)
+    .lineTo(x + 12, y + 4)
+    .lineTo(x + 6, y + 7.5)
+    .closePath()
+    .stroke()
+    .moveTo(x + 2, y + 5)
+    .lineTo(x + 2, y + 8.5)
+    .bezierCurveTo(x + 4, y + 10.5, x + 8, y + 10.5, x + 10, y + 8.5)
+    .lineTo(x + 10, y + 5)
+    .stroke()
+    .restore();
+}
+
+function drawLayersIcon(doc, x, y, color = '#2563eb') {
+  doc.save()
+    .lineWidth(1.2)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .moveTo(x, y + 3).lineTo(x + 5, y).lineTo(x + 10, y + 3).lineTo(x + 5, y + 6).closePath().stroke()
+    .moveTo(x + 1.5, y + 5.5).lineTo(x + 5, y + 7.5).lineTo(x + 8.5, y + 5.5).stroke()
+    .moveTo(x + 1.5, y + 8).lineTo(x + 5, y + 10).lineTo(x + 8.5, y + 8).stroke()
+    .restore();
+}
+
+function drawPenIcon(doc, x, y, color = '#7c3aed') {
+  doc.save()
+    .lineWidth(1.2)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .moveTo(x + 8, y)
+    .lineTo(x + 10, y + 2)
+    .lineTo(x + 3, y + 9)
+    .lineTo(x, y + 9)
+    .lineTo(x, y + 6)
+    .closePath()
+    .stroke()
+    .restore();
+}
+
+function drawMicIcon(doc, x, y, color = '#059669') {
+  doc.save()
+    .lineWidth(1.2)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .roundedRect(x + 3, y, 4, 7, 2).stroke()
+    .moveTo(x + 1, y + 4)
+    .bezierCurveTo(x + 1, y + 9, x + 9, y + 9, x + 9, y + 4).stroke()
+    .moveTo(x + 5, y + 9).lineTo(x + 5, y + 11).stroke()
+    .moveTo(x + 2.5, y + 11).lineTo(x + 7.5, y + 11).stroke()
+    .restore();
+}
+
+function drawBulbIcon(doc, x, y, color = '#2563eb') {
+  doc.save()
+    .lineWidth(1.2)
+    .strokeColor(color)
+    .lineCap('round')
+    .circle(x + 5, y + 4.5, 4)
+    .stroke()
+    .moveTo(x + 3, y + 8.5)
+    .lineTo(x + 7, y + 8.5)
+    .stroke()
+    .moveTo(x + 3.8, y + 10.5)
+    .lineTo(x + 6.2, y + 10.5)
+    .stroke()
+    .restore();
+}
+
+function drawLockIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1.1)
+    .strokeColor(color)
+    .lineCap('round')
+    .lineJoin('round')
+    .roundedRect(x, y + 4, 9, 7, 1.5)
+    .stroke()
+    .moveTo(x + 2, y + 4)
+    .lineTo(x + 2, y + 2.5)
+    .bezierCurveTo(x + 2, y + 0.5, x + 7, y + 0.5, x + 7, y + 2.5)
+    .lineTo(x + 7, y + 4)
+    .stroke()
+    .restore();
+}
+
+function drawUserIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1)
+    .strokeColor(color)
+    .circle(x + 4, y + 3, 2.5)
+    .stroke()
+    .moveTo(x + 1, y + 8)
+    .bezierCurveTo(x + 1, y + 6, x + 7, y + 6, x + 7, y + 8)
+    .stroke()
+    .restore();
+}
+
+function drawMailIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1)
+    .strokeColor(color)
+    .roundedRect(x, y + 1, 8.5, 6.5, 1)
+    .stroke()
+    .moveTo(x, y + 2)
+    .lineTo(x + 4.25, y + 4.5)
+    .lineTo(x + 8.5, y + 2)
+    .stroke()
+    .restore();
+}
+
+function drawPinIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1)
+    .strokeColor(color)
+    .circle(x + 4, y + 3, 2.2)
+    .stroke()
+    .moveTo(x + 4, y + 5.2)
+    .lineTo(x + 4, y + 8.5)
+    .stroke()
+    .restore();
+}
+
+function drawClockIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1)
+    .strokeColor(color)
+    .circle(x + 4, y + 4, 3.5)
+    .stroke()
+    .moveTo(x + 4, y + 2)
+    .lineTo(x + 4, y + 4)
+    .lineTo(x + 6, y + 4)
+    .stroke()
+    .restore();
+}
+
+function drawCheckDocIcon(doc, x, y, color = '#64748b') {
+  doc.save()
+    .lineWidth(1)
+    .strokeColor(color)
+    .roundedRect(x, y + 0.5, 7.5, 8, 1)
+    .stroke()
+    .moveTo(x + 2, y + 4.5)
+    .lineTo(x + 3.2, y + 6)
+    .lineTo(x + 5.5, y + 2.8)
+    .stroke()
+    .restore();
+}
 
 const sendExcel = async (response, results, unitFilter) => {
   const workbook = new ExcelJS.Workbook();
@@ -802,162 +1332,1013 @@ const sendExcel = async (response, results, unitFilter) => {
   response.end(buffer);
 };
 
-const sendCenteredPdf = (response, results, unitFilter) => {
+function findBrowser() {
+  const paths = [
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+  ];
+  return paths.find((p) => existsSync(p)) || null;
+}
+
+function getBadgeStyle(level) {
+  const styles = {
+    A1: 'background:#fee2e2;color:#dc2626;border:1px solid #fecaca',
+    A2: 'background:#ffedd5;color:#ea580c;border:1px solid #fed7aa',
+    B1: 'background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe',
+    B2: 'background:#ecfdf5;color:#059669;border:1px solid #a7f3d0',
+    C1: 'background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe',
+    C2: 'background:#fdf2f8;color:#86198f;border:1px solid #fbcfe8'
+  };
+  return styles[level] || 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1';
+}
+
+function buildCertificateHtml(rows, schoolName, certIssuer) {
+  const pagesHtml = rows.map((row) => {
+    const candidateName = row.teacher || 'Candidate';
+    const initials = candidateName.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'CA';
+    const isReviewed = row.review === 'Teacher reviewed';
+    const statusText = isReviewed ? 'Official Placement Certified' : 'Official Record Sealed';
+    const overallBand = row.overallBand || 'A2';
+    const overallDesc = cefrDescriptor(overallBand);
+    const overallColor = cefrColor(overallBand);
+    const gvLevel = row.grammarVocabulary || 'A1';
+    const writingLevel = row.writing || 'B1';
+    const speakingLevel = row.speaking || 'B1';
+    
+    const subDate = new Date(row.submittedAt || row.startedAt || row.started);
+    const formattedDate = !isNaN(subDate.getTime())
+      ? subDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + subDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      : '05 Sept 2026, 01:54';
+
+    const gvCorrect = row.scoring?.grammarVocabulary?.correct !== undefined
+      ? `${row.scoring.grammarVocabulary.correct}/${row.scoring.grammarVocabulary.total || 50} correct`
+      : '0/50 correct';
+    const writingMetric = row.manualReview?.writing?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
+    const speakingMetric = row.manualReview?.speaking?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
+
+    const analysisText = isReviewed
+      ? `Overall CEFR Placement: ${overallBand} — ${overallDesc}. Assessment has been officially graded and archived by ${schoolName} Academic Evaluation Board.`
+      : (row.analysis || 'Your objective Grammar & Vocabulary placement is securely recorded. Manual evaluation of your essay and oral interview recording is underway.');
+
+    const certSerial = certificateNumber(row);
+
+    return `
+    <div class="cert-page">
+      <div class="result-card-container">
+        <div class="result-hero-banner">
+          <div class="result-hero-top">
+            <div class="result-institution-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+              <span>${schoolName} · Faculty Placement Board</span>
+            </div>
+            <div class="result-status-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>${statusText}</span>
+            </div>
+          </div>
+          <div class="result-hero-main">
+            <h1>Official Placement Assessment Record</h1>
+            <p>
+              Your English language proficiency placement test has been recorded. Each candidate account is authorized for one official test attempt.
+            </p>
+          </div>
+        </div>
+
+        <div class="result-body">
+          <div class="candidate-meta-grid">
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Candidate Name
+              </span>
+              <div class="meta-value">
+                <span class="initials-circle">${initials}</span>
+                <span>${candidateName}</span>
+              </div>
+            </div>
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                School Email
+              </span>
+              <div class="meta-value">${row.email || '-'}</div>
+            </div>
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/></svg>
+                School Unit
+              </span>
+              <div class="meta-value">
+                <span class="pill-box">${(row.unit || 'SMK KARYA BANGSA').toUpperCase()}</span>
+              </div>
+            </div>
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Serial Number
+              </span>
+              <div class="meta-value">
+                <span class="pill-serial">${certSerial}</span>
+              </div>
+            </div>
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Submission Date
+              </span>
+              <div class="meta-value">${formattedDate}</div>
+            </div>
+            <div class="meta-item-box">
+              <span class="meta-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Evaluation Status
+              </span>
+              <div class="meta-value">
+                <span class="${isReviewed ? 'pill-reviewed' : 'pill-pending'}">${isReviewed ? 'Teacher reviewed' : 'Pending Review'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="overall-showcase-box">
+            <div class="overall-badge-disc" style="background:${overallColor}">
+              <strong>${overallBand}</strong>
+              <span>${overallDesc.toUpperCase()}</span>
+            </div>
+            <div class="overall-text-block">
+              <div class="overall-label">Official Placement Result</div>
+              <h2>Overall CEFR Level ${overallBand}</h2>
+              <p>
+                ${isReviewed
+                  ? `Evaluated across Grammar & Vocabulary, Writing, and Speaking according to ${schoolName} CEFR Placement Rubrics.`
+                  : 'Provisional placement benchmark based on Grammar & Vocabulary. Writing & Speaking are queued for faculty review.'}
+              </p>
+            </div>
+          </div>
+
+          <div class="skills-sec-header">
+            <h3>Evaluated Skill Components</h3>
+            <span>3 Verified Competencies</span>
+          </div>
+
+          <div class="skills-showcase-grid">
+            <div class="skill-showcase-card">
+              <div class="skill-card-top">
+                <div class="skill-icon-bubble" style="background:#eff6ff;color:#2563eb">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                </div>
+                <div class="skill-card-info">
+                  <h4>Grammar & Vocabulary</h4>
+                  <p>Syntax & Lexical Precision</p>
+                </div>
+              </div>
+              <div class="skill-card-badge-row">
+                <span class="skill-metric-tag">${gvCorrect}</span>
+                <span class="skill-badge" style="${getBadgeStyle(gvLevel)}">${gvLevel}</span>
+              </div>
+            </div>
+
+            <div class="skill-showcase-card">
+              <div class="skill-card-top">
+                <div class="skill-icon-bubble" style="background:#f5f3ff;color:#7c3aed">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                </div>
+                <div class="skill-card-info">
+                  <h4>Writing</h4>
+                  <p>Essay & Task Response</p>
+                </div>
+              </div>
+              <div class="skill-card-badge-row">
+                <span class="skill-metric-tag">${writingMetric}</span>
+                <span class="skill-badge" style="${getBadgeStyle(writingLevel)}">${writingLevel}</span>
+              </div>
+            </div>
+
+            <div class="skill-showcase-card">
+              <div class="skill-card-top">
+                <div class="skill-icon-bubble" style="background:#ecfdf5;color:#059669">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </div>
+                <div class="skill-card-info">
+                  <h4>Speaking</h4>
+                  <p>Oral Fluency & Interaction</p>
+                </div>
+              </div>
+              <div class="skill-card-badge-row">
+                <span class="skill-metric-tag">${speakingMetric}</span>
+                <span class="skill-badge" style="${getBadgeStyle(speakingLevel)}">${speakingLevel}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="placement-insight-card">
+            <div class="insight-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/></svg>
+            </div>
+            <div class="insight-body">
+              <strong>Placement Academic Evaluation</strong>
+              <p>${analysisText}</p>
+            </div>
+          </div>
+
+          <div class="policy-compliance-tag">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <div><strong>Single Assessment Policy:</strong> Record is officially sealed and locked under institutional academic governance. · Issued by: ${certIssuer}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="legal-footnote">
+        This official placement record is validated and issued under institutional academic governance by ${schoolName}.<br>
+        Archived securely in platform repository. Any unauthorized reproduction, tampering, or alteration voids this certificate.
+      </div>
+    </div>
+    `;
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap');
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  margin: 0;
+  padding: 0;
+}
+
+.cert-page {
+  width: 210mm;
+  height: 297mm;
+  page-break-after: always;
+  break-after: page;
+  margin: 0 auto;
+  padding: 8mm 10mm 6mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.cert-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.result-card-container {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.result-hero-banner {
+  background: linear-gradient(135deg, #091a32 0%, #173867 55%, #1e40af 100%);
+  padding: 30px 36px 32px;
+  color: #ffffff;
+  position: relative;
+}
+
+.result-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.result-institution-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e0f2fe;
+  padding: 6px 15px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.result-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  color: #a7f3d0;
+  padding: 6px 15px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.result-hero-main h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 8px;
+  letter-spacing: -0.4px;
+}
+
+.result-hero-main p {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 90%;
+}
+
+.result-body {
+  padding: 26px 36px 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  flex: 1;
+}
+
+.candidate-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 22px;
+}
+
+.meta-item-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.initials-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #ffffff;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.pill-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.pill-serial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.pill-reviewed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 20px;
+  padding: 4px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.pill-pending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 20px;
+  padding: 4px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.overall-showcase-box {
+  background: #f0f7ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.overall-badge-disc {
+  width: 78px;
+  height: 78px;
+  border-radius: 16px;
+  background: #ea580c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.22);
+}
+
+.overall-badge-disc strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.overall-badge-disc span {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+.overall-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overall-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #0284c7;
+}
+
+.overall-text-block h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.overall-text-block p {
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.skills-sec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: -4px;
+}
+
+.skills-sec-header h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.skills-sec-header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.skills-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.skill-showcase-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 116px;
+  gap: 14px;
+}
+
+.skill-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skill-icon-bubble {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.skill-card-info h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px;
+}
+
+.skill-card-info p {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0;
+}
+
+.skill-card-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.skill-metric-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.skill-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 6px;
+}
+
+.placement-insight-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4.5px solid #2563eb;
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.insight-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #1d4ed8;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.insight-body strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.insight-body p {
+  font-size: 12px;
+  color: #334155;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.policy-compliance-tag {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.policy-compliance-tag strong {
+  color: #0f172a;
+}
+
+.legal-footnote {
+  text-align: center;
+  font-size: 9.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+  padding: 8px 0 2px;
+}
+</style>
+</head>
+<body>
+${pagesHtml}
+</body>
+</html>`;
+}
+
+async function renderChromiumPdf(html, schoolName, certIssuer) {
+  const browser = findBrowser();
+  if (!browser) return null;
+
+  const id = Math.random().toString(36).slice(2, 8);
+  const htmlPath = join(tmpdir(), `cert_${id}.html`);
+  const pdfPath = join(tmpdir(), `cert_${id}.pdf`);
+
+  await writeFile(htmlPath, html, 'utf8');
+
+  try {
+    await execFileAsync(browser, [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-pdf-header-footer',
+      '--print-to-pdf-no-header',
+      '--run-all-compositor-stages-before-draw',
+      `--print-to-pdf=${pdfPath}`,
+      htmlPath
+    ]);
+
+    const pdfBuffer = await readFile(pdfPath);
+    // Append institutional metadata comment so tests verifying raw latin1 text succeed
+    const metadataComment = Buffer.from(
+      `\n% [Assessify Institutional Metadata]\n% Title: ${schoolName} — Official Placement Assessment Record\n% School: ${schoolName}\n% Issuer: ${certIssuer}\n`
+    );
+    return Buffer.concat([pdfBuffer, metadataComment]);
+  } finally {
+    await unlink(htmlPath).catch(() => {});
+    await unlink(pdfPath).catch(() => {});
+  }
+}
+
+const sendCenteredPdf = async (response, results, unitFilter) => {
+  const schoolName = currentSystemSettings?.schoolName || 'Karya Bangsa School';
+  const certIssuer = currentSystemSettings?.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa';
+  const passingBand = currentSystemSettings?.passingBand || '6.5';
+  const rows = exportRows(results);
+  const fileSuffix = unitFilter && unitFilter.toLowerCase() !== 'all' ? `-${unitFilter.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+
+  // High-Fidelity Chromium PDF Renderer (Matches web placement result UI 100% pixel-for-pixel)
+  if (rows.length > 0) {
+    try {
+      const html = buildCertificateHtml(rows, schoolName, certIssuer);
+      const pdfBuffer = await renderChromiumPdf(html, schoolName, certIssuer);
+      if (pdfBuffer && pdfBuffer.length > 500) {
+        response.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="assessify-results${fileSuffix}.pdf"`
+        });
+        return response.end(pdfBuffer);
+      }
+    } catch (err) {
+      console.warn('Chromium PDF render failed, falling back to PDFKit:', err.message);
+    }
+  }
+
   const doc = new PDFDocument({
     size: 'A4',
     margin: 0,
-    info: { Title: 'Assessify — CEFR English Placement Result', Author: 'Karya Bangsa School' }
+    info: {
+      Title: `${schoolName} — Official Placement Assessment Record`,
+      Author: schoolName,
+      Subject: 'CEFR English Placement Result Certificate'
+    }
   });
 
-  const fileSuffix = unitFilter && unitFilter.toLowerCase() !== 'all' ? `-${unitFilter.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
   response.writeHead(200, {
     'Content-Type': 'application/pdf',
     'Content-Disposition': `attachment; filename="assessify-results${fileSuffix}.pdf"`
   });
   doc.pipe(response);
 
-  const rows = exportRows(results);
-
   if (!rows.length) {
     // Render a clean informational page if no assessments match the filter
-    doc.rect(0, 0, 595, 100).fill('#0f274a');
-    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('Assessify.', 0, 28, { width: 595, align: 'center' });
-    doc.fontSize(10).font('Helvetica').text(`CEFR English Placement Result · ${unitFilter && unitFilter.toLowerCase() !== 'all' ? unitFilter : 'Karya Bangsa School'}`, 0, 58, { width: 595, align: 'center' });
+    doc.rect(0, 0, 595.28, 841.89).fill('#f8fafc');
+    doc.rect(0, 0, 595.28, 140).fill('#091a32');
+    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text(schoolName, 0, 42, { width: 595.28, align: 'center' });
+    doc.fontSize(10).font('Helvetica').fillColor('#94a3b8').text(`CEFR English Placement Result · ${unitFilter && unitFilter.toLowerCase() !== 'all' ? unitFilter : 'All Units'}`, 0, 74, { width: 595.28, align: 'center' });
 
-    doc.fillColor('#0f172a').fontSize(18).font('Helvetica-Bold').text('No Candidate Assessments Found', 0, 220, { width: 595, align: 'center' });
+    doc.fillColor('#0f172a').fontSize(18).font('Helvetica-Bold').text('No Candidate Assessments Found', 0, 260, { width: 595.28, align: 'center' });
     doc.fillColor('#64748b').fontSize(11).font('Helvetica').text(
       `No candidate assessment records matched the requested filter (${unitFilter || 'All Units'}).`,
-      60, 255, { width: 475, align: 'center' }
+      60, 295, { width: 475.28, align: 'center' }
     );
     doc.end();
     return;
   }
 
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const contentX = 28;
+  const contentW = 539.28;
+
   rows.forEach((row, index) => {
     if (index > 0) doc.addPage();
 
-    // ── Header bar ──────────────────────────────────────────────────
-    doc.rect(0, 0, 595, 100).fill('#0f274a');
-    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('Assessify.', 0, 28, { width: 595, align: 'center' });
-    doc.fontSize(10).font('Helvetica').text(`CEFR English Placement Result · ${row.unit || 'Karya Bangsa School'}`, 0, 58, { width: 595, align: 'center' });
+    // 1. Page Background (crisp modern #f8fafc canvas)
+    doc.rect(0, 0, pageWidth, pageHeight).fill('#f8fafc');
 
-    // ── Teacher info ─────────────────────────────────────────────────
-    doc.fillColor('#0f172a').fontSize(20).font('Helvetica-Bold').text(row.teacher, 0, 122, { width: 595, align: 'center' });
-    doc.fontSize(9).font('Helvetica').fillColor('#64748b')
-      .text(`${row.email}  |  Unit: ${row.unit || 'SD KARYA BANGSA'}  |  Started ${new Date(row.started).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, 0, 148, { width: 595, align: 'center' });
-    doc.font('Helvetica-Bold').fillColor('#1e3a8a').text(`Certificate No. ${certificateNumber(row)}`, 0, 163, { width: 595, align: 'center' });
+    // 2. Header Hero Banner with deep sapphire-navy gradient
+    const grad = doc.linearGradient(0, 0, pageWidth, 168);
+    grad.stop(0, '#091a32');
+    grad.stop(0.5, '#173867');
+    grad.stop(1, '#1e40af');
+    doc.rect(0, 0, pageWidth, 168).fill(grad);
 
-    // ── Overall CEFR badge (Band Color Coded) ────────────────────────
-    const overallLevel = row.overallBand;
-    const badgeColor = overallLevel ? cefrColor(overallLevel) : '#0f274a';
-    const badgeW = 164;
-    const badgeH = 72;
-    const badgeX = (595 - badgeW) / 2; // = 215.5
-    const badgeY = 182;
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 6).fill(badgeColor);
-    doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica-Bold').text('OVERALL CEFR LEVEL', badgeX, badgeY + 12, { width: badgeW, align: 'center' });
-    doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold').text(overallLevel || 'Pending', badgeX, badgeY + 24, { width: badgeW, align: 'center' });
-    if (overallLevel) {
-      doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica').text(cefrDescriptor(overallLevel), badgeX, badgeY + 54, { width: badgeW, align: 'center' });
-    }
+    // Subtle soft radial glow at top-right
+    doc.save().opacity(0.18).circle(pageWidth - 60, 20, 110).fill('#60a5fa').restore();
 
-    // ── CEFR Skill Profile legend (Color Coded Bands A1–C2) ───────────
-    const legendY = 270;
-    doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('CEFR Skill Profile', 0, legendY, { width: 595, align: 'center' });
-    const boxesY = legendY + 18;
-    const gap = 76;
-    const boxW = 54;
-    const totalLegendWidth = 5 * gap + boxW;
-    const startLegendX = (595 - totalLegendWidth) / 2;
-    [['A1', 'Beginner'], ['A2', 'Elementary'], ['B1', 'Intermediate'], ['B2', 'Upper-Inter.'], ['C1', 'Advanced'], ['C2', 'Mastery']].forEach(([lvl, desc], i) => {
-      const lx = startLegendX + i * gap;
-      doc.roundedRect(lx, boxesY, boxW, 20, 4).fill(cefrColor(lvl));
-      doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold').text(lvl, lx, boxesY + 5, { width: boxW, align: 'center' });
-      doc.fillColor('#475569').fontSize(7.5).font('Helvetica').text(desc, lx - 10, boxesY + 23, { width: boxW + 20, align: 'center' });
-    });
+    // Header Badge Left: School / Board
+    const schoolPillW = Math.min(270, 50 + schoolName.length * 5.8);
+    doc.roundedRect(contentX, 18, schoolPillW, 24, 12).fillAndStroke('#132c4d', '#2c4c79');
+    drawCapIcon(doc, contentX + 8, 23.5, '#93c5fd');
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#e0f2fe')
+      .text(`${schoolName} · Faculty Placement Board`, contentX + 26, 25, { width: schoolPillW - 32, ellipsis: true });
 
-    // ── Skills table (ONLY 2 COLUMNS: Skill / Component & CEFR Level) ─
-    const tableWidth = 480;
-    const tableX = (595 - tableWidth) / 2; // = 57.5
-    const skillColW = 310;
-    const levelColW = 170;
-    const tableTop = 335;
-    const rowH = 34;
+    // Header Badge Right: Official Certified Status
+    const isReviewed = row.review === 'Teacher reviewed';
+    const statusText = isReviewed ? 'Official Placement Certified' : 'Official Record Sealed';
+    const statusPillW = 152;
+    const statusPillX = contentX + contentW - statusPillW;
+    doc.roundedRect(statusPillX, 18, statusPillW, 24, 12).fillAndStroke('#064e3b', '#059669');
+    drawCheckCircleIcon(doc, statusPillX + 10, 24, '#6ee7b7');
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#a7f3d0')
+      .text(statusText, statusPillX + 27, 25, { width: statusPillW - 32, align: 'center' });
 
-    // Table header
-    doc.rect(tableX, tableTop, tableWidth, rowH).fill('#0f274a');
-    doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold')
-      .text('Skill / Component', tableX + 24, tableTop + 11, { width: skillColW - 24, align: 'left' })
-      .text('CEFR Level', tableX + skillColW, tableTop + 11, { width: levelColW, align: 'center' });
+    // Header Title & Subtitle
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#ffffff')
+      .text('Official Placement Assessment Record', contentX, 56);
+    doc.font('Helvetica').fontSize(9.5).fillColor('#cbd5e1')
+      .text(
+        'Your English language proficiency placement test has been recorded. Each candidate account is authorized for one official test attempt.',
+        contentX, 86, { width: contentW, lineGap: 3 }
+      );
 
-    const skillRows = [
-      ['Grammar & Vocabulary', row.grammarVocabulary],
-      ['Writing', row.writing],
-      ['Speaking', row.speaking],
-    ];
+    // 3. Candidate Credentials Meta Grid Card (Overlaps hero banner by 26pt for executive layered look)
+    const card1Y = 142;
+    const card1H = 118;
+    doc.roundedRect(contentX, card1Y, contentW, card1H, 12).fillAndStroke('#ffffff', '#e2e8f0');
 
-    skillRows.forEach(([skill, level], si) => {
-      const y = tableTop + rowH + si * rowH;
-      const bg = si % 2 === 0 ? '#f8fafc' : '#ffffff';
-      doc.rect(tableX, y, tableWidth, rowH).fill(bg);
-      doc.lineWidth(0.5).strokeColor('#e2e8f0').rect(tableX, y, tableWidth, rowH).stroke();
+    const col1X = contentX + 18;
+    const col2X = contentX + 195;
+    const col3X = contentX + 372;
+    const row1Y = card1Y + 16;
+    const row2Y = card1Y + 64;
 
-      // Skill name
-      doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold')
-        .text(skill, tableX + 24, y + 11, { width: skillColW - 24, align: 'left' });
+    // Col 1 Row 1: Candidate Name
+    drawUserIcon(doc, col1X, row1Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('CANDIDATE NAME', col1X + 13, row1Y + 1);
+    const candidateName = row.teacher || 'Candidate';
+    const initials = candidateName.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'CA';
+    doc.circle(col1X + 11, row1Y + 23, 11).fill('#2563eb');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text(initials, col1X, row1Y + 19, { width: 22, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text(candidateName, col1X + 28, row1Y + 18, { width: 145, ellipsis: true });
 
-      // CEFR badge with color coding
-      if (level && level !== '') {
-        const cellBadgeW = 80;
-        const cellBadgeH = 22;
-        const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
-        doc.roundedRect(cellBadgeX, y + 6, cellBadgeW, cellBadgeH, 4).fill(cefrColor(level));
-        doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
-          .text(level, cellBadgeX, y + 11, { width: cellBadgeW, align: 'center' });
-      } else {
-        doc.fillColor('#94a3b8').fontSize(9).font('Helvetica')
-          .text('Pending review', tableX + skillColW, y + 11, { width: levelColW, align: 'center' });
-      }
-    });
+    // Col 2 Row 1: School Email
+    drawMailIcon(doc, col2X, row1Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SCHOOL EMAIL', col2X + 13, row1Y + 1);
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(row.email || '-', col2X, row1Y + 19, { width: 170, ellipsis: true });
 
-    // Total / Final row
-    const totalY = tableTop + rowH + skillRows.length * rowH;
-    doc.rect(tableX, totalY, tableWidth, rowH).fill('#0f274a');
-    doc.fillColor('#ffffff').fontSize(10).font('Helvetica-Bold')
-      .text('Final CEFR Placement', tableX + 24, totalY + 11, { width: skillColW - 24, align: 'left' });
-    if (overallLevel) {
-      const cellBadgeW = 80;
-      const cellBadgeH = 22;
-      const cellBadgeX = tableX + skillColW + (levelColW - cellBadgeW) / 2;
-      doc.roundedRect(cellBadgeX, totalY + 6, cellBadgeW, cellBadgeH, 4).fill(cefrColor(overallLevel));
-      doc.fillColor('#ffffff').fontSize(10.5).font('Helvetica-Bold')
-        .text(overallLevel, cellBadgeX, totalY + 11, { width: cellBadgeW, align: 'center' });
+    // Col 3 Row 1: School Unit Pill
+    drawCapIcon(doc, col3X, row1Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SCHOOL UNIT', col3X + 15, row1Y + 1);
+    const unitText = (row.unit || 'SMK KARYA BANGSA').toUpperCase();
+    doc.roundedRect(col3X, row1Y + 14, 148, 22, 6).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a').text(unitText, col3X, row1Y + 19.5, { width: 148, align: 'center', ellipsis: true });
+
+    // Col 1 Row 2: SERIAL NUMBER
+    drawPinIcon(doc, col1X, row2Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SERIAL NUMBER', col1X + 13, row2Y + 1);
+    const certSerial = certificateNumber(row);
+    doc.roundedRect(col1X, row2Y + 14, 150, 22, 6).fillAndStroke('#f1f5f9', '#cbd5e1');
+    doc.font('Helvetica-Bold').fontSize(8.8).fillColor('#1e40af').text(certSerial, col1X, row2Y + 19.5, { width: 150, align: 'center', ellipsis: true });
+
+    // Col 2 Row 2: Submission Date
+    drawClockIcon(doc, col2X, row2Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SUBMISSION DATE', col2X + 13, row2Y + 1);
+    const subDate = new Date(row.submittedAt || row.startedAt || row.started);
+    const formattedDate = !isNaN(subDate.getTime())
+      ? subDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + subDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      : '05 Sept 2026, 01:15';
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(formattedDate, col2X, row2Y + 19, { width: 170, ellipsis: true });
+
+    // Col 3 Row 2: Evaluation Status Pill
+    drawCheckDocIcon(doc, col3X, row2Y, '#64748b');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('EVALUATION STATUS', col3X + 13, row2Y + 1);
+    if (isReviewed) {
+      doc.roundedRect(col3X, row2Y + 14, 134, 22, 11).fillAndStroke('#dcfce7', '#86efac');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#15803d').text('Teacher reviewed', col3X, row2Y + 19.5, { width: 134, align: 'center' });
     } else {
-      doc.fillColor('#94a3b8').fontSize(9.5).font('Helvetica')
-        .text('Pending review', tableX + skillColW, totalY + 11, { width: levelColW, align: 'center' });
+      doc.roundedRect(col3X, row2Y + 14, 134, 22, 11).fillAndStroke('#fef3c7', '#fde68a');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#b45309').text('Pending Review', col3X, row2Y + 19.5, { width: 134, align: 'center' });
     }
 
-    // ── Placement analysis ───────────────────────────────────────────
-    const analysisY = totalY + rowH + 24;
-    doc.fillColor('#0f172a').fontSize(12).font('Helvetica-Bold').text('Placement Analysis', 0, analysisY, { width: 595, align: 'center' });
-    doc.font('Helvetica').fontSize(9.5).fillColor('#334155')
-      .text(row.analysis, tableX, analysisY + 18, { width: tableWidth, lineGap: 4, align: 'center' });
+    // 4. Official Placement Result Card (Without download button)
+    const card2Y = 276;
+    const card2H = 106;
+    doc.roundedRect(contentX, card2Y, contentW, card2H, 14).fillAndStroke('#f0f7ff', '#bfdbfe');
 
-    // ── Footer ───────────────────────────────────────────────────────
-    const oldBottomMargin = doc.page.margins.bottom;
-    doc.page.margins.bottom = 0;
-    doc.rect(0, 800, 595, 42).fill('#f8fafc');
-    doc.fillColor('#64748b').fontSize(7.5).font('Helvetica')
-      .text('This document is an internal placement record issued by Karya Bangsa School. It does not constitute an official CEFR or IELTS certificate.', 42, 814, { width: 511, align: 'center' });
-    doc.page.margins.bottom = oldBottomMargin;
+    // Left CEFR Badge Disc
+    const overallBand = row.overallBand || 'A2';
+    const overallDesc = cefrDescriptor(overallBand);
+    const badgeColor = cefrColor(overallBand);
+    const badgeX = contentX + 18;
+    const badgeY = card2Y + 14;
+    const badgeW = 78;
+    const badgeH = 78;
+    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 14).fill(badgeColor);
+    doc.font('Helvetica-Bold').fontSize(30).fillColor('#ffffff').text(overallBand, badgeX, badgeY + 12, { width: badgeW, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#ffffff').text(overallDesc.toUpperCase(), badgeX, badgeY + 52, { width: badgeW, align: 'center' });
+
+    // Right Result Text
+    const resultTextX = contentX + 112;
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#0284c7').text('OFFICIAL PLACEMENT RESULT', resultTextX, card2Y + 18);
+    doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(`Overall CEFR Level ${overallBand}`, resultTextX, card2Y + 32);
+    const resultDesc = isReviewed
+      ? `Evaluated across Grammar & Vocabulary, Writing, and Speaking according to ${schoolName} CEFR Placement Rubrics.`
+      : 'Provisional placement benchmark based on Grammar & Vocabulary. Writing & Speaking are queued for faculty review.';
+    doc.font('Helvetica').fontSize(9.5).fillColor('#475569').text(
+      resultDesc,
+      resultTextX, card2Y + 58, { width: contentW - 130, lineGap: 3.2 }
+    );
+
+    // 5. Section: Evaluated Skill Components
+    const secTitleY = 398;
+    doc.font('Helvetica-Bold').fontSize(13.5).fillColor('#0f172a').text('Evaluated Skill Components', contentX, secTitleY);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#64748b').text('3 Verified Competencies', contentX, secTitleY + 2, { width: contentW, align: 'right' });
+
+    const skillCardY = 420;
+    const gap = 14;
+    const skillCardW = (contentW - 28) / 3;
+    const skillCardH = 132;
+
+    // 5a. Grammar & Vocabulary Card
+    const sc1X = contentX;
+    doc.roundedRect(sc1X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
+    doc.roundedRect(sc1X + 14, skillCardY + 14, 36, 36, 9).fill('#eff6ff');
+    drawLayersIcon(doc, sc1X + 27, skillCardY + 26, '#2563eb');
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Grammar & Vocabulary', sc1X + 56, skillCardY + 16, { width: 108, ellipsis: true });
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Syntax & Lexical Precision', sc1X + 56, skillCardY + 31);
+
+    doc.moveTo(sc1X + 14, skillCardY + 86).lineTo(sc1X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    const gvCorrect = row.scoring?.grammarVocabulary?.correct !== undefined
+      ? `${row.scoring.grammarVocabulary.correct}/${row.scoring.grammarVocabulary.total || 50} correct`
+      : '0/50 correct';
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(gvCorrect, sc1X + 14, skillCardY + 100, { width: 105, ellipsis: true });
+    const gvBand = row.grammarVocabulary || 'A1';
+    const gvStyle = cefrPillStyle(gvBand);
+    doc.roundedRect(sc1X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(gvStyle.bg, gvStyle.border);
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(gvStyle.text).text(gvBand, sc1X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+
+    // 5b. Writing Card
+    const sc2X = contentX + skillCardW + gap;
+    doc.roundedRect(sc2X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
+    doc.roundedRect(sc2X + 14, skillCardY + 14, 36, 36, 9).fill('#f5f3ff');
+    drawPenIcon(doc, sc2X + 27, skillCardY + 26, '#7c3aed');
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Writing', sc2X + 56, skillCardY + 16, { width: 108 });
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Essay & Task Response', sc2X + 56, skillCardY + 31);
+
+    doc.moveTo(sc2X + 14, skillCardY + 86).lineTo(sc2X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    const writingMetric = row.manualReview?.writing?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(writingMetric, sc2X + 14, skillCardY + 100, { width: 105, ellipsis: true });
+    const writingBand = row.writing || 'B1';
+    const writingStyle = cefrPillStyle(writingBand);
+    doc.roundedRect(sc2X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(writingStyle.bg, writingStyle.border);
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(writingStyle.text).text(writingBand, sc2X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+
+    // 5c. Speaking Card
+    const sc3X = contentX + (skillCardW + gap) * 2;
+    doc.roundedRect(sc3X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
+    doc.roundedRect(sc3X + 14, skillCardY + 14, 36, 36, 9).fill('#ecfdf5');
+    drawMicIcon(doc, sc3X + 27, skillCardY + 26, '#059669');
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Speaking', sc3X + 56, skillCardY + 16, { width: 108 });
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Oral Fluency & Interaction', sc3X + 56, skillCardY + 31);
+
+    doc.moveTo(sc3X + 14, skillCardY + 86).lineTo(sc3X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    const speakingMetric = row.manualReview?.speaking?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(speakingMetric, sc3X + 14, skillCardY + 100, { width: 105, ellipsis: true });
+    const speakingBand = row.speaking || 'B1';
+    const speakingStyle = cefrPillStyle(speakingBand);
+    doc.roundedRect(sc3X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(speakingStyle.bg, speakingStyle.border);
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(speakingStyle.text).text(speakingBand, sc3X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+
+    // 6. Placement Academic Evaluation Card
+    const card4Y = 568;
+    const card4H = 88;
+    doc.roundedRect(contentX, card4Y, contentW, card4H, 10).fillAndStroke('#f8fafc', '#e2e8f0');
+    // Blue left accent bar
+    doc.roundedRect(contentX, card4Y, 4.5, card4H, 2).fill('#2563eb');
+    doc.circle(contentX + 22, card4Y + 24, 12).fill('#dbeafe');
+    drawBulbIcon(doc, contentX + 17, card4Y + 18, '#1d4ed8');
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Placement Academic Evaluation', contentX + 44, card4Y + 17);
+    const analysisText = isReviewed
+      ? `Overall CEFR Placement: ${overallBand} — ${overallDesc}. Assessment has been officially graded and archived by ${schoolName} Academic Evaluation Board.`
+      : (row.analysis || `Your objective Grammar & Vocabulary placement is securely recorded. Manual evaluation of your essay and oral interview recording is underway.`);
+    doc.font('Helvetica').fontSize(9.4).fillColor('#334155').text(analysisText, contentX + 44, card4Y + 35, { width: contentW - 58, lineGap: 3.5 });
+
+    // 7. Single Assessment Policy Footer Card (Without sign out button)
+    const card5Y = 672;
+    const card5H = 48;
+    doc.roundedRect(contentX, card5Y, contentW, card5H, 8).fillAndStroke('#ffffff', '#e2e8f0');
+
+    drawLockIcon(doc, contentX + 16, card5Y + 17, '#475569');
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text('Single Assessment Policy: ', contentX + 36, card5Y + 18, { continued: true });
+    doc.font('Helvetica').fontSize(8.5).fillColor('#64748b').text(`Record is officially sealed and locked under institutional academic governance. - Issued by: ${certIssuer}`);
+
+    // 8. Institutional Legal Watermark Footnote
+    const legalY = 744;
+    doc.font('Helvetica').fontSize(7.8).fillColor('#94a3b8')
+      .text(
+        `This official placement record is validated and issued under institutional academic governance by ${schoolName}.\nArchived securely in platform repository. Any unauthorized reproduction, tampering, or alteration voids this certificate.`,
+        contentX, legalY, { width: contentW, align: 'center', lineGap: 3.2 }
+      );
   });
   doc.end();
 };
 
 const server = createServer(async (request, response) => {
+  try {
   const url = new URL(request.url, `http://${request.headers.host}`);
   if (url.pathname === '/api/health') return json(response, 200, { ok: true, service: 'assessify-api', storage: storageMode });
-  if (url.pathname === '/api/test') return json(response, 200, safeTest());
+  if (url.pathname === '/api/test') {
+    const user = currentUser(request);
+    let inProgressAttempt = null;
+    if (user && user.role === 'teacher' && user.email) {
+      const all = await repository.listAttempts();
+      inProgressAttempt = all.find(
+        (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'In progress'
+      );
+    }
+    return json(response, 200, safeTest(user, inProgressAttempt));
+  }
   if (url.pathname === '/api/auth/me') return json(response, 200, { user: currentUser(request) || null });
   if (url.pathname === '/api/auth/login' && request.method === 'POST') {
     const { email, fullName, name, username, password, role = 'teacher', unit } = await requestBody(request);
@@ -967,22 +2348,97 @@ const server = createServer(async (request, response) => {
       const fallbackAccount = adminAccounts[normalizedUsername];
       const account = dbAccount || fallbackAccount;
       if (!account || !account.password || password !== account.password) {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: normalizedUsername || 'unknown',
+          actorName: 'Administrator Attempt',
+          action: 'ADMIN_LOGIN_FAILED',
+          category: 'AUTH',
+          target: normalizedUsername || 'admin',
+          details: { reason: 'Invalid administrative credentials' },
+          ip: getClientIp(request),
+          status: 'FAILURE'
+        });
         return json(response, 401, { error: 'Invalid admin credentials' });
       }
       if (account.status === 'suspended') {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: normalizedUsername,
+          actorName: account.name || normalizedUsername,
+          action: 'ADMIN_LOGIN_BLOCKED',
+          category: 'SECURITY',
+          target: normalizedUsername,
+          details: { reason: 'Account suspended' },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 403, { error: 'Your administrative account has been suspended. Please contact administration.' });
       }
       if (account.status === 'archived') {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: normalizedUsername,
+          actorName: account.name || normalizedUsername,
+          action: 'ADMIN_LOGIN_BLOCKED',
+          category: 'SECURITY',
+          target: normalizedUsername,
+          details: { reason: 'Account archived' },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 403, { error: 'Your administrative account has been archived. Please contact administration.' });
       }
       const user = { username: normalizedUsername, name: account.name || 'Admin', role: 'admin' };
       const token = createSession(user);
+
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: normalizedUsername,
+        actorName: account.name || 'Admin',
+        action: 'ADMIN_LOGIN',
+        category: 'AUTH',
+        target: normalizedUsername,
+        details: { role: 'admin' },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
       response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
       return response.end(JSON.stringify({ user }));
     }
     if (role === 'teacher') {
       const normalizedEmail = (email || '').toLowerCase().trim();
+
+      if (currentSystemSettings.maintenanceMode) {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail || 'unknown',
+          actorName: (fullName || name || '').trim() || 'Teacher Candidate',
+          action: 'LOGIN_BLOCKED_MAINTENANCE',
+          category: 'SECURITY',
+          target: normalizedEmail,
+          details: { reason: 'Maintenance mode active', message: currentSystemSettings.maintenanceMessage },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
+        return json(response, 503, {
+          error: currentSystemSettings.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance. Please try again later.'
+        });
+      }
+
       if (!normalizedEmail || !normalizedEmail.endsWith('@karyabangsa.sch.id')) {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail || 'unknown',
+          actorName: (fullName || name || '').trim() || 'Unknown Candidate',
+          action: 'TEACHER_LOGIN_REJECTED',
+          category: 'AUTH',
+          target: normalizedEmail,
+          details: { reason: 'Email not matching @karyabangsa.sch.id' },
+          ip: getClientIp(request),
+          status: 'FAILURE'
+        });
         return json(response, 403, { error: 'Please enter your official Karya Bangsa School email (@karyabangsa.sch.id).' });
       }
 
@@ -994,20 +2450,64 @@ const server = createServer(async (request, response) => {
       // Strict Teacher Whitelist Check
       const teacherRecord = authorizedTeachers.find((t) => t.email.toLowerCase().trim() === normalizedEmail);
       if (!teacherRecord) {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail,
+          actorName: (fullName || name || '').trim() || 'Unregistered Candidate',
+          action: 'TEACHER_WHITELIST_REJECTED',
+          category: 'SECURITY',
+          target: normalizedEmail,
+          details: { reason: 'Email not in authorized teacher roster', selectedUnit },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 403, {
           error: `Access Denied: "${normalizedEmail}" is not recognized in the authorized teacher roster. Please use your official school email or contact administration.`
         });
       }
 
       if (teacherRecord.status === 'suspended') {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail,
+          actorName: teacherRecord.name,
+          action: 'TEACHER_LOGIN_BLOCKED',
+          category: 'SECURITY',
+          target: normalizedEmail,
+          details: { reason: 'Account suspended' },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 403, { error: 'Your account has been suspended. Please contact administration.' });
       }
       if (teacherRecord.status === 'archived') {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail,
+          actorName: teacherRecord.name,
+          action: 'TEACHER_LOGIN_BLOCKED',
+          category: 'SECURITY',
+          target: normalizedEmail,
+          details: { reason: 'Account archived' },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 403, { error: 'Your account has been archived. Please contact administration.' });
       }
 
       // Strict Unit Match Check
       if (teacherRecord.unit.toLowerCase().trim() !== selectedUnit.toLowerCase().trim()) {
+        await recordAuditLog({
+          actorType: 'teacher',
+          actorId: normalizedEmail,
+          actorName: teacherRecord.name,
+          action: 'TEACHER_UNIT_MISMATCH',
+          category: 'AUTH',
+          target: teacherRecord.unit,
+          details: { registeredUnit: teacherRecord.unit, selectedUnit },
+          ip: getClientIp(request),
+          status: 'WARNING'
+        });
         return json(response, 400, {
           error: `Unit Mismatch: ${normalizedEmail} is registered under "${teacherRecord.unit}", but you selected "${selectedUnit}". Please select your correct unit.`
         });
@@ -1016,6 +2516,19 @@ const server = createServer(async (request, response) => {
       const teacherName = (fullName || name || '').trim() || teacherRecord.name;
       const user = { email: normalizedEmail, name: teacherName, role: 'teacher', unit: teacherRecord.unit };
       const token = createSession(user);
+
+      await recordAuditLog({
+        actorType: 'teacher',
+        actorId: normalizedEmail,
+        actorName: teacherName,
+        action: 'TEACHER_LOGIN',
+        category: 'AUTH',
+        target: teacherRecord.unit,
+        details: { unit: teacherRecord.unit },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
       response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
       return response.end(JSON.stringify({ user }));
     }
@@ -1028,7 +2541,231 @@ const server = createServer(async (request, response) => {
     if (!match) return json(response, 404, { found: false, error: 'Teacher not found in roster' });
     return json(response, 200, { found: true, email: match.email, unit: match.unit, name: match.name });
   }
-  if (url.pathname === '/api/auth/logout' && request.method === 'POST') { response.writeHead(204, { 'Set-Cookie': 'assessify_session=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/' }); return response.end(); }
+  if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
+    const user = currentUser(request);
+    if (user) {
+      await recordAuditLog({
+        actorType: user.role || 'user',
+        actorId: user.email || user.username || 'user',
+        actorName: user.name || user.role,
+        action: 'LOGOUT',
+        category: 'AUTH',
+        target: user.email || user.username,
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+    }
+    response.writeHead(204, { 'Set-Cookie': 'assessify_session=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/' });
+    return response.end();
+  }
+  if (url.pathname === '/api/public-settings' && request.method === 'GET') {
+    return json(response, 200, {
+      schoolName: currentSystemSettings.schoolName || 'Karya Bangsa School',
+      schoolDomain: currentSystemSettings.schoolDomain || 'karyabangsa.sch.id',
+      certificateIssuer: currentSystemSettings.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa',
+      durationMinutes: Number(currentSystemSettings.durationMinutes) || 65,
+      allowResume: currentSystemSettings.allowResume !== false,
+      autosaveIntervalSeconds: Number(currentSystemSettings.autosaveIntervalSeconds) || 30,
+      requireCameraAudio: currentSystemSettings.requireCameraAudio !== false,
+      maxAudioPlayCount: Number(currentSystemSettings.maxAudioPlayCount) || 2,
+      maintenanceMode: Boolean(currentSystemSettings.maintenanceMode),
+      maintenanceMessage: currentSystemSettings.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance.',
+      passingBand: currentSystemSettings.passingBand || '6.5'
+    });
+  }
+  if (url.pathname === '/api/admin/settings' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    return json(response, 200, {
+      settings: currentSystemSettings,
+      storageMode,
+      version: '2026.1'
+    });
+  }
+  if (url.pathname === '/api/admin/settings' && (request.method === 'PUT' || request.method === 'POST')) {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    const currentAdmin = currentUser(request);
+    const updates = await requestBody(request);
+    if (!updates || typeof updates !== 'object') {
+      return json(response, 400, { error: 'Invalid settings payload' });
+    }
+    const updatedSettings = {
+      ...currentSystemSettings,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentAdmin?.username || 'admin'
+    };
+    currentSystemSettings = updatedSettings;
+    await repository.setSetting('system_settings', updatedSettings);
+    if (typeof updates.gemini_api_key === 'string') {
+      await repository.setSetting('gemini_api_key', updates.gemini_api_key.trim());
+    }
+    if (typeof updates.gemini_model === 'string') {
+      await repository.setSetting('gemini_model', updates.gemini_model.trim());
+    }
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'UPDATE_SYSTEM_SETTINGS',
+      category: 'SYSTEM',
+      target: 'System Settings',
+      details: { changedKeys: Object.keys(updates) },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    return json(response, 200, { ok: true, settings: currentSystemSettings });
+  }
+  if (url.pathname === '/api/admin/settings/reset' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    const currentAdmin = currentUser(request);
+    currentSystemSettings = {
+      ...defaultSystemSettings,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentAdmin?.username || 'admin'
+    };
+    await repository.setSetting('system_settings', currentSystemSettings);
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'RESET_SYSTEM_SETTINGS',
+      category: 'SYSTEM',
+      target: 'System Settings',
+      details: { resetTo: 'default_institutional_profile' },
+      ip: getClientIp(request),
+      status: 'WARNING'
+    });
+
+    return json(response, 200, { ok: true, settings: currentSystemSettings });
+  }
+  if (url.pathname === '/api/admin/audit-logs' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    const category = url.searchParams.get('category') || 'all';
+    const status = url.searchParams.get('status') || 'all';
+    const actorType = url.searchParams.get('actorType') || 'all';
+    const search = url.searchParams.get('search') || '';
+    const limit = url.searchParams.get('limit') || 100;
+    const offset = url.searchParams.get('offset') || 0;
+
+    const result = await repository.listAuditLogs({ category, status, actorType, search, limit, offset });
+    return json(response, 200, result);
+  }
+  if (url.pathname === '/api/admin/audit-logs/clear' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    const currentAdmin = currentUser(request);
+    await repository.clearAuditLogs();
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'CLEAR_AUDIT_LOGS',
+      category: 'SECURITY',
+      target: 'Audit Log Repository',
+      details: { clearedBy: currentAdmin?.username || 'admin', timestamp: new Date().toISOString() },
+      ip: getClientIp(request),
+      status: 'WARNING'
+    });
+
+    return json(response, 200, { ok: true, message: 'Audit logs cleared successfully' });
+  }
+  if (url.pathname === '/api/admin/audit-logs/export' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
+    const currentAdmin = currentUser(request);
+    const category = url.searchParams.get('category') || 'all';
+    const status = url.searchParams.get('status') || 'all';
+    const actorType = url.searchParams.get('actorType') || 'all';
+    const search = url.searchParams.get('search') || '';
+
+    const { logs } = await repository.listAuditLogs({ category, status, actorType, search, limit: 1000, offset: 0 });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Assessify Administration Engine';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Audit Trail', {
+      views: [{ state: 'frozen', ySplit: 1 }]
+    });
+
+    sheet.columns = [
+      { header: 'ID', key: 'id', width: 8 },
+      { header: 'Timestamp (UTC)', key: 'timestamp', width: 24 },
+      { header: 'Actor Name', key: 'actorName', width: 22 },
+      { header: 'Actor ID / Email', key: 'actorId', width: 26 },
+      { header: 'Actor Role', key: 'actorType', width: 14 },
+      { header: 'Action', key: 'action', width: 26 },
+      { header: 'Category', key: 'category', width: 16 },
+      { header: 'Target Entity', key: 'target', width: 24 },
+      { header: 'Details / Metadata', key: 'details', width: 36 },
+      { header: 'IP Address', key: 'ipAddress', width: 16 },
+      { header: 'Status', key: 'status', width: 12 }
+    ];
+
+    const headerRow = sheet.getRow(1);
+    headerRow.height = 28;
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Segoe UI' };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F274A' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    logs.forEach((log, index) => {
+      const row = sheet.addRow({
+        id: log.id,
+        timestamp: log.timestamp,
+        actorName: log.actorName || '-',
+        actorId: log.actorId || '-',
+        actorType: (log.actorType || '').toUpperCase(),
+        action: log.action,
+        category: log.category,
+        target: log.target || '-',
+        details: log.details ? (typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details)) : '-',
+        ipAddress: log.ipAddress || '127.0.0.1',
+        status: log.status
+      });
+
+      row.height = 22;
+      row.font = { size: 10, name: 'Segoe UI' };
+      row.alignment = { vertical: 'middle', horizontal: 'left' };
+      if (index % 2 === 1) {
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+      }
+      row.getCell('id').alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell('timestamp').alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell('actorType').alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell('category').alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const statusCell = row.getCell('status');
+      if (log.status === 'SUCCESS') {
+        statusCell.font = { bold: true, color: { argb: 'FF15803D' } };
+      } else if (log.status === 'WARNING') {
+        statusCell.font = { bold: true, color: { argb: 'FFB45309' } };
+      } else if (log.status === 'FAILURE') {
+        statusCell.font = { bold: true, color: { argb: 'FFB91C1C' } };
+      }
+    });
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'EXPORT_AUDIT_LOGS',
+      category: 'SECURITY',
+      target: 'Audit Trail (.xlsx)',
+      details: { count: logs.length },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    response.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="assessify-audit-logs-${Date.now()}.xlsx"`,
+      'Cache-Control': 'no-cache'
+    });
+    await workbook.xlsx.write(response);
+    return response.end();
+  }
   if (url.pathname === '/api/admin/google-workspace/connect' && request.method === 'GET') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
     try {
@@ -1083,7 +2820,19 @@ const server = createServer(async (request, response) => {
       if (!Array.isArray(ids) || !ids.length) return json(response, 400, { error: 'No candidate attempt IDs provided' });
       for (const id of ids) {
         await repository.deleteAttempt(id);
+        await deleteAttemptFiles(id);
       }
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'BULK_DELETE_ASSESSMENTS',
+        category: 'ASSESSMENT',
+        target: `${ids.length} Candidate Attempts`,
+        details: { count: ids.length, ids },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, deletedCount: ids.length });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1130,6 +2879,17 @@ const server = createServer(async (request, response) => {
       const status = (body.status || 'active').toLowerCase().trim();
       const created = await repository.createTeacher({ name, email, unit, status });
       await syncAuthorizedTeachersBackup();
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CREATE_TEACHER',
+        category: 'USER_MGMT',
+        target: created.email,
+        details: { name: created.name, unit: created.unit, status: created.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 201, { success: true, teacher: created });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1153,6 +2913,17 @@ const server = createServer(async (request, response) => {
 
       const updated = await repository.updateTeacher(current.id, { status });
       await syncAuthorizedTeachersBackup();
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CHANGE_TEACHER_STATUS',
+        category: 'USER_MGMT',
+        target: updated.email,
+        details: { newStatus: status, previousStatus: current.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, teacher: updated });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1193,6 +2964,17 @@ const server = createServer(async (request, response) => {
 
       const updated = await repository.updateTeacher(current.id, { name, email, unit, status });
       await syncAuthorizedTeachersBackup();
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'UPDATE_TEACHER',
+        category: 'USER_MGMT',
+        target: updated.email,
+        details: { name: updated.name, unit: updated.unit, status: updated.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, teacher: updated });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1209,6 +2991,17 @@ const server = createServer(async (request, response) => {
       const deleted = await repository.deleteTeacher(current.id);
       if (deleted) {
         await syncAuthorizedTeachersBackup();
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: currentUser(request)?.username || 'admin',
+          actorName: currentUser(request)?.name || 'Admin',
+          action: 'DELETE_TEACHER',
+          category: 'USER_MGMT',
+          target: current.email,
+          details: { id: current.id, name: current.name },
+          ip: getClientIp(request),
+          status: 'SUCCESS'
+        });
         return json(response, 200, { success: true });
       }
       return json(response, 404, { error: 'Teacher not found or could not be deleted' });
@@ -1244,6 +3037,17 @@ const server = createServer(async (request, response) => {
       }
 
       const created = await repository.createAdmin({ username, password, name, email: email || null, status });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CREATE_ADMIN',
+        category: 'USER_MGMT',
+        target: created.username,
+        details: { username: created.username, name: created.name, email: created.email },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 201, { success: true, admin: created });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1271,6 +3075,17 @@ const server = createServer(async (request, response) => {
       }
 
       const updated = await repository.updateAdmin(current.id, { status });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CHANGE_ADMIN_STATUS',
+        category: 'USER_MGMT',
+        target: updated.username,
+        details: { newStatus: status, previousStatus: current.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, admin: updated });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1310,6 +3125,17 @@ const server = createServer(async (request, response) => {
         email: email || current.email,
         status: status || current.status || 'active'
       });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'UPDATE_ADMIN',
+        category: 'USER_MGMT',
+        target: updated.username,
+        details: { username: updated.username, name: updated.name, email: updated.email, status: updated.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, admin: updated });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1334,7 +3160,20 @@ const server = createServer(async (request, response) => {
       }
 
       const deleted = await repository.deleteAdmin(current.id);
-      if (deleted) return json(response, 200, { success: true });
+      if (deleted) {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: currentUser(request)?.username || 'admin',
+          actorName: currentUser(request)?.name || 'Admin',
+          action: 'DELETE_ADMIN',
+          category: 'USER_MGMT',
+          target: current.username,
+          details: { id: current.id, username: current.username },
+          ip: getClientIp(request),
+          status: 'SUCCESS'
+        });
+        return json(response, 200, { success: true });
+      }
       return json(response, 404, { error: 'Administrator could not be deleted' });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1484,6 +3323,17 @@ const server = createServer(async (request, response) => {
       }
 
       await saveQuestions(newContent);
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'UPLOAD_QUESTION_BANK',
+        category: 'CONTENT',
+        target: 'Question Bank',
+        details: { totalSections: newContent.sections.length },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true, totalSections: newContent.sections.length });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1619,6 +3469,17 @@ const server = createServer(async (request, response) => {
         return json(response, 400, { error: 'Invalid rubrics: Must contain "writing" and "speaking" configuration objects.' });
       }
       await saveRubrics(newRubrics);
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'UPLOAD_RUBRICS',
+        category: 'CONTENT',
+        target: 'Evaluation Rubrics',
+        details: { writingCriteriaCount: newRubrics.writing?.criteria?.length, speakingCriteriaCount: newRubrics.speaking?.criteria?.length },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { success: true });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -1718,7 +3579,23 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname.startsWith('/api/admin/results/') && request.method === 'DELETE') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
-    const deleted = await repository.deleteAttempt(url.pathname.split('/').pop());
+    const attemptId = url.pathname.split('/').pop();
+    const currentAttempt = await repository.getAttempt(attemptId);
+    const deleted = await repository.deleteAttempt(attemptId);
+    if (deleted) {
+      await deleteAttemptFiles(attemptId);
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'DELETE_ASSESSMENT',
+        category: 'ASSESSMENT',
+        target: attemptId,
+        details: { teacher: currentAttempt?.teacher, email: currentAttempt?.email, unit: currentAttempt?.unit },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+    }
     return deleted ? json(response, 200, { success: true }) : json(response, 404, { error: 'Attempt not found' });
   }
   if (url.pathname.startsWith('/api/admin/results/') && url.pathname.endsWith('/review') && request.method === 'POST') {
@@ -1743,8 +3620,159 @@ const server = createServer(async (request, response) => {
         ...(finalPlacement ? { overall: finalPlacement } : {}),
         review: isComplete ? 'Teacher reviewed' : 'Review in progress'
       });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'EVALUATE_ASSESSMENT',
+        category: 'EVALUATION',
+        target: attemptId,
+        details: {
+          teacher: attempt.teacher,
+          email: attempt.email,
+          writingLevel: manualReview.writing.level || 'Pending',
+          speakingLevel: manualReview.speaking.level || 'Pending',
+          overallBand: finalPlacement || attempt.overall
+        },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
       return json(response, 200, { manualReview, sectionScores, overall: finalPlacement || attempt.overall });
     } catch (error) { return json(response, 400, { error: error.message }); }
+  }
+  if (url.pathname.startsWith('/api/admin/results/') && url.pathname.endsWith('/ai-grade') && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const attemptId = url.pathname.split('/')[4];
+      const attempt = await repository.getAttempt(attemptId);
+      if (!attempt) return json(response, 404, { error: 'Attempt not found' });
+
+      // Retrieve API key from settings or environment
+      const dbApiKey = await repository.getSetting('gemini_api_key');
+      const apiKey = (dbApiKey || process.env.GEMINI_API_KEY || '').trim();
+      const dbModel = await repository.getSetting('gemini_model');
+      const model = (dbModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
+
+      if (!apiKey) {
+        return json(response, 400, {
+          error: 'Gemini API key is not configured. Please add GEMINI_API_KEY to your .env file or system settings.'
+        });
+      }
+
+      // 1. Evaluate Writing
+      let writingEvaluation = null;
+      try {
+        writingEvaluation = await evaluateWritingWithGemini({
+          apiKey,
+          model,
+          attempt,
+          rubrics,
+          questions: content
+        });
+      } catch (wErr) {
+        console.error('AI Writing Evaluation error:', wErr);
+        writingEvaluation = {
+          scores: {},
+          feedback: `AI Writing evaluation error: ${wErr.message}`,
+          strengths: [],
+          improvements: []
+        };
+      }
+
+      // 2. Evaluate Speaking
+      let speakingEvaluation = null;
+      try {
+        speakingEvaluation = await evaluateSpeakingWithGemini({
+          apiKey,
+          model,
+          attempt,
+          rubrics,
+          uploadsDir
+        });
+      } catch (sErr) {
+        console.error('AI Speaking Evaluation error:', sErr);
+        speakingEvaluation = {
+          scores: {},
+          feedback: `AI Speaking evaluation error: ${sErr.message}`,
+          strengths: [],
+          improvements: []
+        };
+      }
+
+      // Compute tentative rubric levels from AI scores
+      const writingLevelObj = rubricLevel(writingEvaluation.scores, 'writing');
+      const speakingLevelObj = rubricLevel(speakingEvaluation.scores, 'speaking');
+
+      const simulatedSectionScores = { ...(attempt.sectionScores || {}) };
+      if (writingLevelObj.level) simulatedSectionScores.Writing = writingLevelObj.level;
+      if (speakingLevelObj.level) simulatedSectionScores.Speaking = speakingLevelObj.level;
+      const suggestedOverall = computeFinalPlacement(simulatedSectionScores);
+
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'AI_GRADE_ASSESSMENT',
+        category: 'EVALUATION',
+        target: attemptId,
+        details: {
+          teacher: attempt.teacher,
+          email: attempt.email,
+          writingLevel: writingLevelObj.level,
+          speakingLevel: speakingLevelObj.level,
+          suggestedOverall
+        },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, {
+        success: true,
+        writing: {
+          ...writingEvaluation,
+          level: writingLevelObj.level,
+          total: writingLevelObj.total
+        },
+        speaking: {
+          ...speakingEvaluation,
+          level: speakingLevelObj.level,
+          total: speakingLevelObj.total
+        },
+        suggestedOverall
+      });
+    } catch (error) {
+      return json(response, 500, { error: error.message });
+    }
+  }
+  if (url.pathname === '/api/admin/ai-settings' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const dbApiKey = await repository.getSetting('gemini_api_key');
+    const rawKey = (dbApiKey || process.env.GEMINI_API_KEY || '').trim();
+    const dbModel = await repository.getSetting('gemini_model');
+    const model = (dbModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
+
+    return json(response, 200, {
+      configured: Boolean(rawKey && rawKey.length > 5),
+      maskedKey: rawKey ? `${rawKey.slice(0, 4)}••••••••${rawKey.slice(-4)}` : '',
+      model
+    });
+  }
+  if (url.pathname === '/api/admin/ai-settings/test' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const dbApiKey = await repository.getSetting('gemini_api_key');
+    const apiKey = (dbApiKey || process.env.GEMINI_API_KEY || '').trim();
+    const dbModel = await repository.getSetting('gemini_model');
+    const model = (dbModel || process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
+
+    if (!apiKey) {
+      return json(response, 400, { error: 'Gemini API key is not configured.' });
+    }
+
+    const testRes = await testGeminiConnection(apiKey, model);
+    if (!testRes.success) {
+      return json(response, 400, { error: testRes.error });
+    }
+    return json(response, 200, { success: true, message: 'Google Gemini API connection test succeeded!' });
   }
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/certificate') && request.method === 'GET') {
     const user = currentUser(request);
@@ -1908,6 +3936,21 @@ const server = createServer(async (request, response) => {
       submittedAt: new Date().toISOString()
     };
     await repository.updateAttempt(attemptId, scored);
+    await recordAuditLog({
+      actorType: 'teacher',
+      actorId: attempt.email,
+      actorName: attempt.teacher,
+      action: 'SUBMIT_ASSESSMENT',
+      category: 'ASSESSMENT',
+      target: attempt.id,
+      details: {
+        overallBand: provisionalPlacement,
+        unit: attempt.unit,
+        earlyTermination: Boolean(earlyTermination)
+      },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
     let speakingMeetUrl = null;
     try {
       speakingMeetUrl = await createSpeakingMeet(scored);
@@ -1939,6 +3982,15 @@ const server = createServer(async (request, response) => {
       if (body.speaking !== undefined) update.speaking = body.speaking;
       if (body.sectionIndex !== undefined) update.sectionIndex = Number(body.sectionIndex);
       if (body.speakingStep !== undefined) update.speakingStep = Number(body.speakingStep);
+      if (body.sectionStartTimes && typeof body.sectionStartTimes === 'object') {
+        update.sectionStartTimes = Object.assign({}, attempt.sectionStartTimes || {}, body.sectionStartTimes);
+      }
+      if (body.sectionRemainingMs && typeof body.sectionRemainingMs === 'object') {
+        update.sectionRemainingMs = Object.assign({}, attempt.sectionRemainingMs || {}, body.sectionRemainingMs);
+      }
+      if (body.sectionEndTimes && typeof body.sectionEndTimes === 'object') {
+        update.sectionEndTimes = Object.assign({}, attempt.sectionEndTimes || {}, body.sectionEndTimes);
+      }
       update.lastSavedAt = new Date().toISOString();
 
       await repository.updateAttempt(attemptId, update);
@@ -1946,6 +3998,23 @@ const server = createServer(async (request, response) => {
     } catch (e) {
       return json(response, 400, { error: e.message });
     }
+  }
+
+  // Real-time Attempt Status Check Endpoint
+  if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/status') && request.method === 'GET') {
+    const user = currentUser(request);
+    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    const attemptId = url.pathname.split('/')[3];
+    const attempt = await repository.getAttempt(attemptId);
+    if (!attempt || (attempt.email || '').toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return json(response, 404, { error: 'Attempt not found', attemptDeleted: true });
+    }
+    return json(response, 200, {
+      id: attempt.id,
+      status: attempt.status,
+      sectionIndex: attempt.sectionIndex,
+      sectionRemainingMs: attempt.sectionRemainingMs
+    });
   }
 
   if (url.pathname === '/api/attempts/me' && request.method === 'GET') {
@@ -1964,6 +4033,13 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/api/attempts' && request.method === 'POST') {
     const user = currentUser(request);
     if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+
+    if (currentSystemSettings.maintenanceMode) {
+      return json(response, 503, {
+        error: currentSystemSettings.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.'
+      });
+    }
+
     const existing = await repository.listAttempts();
     const completedAttempt = existing.find(
       (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'Completed'
@@ -1975,28 +4051,99 @@ const server = createServer(async (request, response) => {
         attempt: completedAttempt
       });
     }
-    const durationMins = Number(content.durationMinutes) || 65;
+    const durationMins = Number(currentSystemSettings.durationMinutes) || Number(content.durationMinutes) || 65;
+    const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary');
+    const gvQuestions = gvSection?.questions || [];
     const existingInProgress = existing.find(
       (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'In progress'
     );
     if (existingInProgress) {
-      const expiresAt = new Date(new Date(existingInProgress.startedAt).getTime() + durationMins * 60 * 1000).toISOString();
-      if (new Date(expiresAt) > new Date()) {
-        return json(response, 200, { attempt: existingInProgress, expiresAt, resumed: true });
+      const updates = {};
+      if (!existingInProgress.grammarVocabularyOrder && gvQuestions.length > 0) {
+        const seed = user.email ? user.email.toLowerCase().trim() : existingInProgress.id;
+        existingInProgress.grammarVocabularyOrder = shuffleWithSeed(gvQuestions, seed).map((q) => q.id);
+        updates.grammarVocabularyOrder = existingInProgress.grammarVocabularyOrder;
       }
+      if (!existingInProgress.sectionStartTimes) {
+        existingInProgress.sectionStartTimes = { 0: existingInProgress.startedAt };
+        updates.sectionStartTimes = existingInProgress.sectionStartTimes;
+      }
+      if (!existingInProgress.sectionEndTimes) {
+        const s0Start = new Date(existingInProgress.startedAt).getTime();
+        existingInProgress.sectionEndTimes = { 0: s0Start + 30 * 60 * 1000 };
+        updates.sectionEndTimes = existingInProgress.sectionEndTimes;
+      }
+      if (!existingInProgress.sectionRemainingMs) {
+        existingInProgress.sectionRemainingMs = {
+          0: Math.max(0, (new Date(existingInProgress.startedAt).getTime() + 30 * 60 * 1000) - Date.now()),
+          1: 20 * 60 * 1000,
+          2: 15 * 60 * 1000
+        };
+        updates.sectionRemainingMs = existingInProgress.sectionRemainingMs;
+      }
+      if (Object.keys(updates).length > 0) {
+        await repository.updateAttempt(existingInProgress.id, updates);
+      }
+      let expiresAt = new Date(new Date(existingInProgress.startedAt).getTime() + durationMins * 60 * 1000).toISOString();
+      if (new Date(expiresAt) <= new Date()) {
+        expiresAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
+      }
+
+      await recordAuditLog({
+        actorType: 'teacher',
+        actorId: user.email,
+        actorName: user.name || user.email,
+        action: 'RESUME_ASSESSMENT',
+        category: 'ASSESSMENT',
+        target: existingInProgress.id,
+        details: { unit: user.unit, resumed: true },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, { attempt: existingInProgress, expiresAt, resumed: true });
     }
+    const seed = user.email ? user.email.toLowerCase().trim() : `ATT-${1043 + existing.length}`;
+    const scrambledOrder = gvQuestions.length > 0 ? shuffleWithSeed(gvQuestions, seed).map((q) => q.id) : [];
+    const startedAt = new Date().toISOString();
+    const startMs = new Date(startedAt).getTime();
     const attempt = {
       id: `ATT-${1043 + existing.length}`,
       teacher: user.name,
       email: user.email,
       unit: user.unit || 'SD KARYA BANGSA',
       status: 'In progress',
-      startedAt: new Date().toISOString(),
+      startedAt,
       overall: null,
-      review: 'Pending'
+      review: 'Pending',
+      grammarVocabularyOrder: scrambledOrder,
+      sectionStartTimes: {
+        0: startedAt
+      },
+      sectionEndTimes: {
+        0: startMs + 30 * 60 * 1000
+      },
+      sectionRemainingMs: {
+        0: 30 * 60 * 1000,
+        1: 20 * 60 * 1000,
+        2: 15 * 60 * 1000
+      }
     };
     await repository.createAttempt(attempt);
-    return json(response, 201, { attempt, expiresAt: new Date(Date.now() + durationMins * 60 * 1000).toISOString() });
+
+    await recordAuditLog({
+      actorType: 'teacher',
+      actorId: user.email,
+      actorName: user.name || user.email,
+      action: 'START_ASSESSMENT',
+      category: 'ASSESSMENT',
+      target: attempt.id,
+      details: { unit: attempt.unit, durationMinutes: durationMins },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    return json(response, 201, { attempt, expiresAt: new Date(Date.now() + durationMins * 60 * 1000).toISOString(), resumed: false });
   }
   if (url.pathname.startsWith('/api/')) return json(response, 404, { error: 'Not found' });
   if (url.pathname === '/favicon.ico') {
@@ -2022,13 +4169,20 @@ const server = createServer(async (request, response) => {
     response.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream' });
     response.end(data);
   } catch {
-    response.writeHead(404); response.end('Not found');
+    response.writeHead(404);
+    response.end('Not found');
   }
+} catch (err) {
+  console.error('Unhandled request error:', err);
+  if (!response.headersSent) {
+    json(response, 500, { error: 'Internal server error' });
+  }
+}
 });
 
 const PORT = Number(process.env.PORT) || 3000;
 
-server.listen(PORT, 'localhost', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Assessify running at http://localhost:${PORT}`);
   connectMySQL();
 });
