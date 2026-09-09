@@ -8,7 +8,6 @@
   "sections": [
     {
       "id": "grammar-vocabulary",
-      "label": "Grammar & Vocabulary Placement Test",
       "durationMinutes": 30,
       "instructions": "Choose the correct letter for each question (50 questions · 30 minutes).",
       "questions": [
@@ -312,7 +311,7 @@
         {
           "id": "g-28",
           "type": "multiple-choice",
-          "prompt": "I promise I’ll call you as soon as I ........ .",
+          "prompt": "I promise I’ll call you as soon as ........ .",
           "options": [
             "I arrive",
             "I arrived",

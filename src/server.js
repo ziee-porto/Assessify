@@ -44,17 +44,33 @@ const seedAttempts = [];
 const memoryRepository = {
   attempts: [...seedAttempts],
   teachers: authorizedTeachers.map((t, idx) => ({ id: idx + 1, status: 'active', ...t })),
+  students: [],
   admins: [
     { id: 1, username: 'azzikra', password: process.env.ADMIN_PASSWORD || '4dm1n123', name: 'Azzikra', email: 'azzikra@karyabangsa.sch.id', status: 'active' },
     { id: 2, username: 'refka', password: process.env.ADMIN_REFKA_PASSWORD || 'r3fk4', name: 'Refka', email: 'refka@karyabangsa.sch.id', status: 'active' }
   ],
   settings: new Map(),
   auditLogs: [],
+  examSessions: [],
   async listAttempts() { return this.attempts; },
   async createAttempt(attempt) { this.attempts.unshift(attempt); return attempt; },
   async getAttempt(id) { return this.attempts.find((attempt) => attempt.id === id); },
   async updateAttempt(id, update) { const attempt = this.attempts.find((item) => item.id === id); if (attempt) Object.assign(attempt, update); return attempt; },
   async deleteAttempt(id) { const idx = this.attempts.findIndex((item) => item.id === id); if (idx !== -1) { this.attempts.splice(idx, 1); return true; } return false; },
+  async listExamSessions() { return [...this.examSessions]; },
+  async createExamSession(session) {
+    const s = { id: `SES-${Date.now()}`, createdAt: new Date().toISOString(), status: 'active', ...session };
+    this.examSessions.unshift(s);
+    return s;
+  },
+  async deleteExamSession(id) {
+    const idx = this.examSessions.findIndex((s) => s.id === id);
+    if (idx !== -1) {
+      this.examSessions.splice(idx, 1);
+      return true;
+    }
+    return false;
+  },
   async getSetting(key) { return this.settings.get(key); },
   async setSetting(key, value) { this.settings.set(key, value); return value; },
   async listTeachers() { return [...this.teachers]; },
@@ -67,6 +83,31 @@ const memoryRepository = {
     const created = { id: nextId, status: teacher.status || 'active', ...teacher };
     this.teachers.push(created);
     return created;
+  },
+  async bulkCreateTeachers(teachersList) {
+    let added = 0;
+    let updated = 0;
+    for (const t of teachersList) {
+      const normEmail = (t.email || '').toLowerCase().trim();
+      const existing = this.teachers.find((x) => (x.email || '').toLowerCase() === normEmail);
+      if (existing) {
+        existing.name = t.name.trim();
+        existing.unit = t.unit.trim();
+        existing.status = t.status || existing.status || 'active';
+        updated++;
+      } else {
+        const nextId = this.teachers.length ? Math.max(...this.teachers.map((x) => Number(x.id) || 0)) + 1 : 1;
+        this.teachers.push({
+          id: nextId,
+          name: t.name.trim(),
+          email: normEmail,
+          unit: t.unit.trim(),
+          status: t.status || 'active'
+        });
+        added++;
+      }
+    }
+    return { added, updated, total: teachersList.length };
   },
   async listAuditLogs(filters = {}) {
     let logs = [...this.auditLogs];
@@ -178,6 +219,90 @@ const memoryRepository = {
       return true;
     }
     return false;
+  },
+  async bulkCreateAdmins(adminsList) {
+    let added = 0;
+    let updated = 0;
+    for (const a of adminsList) {
+      const u = (a.username || '').toLowerCase().trim();
+      if (!u) continue;
+      const existing = this.admins.find((x) => (x.username || '').toLowerCase() === u);
+      if (existing) {
+        if (a.name) existing.name = a.name.trim();
+        if (a.email !== undefined) existing.email = a.email ? a.email.toLowerCase().trim() : null;
+        if (a.status !== undefined) existing.status = a.status;
+        if (a.password) existing.password = a.password;
+        updated++;
+      } else {
+        const nextId = this.admins.length ? Math.max(...this.admins.map((x) => Number(x.id) || 0)) + 1 : 1;
+        this.admins.push({
+          id: nextId,
+          username: u,
+          name: (a.name || u).trim(),
+          email: a.email ? a.email.toLowerCase().trim() : null,
+          password: a.password || 'admin123',
+          status: a.status || 'active'
+        });
+        added++;
+      }
+    }
+    return { added, updated, total: adminsList.length };
+  },
+  async listStudents() { return [...this.students]; },
+  async getStudent(idOrEmail) {
+    const term = String(idOrEmail).toLowerCase().trim();
+    return this.students.find((s) => String(s.id) === term || (s.email || '').toLowerCase() === term || (s.student_id || '').toLowerCase() === term) || null;
+  },
+  async createStudent(student) {
+    const nextId = this.students.length ? Math.max(...this.students.map((s) => Number(s.id) || 0)) + 1 : 1;
+    const created = { id: nextId, status: student.status || 'active', ...student };
+    this.students.push(created);
+    return created;
+  },
+  async updateStudent(id, update) {
+    const term = String(id).toLowerCase().trim();
+    const student = this.students.find((s) => String(s.id) === term || (s.email || '').toLowerCase() === term);
+    if (!student) return null;
+    Object.assign(student, update);
+    return student;
+  },
+  async deleteStudent(id) {
+    const term = String(id).toLowerCase().trim();
+    const idx = this.students.findIndex((s) => String(s.id) === term || (s.email || '').toLowerCase() === term);
+    if (idx !== -1) {
+      this.students.splice(idx, 1);
+      return true;
+    }
+    return false;
+  },
+  async bulkCreateStudents(studentsList) {
+    let added = 0;
+    let updated = 0;
+    for (const s of studentsList) {
+      const normEmail = (s.email || '').toLowerCase().trim();
+      const existing = this.students.find((x) => (x.email || '').toLowerCase() === normEmail);
+      if (existing) {
+        existing.name = s.name.trim();
+        existing.unit = s.unit.trim();
+        existing.grade = s.grade || existing.grade || null;
+        existing.student_id = s.student_id || existing.student_id || null;
+        existing.status = s.status || existing.status || 'active';
+        updated++;
+      } else {
+        const nextId = this.students.length ? Math.max(...this.students.map((x) => Number(x.id) || 0)) + 1 : 1;
+        this.students.push({
+          id: nextId,
+          name: s.name.trim(),
+          email: normEmail,
+          unit: s.unit.trim(),
+          grade: s.grade || null,
+          student_id: s.student_id || null,
+          status: s.status || 'active'
+        });
+        added++;
+      }
+    }
+    return { added, updated, total: studentsList.length };
   }
 };
 let repository = memoryRepository;
@@ -207,6 +332,16 @@ const defaultSystemSettings = {
   maintenanceMode: false,
   maintenanceMessage: 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.',
   sessionTimeoutHours: 12,
+
+  // Anti-Cheat Controls
+  antiCheat: {
+    enabled: true,
+    tabSwitchDetection: true,
+    requireFullscreen: true,
+    splitScreenDetection: true,
+    blockDevTools: true,
+    blockCopyPaste: true
+  },
 
   // Metadata
   updatedAt: new Date().toISOString(),
@@ -368,6 +503,18 @@ async function connectMySQL() {
       `);
 
       await pool.query(`
+        CREATE TABLE IF NOT EXISTS exam_sessions (
+          id VARCHAR(64) PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          target_unit VARCHAR(128) NULL,
+          scheduled_start VARCHAR(64) NULL,
+          anti_cheat JSON NOT NULL,
+          created_by VARCHAR(128) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS authorized_teachers (
           id INT AUTO_INCREMENT PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
@@ -378,6 +525,22 @@ async function connectMySQL() {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_email (email),
           INDEX idx_unit (unit)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS students (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          student_id VARCHAR(64) NULL,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          unit VARCHAR(128) NOT NULL,
+          grade VARCHAR(64) NULL,
+          status VARCHAR(32) NOT NULL DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_student_email (email),
+          INDEX idx_student_unit (unit)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
@@ -396,6 +559,9 @@ async function connectMySQL() {
       `);
 
       await pool.query('ALTER TABLE authorized_teachers ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT "active"').catch(() => {});
+      await pool.query('ALTER TABLE students ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT "active"').catch(() => {});
+      await pool.query('ALTER TABLE students ADD COLUMN grade VARCHAR(64) NULL').catch(() => {});
+      await pool.query('ALTER TABLE students ADD COLUMN student_id VARCHAR(64) NULL').catch(() => {});
       await pool.query('ALTER TABLE admin_users ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT "active"').catch(() => {});
 
       await pool.query(`
@@ -511,6 +677,85 @@ async function connectMySQL() {
           const [res] = await pool.query('DELETE FROM authorized_teachers WHERE id = ?', [id]);
           return res.affectedRows > 0;
         },
+        async bulkCreateTeachers(teachersList) {
+          let added = 0;
+          let updated = 0;
+          for (const t of teachersList) {
+            const normEmail = (t.email || '').toLowerCase().trim();
+            const normName = (t.name || '').trim();
+            const normUnit = (t.unit || '').trim();
+            const normStatus = t.status || 'active';
+            const [res] = await pool.query(
+              `INSERT INTO authorized_teachers (name, email, unit, status)
+               VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE name = VALUES(name), unit = VALUES(unit), status = VALUES(status)`,
+              [normName, normEmail, normUnit, normStatus]
+            );
+            if (res.affectedRows === 1) {
+              added++;
+            } else {
+              updated++;
+            }
+          }
+          return { added, updated, total: teachersList.length };
+        },
+        async listStudents() {
+          const [rows] = await pool.query('SELECT id, student_id, name, email, unit, grade, COALESCE(status, "active") AS status, created_at, updated_at FROM students ORDER BY name ASC');
+          return rows;
+        },
+        async getStudent(idOrEmail) {
+          const term = String(idOrEmail).toLowerCase().trim();
+          const isNum = !isNaN(Number(term)) && !term.includes('@');
+          const query = isNum
+            ? 'SELECT id, student_id, name, email, unit, grade, COALESCE(status, "active") AS status, created_at, updated_at FROM students WHERE id = ? LIMIT 1'
+            : 'SELECT id, student_id, name, email, unit, grade, COALESCE(status, "active") AS status, created_at, updated_at FROM students WHERE email = ? OR student_id = ? LIMIT 1';
+          const [rows] = await pool.query(query, isNum ? [Number(term)] : [term, term]);
+          return rows[0] || null;
+        },
+        async createStudent({ name, email, unit, student_id = null, grade = null, status = 'active' }) {
+          const normalizedEmail = email.toLowerCase().trim();
+          const [res] = await pool.query(
+            'INSERT INTO students (student_id, name, email, unit, grade, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [student_id ? String(student_id).trim() : null, name.trim(), normalizedEmail, unit.trim(), grade ? String(grade).trim() : null, status || 'active']
+          );
+          return { id: res.insertId, student_id: student_id ? String(student_id).trim() : null, name: name.trim(), email: normalizedEmail, unit: unit.trim(), grade: grade ? String(grade).trim() : null, status: status || 'active' };
+        },
+        async updateStudent(id, { name, email, unit, student_id, grade, status }) {
+          const normalizedEmail = email ? email.toLowerCase().trim() : undefined;
+          await pool.query(
+            'UPDATE students SET name = COALESCE(?, name), email = COALESCE(?, email), unit = COALESCE(?, unit), student_id = COALESCE(?, student_id), grade = COALESCE(?, grade), status = COALESCE(?, status) WHERE id = ?',
+            [name?.trim(), normalizedEmail, unit?.trim(), student_id !== undefined ? String(student_id).trim() : null, grade !== undefined ? String(grade).trim() : null, status, id]
+          );
+          return this.getStudent(id);
+        },
+        async deleteStudent(id) {
+          const [res] = await pool.query('DELETE FROM students WHERE id = ?', [id]);
+          return res.affectedRows > 0;
+        },
+        async bulkCreateStudents(studentsList) {
+          let added = 0;
+          let updated = 0;
+          for (const s of studentsList) {
+            const normEmail = (s.email || '').toLowerCase().trim();
+            const normName = (s.name || '').trim();
+            const normUnit = (s.unit || '').trim();
+            const normStudentId = s.student_id ? String(s.student_id).trim() : null;
+            const normGrade = s.grade ? String(s.grade).trim() : null;
+            const normStatus = s.status || 'active';
+            const [res] = await pool.query(
+              `INSERT INTO students (student_id, name, email, unit, grade, status)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE name = VALUES(name), unit = VALUES(unit), student_id = VALUES(student_id), grade = VALUES(grade), status = VALUES(status)`,
+              [normStudentId, normName, normEmail, normUnit, normGrade, normStatus]
+            );
+            if (res.affectedRows === 1) {
+              added++;
+            } else {
+              updated++;
+            }
+          }
+          return { added, updated, total: studentsList.length };
+        },
         async listAdmins() {
           const [rows] = await pool.query('SELECT id, username, name, email, COALESCE(status, "active") AS status, created_at, updated_at FROM admin_users ORDER BY name ASC');
           return rows;
@@ -551,6 +796,34 @@ async function connectMySQL() {
         async deleteAdmin(id) {
           const [res] = await pool.query('DELETE FROM admin_users WHERE id = ?', [id]);
           return res.affectedRows > 0;
+        },
+        async bulkCreateAdmins(adminsList) {
+          let added = 0;
+          let updated = 0;
+          for (const a of adminsList) {
+            const normUsername = (a.username || '').toLowerCase().trim();
+            const normName = (a.name || normUsername).trim();
+            const normEmail = (a.email || '').toLowerCase().trim() || null;
+            const normStatus = (a.status || 'active').toLowerCase().trim();
+            const normPassword = a.password || 'admin123';
+            if (!normUsername) continue;
+
+            const [existing] = await pool.query('SELECT id FROM admin_users WHERE LOWER(username) = ?', [normUsername]);
+            if (existing && existing.length > 0) {
+              await pool.query(
+                'UPDATE admin_users SET name = ?, email = ?, status = ? WHERE id = ?',
+                [normName, normEmail, normStatus, existing[0].id]
+              );
+              updated++;
+            } else {
+              await pool.query(
+                'INSERT INTO admin_users (username, password, name, email, status) VALUES (?, ?, ?, ?, ?)',
+                [normUsername, normPassword, normName, normEmail, normStatus]
+              );
+              added++;
+            }
+          }
+          return { added, updated, total: adminsList.length };
         },
         async listAuditLogs(filters = {}) {
           const conditions = [];
@@ -634,6 +907,35 @@ async function connectMySQL() {
         async clearAuditLogs() {
           await pool.query('TRUNCATE TABLE audit_logs');
           return true;
+        },
+        async listExamSessions() {
+          const [rows] = await pool.query('SELECT * FROM exam_sessions ORDER BY created_at DESC');
+          return rows.map((r) => ({
+            id: r.id,
+            title: r.title,
+            targetUnit: r.target_unit,
+            scheduledStart: r.scheduled_start,
+            antiCheat: typeof r.anti_cheat === 'string' ? JSON.parse(r.anti_cheat) : r.anti_cheat,
+            createdBy: r.created_by,
+            createdAt: r.created_at
+          }));
+        },
+        async createExamSession(session) {
+          const id = session.id || `SES-${Date.now()}`;
+          const title = session.title || 'Sesi Ujian';
+          const targetUnit = session.targetUnit || null;
+          const scheduledStart = session.scheduledStart || null;
+          const antiCheat = session.antiCheat || defaultSystemSettings.antiCheat;
+          const createdBy = session.createdBy || 'admin';
+          await pool.query(
+            'INSERT INTO exam_sessions (id, title, target_unit, scheduled_start, anti_cheat, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, title, targetUnit, scheduledStart, JSON.stringify(antiCheat), createdBy]
+          );
+          return { id, title, targetUnit, scheduledStart, antiCheat, createdBy, createdAt: new Date().toISOString() };
+        },
+        async deleteExamSession(id) {
+          const [res] = await pool.query('DELETE FROM exam_sessions WHERE id = ?', [id]);
+          return res.affectedRows > 0;
         }
       };
 
@@ -766,7 +1068,7 @@ const shuffleWithSeed = (array, seed) => {
 
 const safeTest = (user = null, attempt = null) => {
   let gvOrder = attempt?.grammarVocabularyOrder || null;
-  if (!gvOrder && user && user.role === 'teacher' && user.email) {
+  if (!gvOrder && user && (user.role === 'teacher' || user.role === 'student' || user.role === 'candidate') && user.email) {
     const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary');
     if (gvSection && Array.isArray(gvSection.questions)) {
       gvOrder = shuffleWithSeed(gvSection.questions, user.email.toLowerCase().trim()).map((q) => q.id);
@@ -2331,7 +2633,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/api/test') {
     const user = currentUser(request);
     let inProgressAttempt = null;
-    if (user && user.role === 'teacher' && user.email) {
+    if (user && (user.role === 'teacher' || user.role === 'student' || user.role === 'candidate') && user.email) {
       const all = await repository.listAttempts();
       inProgressAttempt = all.find(
         (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'In progress'
@@ -2407,14 +2709,14 @@ const server = createServer(async (request, response) => {
       response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
       return response.end(JSON.stringify({ user }));
     }
-    if (role === 'teacher') {
+    if (role === 'teacher' || role === 'candidate' || role === 'student') {
       const normalizedEmail = (email || '').toLowerCase().trim();
 
       if (currentSystemSettings.maintenanceMode) {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: 'candidate',
           actorId: normalizedEmail || 'unknown',
-          actorName: (fullName || name || '').trim() || 'Teacher Candidate',
+          actorName: (fullName || name || '').trim() || 'Placement Candidate',
           action: 'LOGIN_BLOCKED_MAINTENANCE',
           category: 'SECURITY',
           target: normalizedEmail,
@@ -2429,10 +2731,10 @@ const server = createServer(async (request, response) => {
 
       if (!normalizedEmail || !normalizedEmail.endsWith('@karyabangsa.sch.id')) {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: 'candidate',
           actorId: normalizedEmail || 'unknown',
           actorName: (fullName || name || '').trim() || 'Unknown Candidate',
-          action: 'TEACHER_LOGIN_REJECTED',
+          action: 'CANDIDATE_LOGIN_REJECTED',
           category: 'AUTH',
           target: normalizedEmail,
           details: { reason: 'Email not matching @karyabangsa.sch.id' },
@@ -2447,31 +2749,35 @@ const server = createServer(async (request, response) => {
         return json(response, 400, { error: 'Please select your School Unit.' });
       }
 
-      // Strict Teacher Whitelist Check
+      // Check teacher roster first, then students roster
       const teacherRecord = authorizedTeachers.find((t) => t.email.toLowerCase().trim() === normalizedEmail);
-      if (!teacherRecord) {
+      const studentRecord = !teacherRecord ? await repository.getStudent(normalizedEmail) : null;
+      const candidateRecord = teacherRecord || studentRecord;
+      const candidateRole = teacherRecord ? 'teacher' : (studentRecord ? 'student' : null);
+
+      if (!candidateRecord) {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: 'candidate',
           actorId: normalizedEmail,
           actorName: (fullName || name || '').trim() || 'Unregistered Candidate',
-          action: 'TEACHER_WHITELIST_REJECTED',
+          action: 'CANDIDATE_WHITELIST_REJECTED',
           category: 'SECURITY',
           target: normalizedEmail,
-          details: { reason: 'Email not in authorized teacher roster', selectedUnit },
+          details: { reason: 'Email not in authorized teacher or student roster', selectedUnit },
           ip: getClientIp(request),
           status: 'WARNING'
         });
         return json(response, 403, {
-          error: `Access Denied: "${normalizedEmail}" is not recognized in the authorized teacher roster. Please use your official school email or contact administration.`
+          error: `Access Denied: "${normalizedEmail}" is not recognized in the Karya Bangsa roster (Teachers or Students). Please use your official school email or contact administration.`
         });
       }
 
-      if (teacherRecord.status === 'suspended') {
+      if (candidateRecord.status === 'suspended') {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: candidateRole,
           actorId: normalizedEmail,
-          actorName: teacherRecord.name,
-          action: 'TEACHER_LOGIN_BLOCKED',
+          actorName: candidateRecord.name,
+          action: `${candidateRole.toUpperCase()}_LOGIN_BLOCKED`,
           category: 'SECURITY',
           target: normalizedEmail,
           details: { reason: 'Account suspended' },
@@ -2480,12 +2786,12 @@ const server = createServer(async (request, response) => {
         });
         return json(response, 403, { error: 'Your account has been suspended. Please contact administration.' });
       }
-      if (teacherRecord.status === 'archived') {
+      if (candidateRecord.status === 'archived') {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: candidateRole,
           actorId: normalizedEmail,
-          actorName: teacherRecord.name,
-          action: 'TEACHER_LOGIN_BLOCKED',
+          actorName: candidateRecord.name,
+          action: `${candidateRole.toUpperCase()}_LOGIN_BLOCKED`,
           category: 'SECURITY',
           target: normalizedEmail,
           details: { reason: 'Account archived' },
@@ -2496,35 +2802,42 @@ const server = createServer(async (request, response) => {
       }
 
       // Strict Unit Match Check
-      if (teacherRecord.unit.toLowerCase().trim() !== selectedUnit.toLowerCase().trim()) {
+      if (candidateRecord.unit.toLowerCase().trim() !== selectedUnit.toLowerCase().trim()) {
         await recordAuditLog({
-          actorType: 'teacher',
+          actorType: candidateRole,
           actorId: normalizedEmail,
-          actorName: teacherRecord.name,
-          action: 'TEACHER_UNIT_MISMATCH',
+          actorName: candidateRecord.name,
+          action: `${candidateRole.toUpperCase()}_UNIT_MISMATCH`,
           category: 'AUTH',
-          target: teacherRecord.unit,
-          details: { registeredUnit: teacherRecord.unit, selectedUnit },
+          target: candidateRecord.unit,
+          details: { registeredUnit: candidateRecord.unit, selectedUnit },
           ip: getClientIp(request),
           status: 'WARNING'
         });
         return json(response, 400, {
-          error: `Unit Mismatch: ${normalizedEmail} is registered under "${teacherRecord.unit}", but you selected "${selectedUnit}". Please select your correct unit.`
+          error: `Unit Mismatch: ${normalizedEmail} is registered under "${candidateRecord.unit}", but you selected "${selectedUnit}". Please select your correct unit.`
         });
       }
 
-      const teacherName = (fullName || name || '').trim() || teacherRecord.name;
-      const user = { email: normalizedEmail, name: teacherName, role: 'teacher', unit: teacherRecord.unit };
+      const candidateName = (fullName || name || '').trim() || candidateRecord.name;
+      const user = {
+        email: normalizedEmail,
+        name: candidateName,
+        role: candidateRole,
+        unit: candidateRecord.unit,
+        student_id: candidateRecord.student_id || null,
+        grade: candidateRecord.grade || null
+      };
       const token = createSession(user);
 
       await recordAuditLog({
-        actorType: 'teacher',
+        actorType: candidateRole,
         actorId: normalizedEmail,
-        actorName: teacherName,
-        action: 'TEACHER_LOGIN',
+        actorName: candidateName,
+        action: `${candidateRole.toUpperCase()}_LOGIN`,
         category: 'AUTH',
-        target: teacherRecord.unit,
-        details: { unit: teacherRecord.unit },
+        target: candidateRecord.unit,
+        details: { unit: candidateRecord.unit, role: candidateRole },
         ip: getClientIp(request),
         status: 'SUCCESS'
       });
@@ -2534,12 +2847,18 @@ const server = createServer(async (request, response) => {
     }
     return json(response, 400, { error: 'Invalid user role' });
   }
-  if (url.pathname === '/api/auth/teacher-lookup' && request.method === 'GET') {
+  if ((url.pathname === '/api/auth/teacher-lookup' || url.pathname === '/api/auth/candidate-lookup') && request.method === 'GET') {
     const qEmail = (url.searchParams.get('email') || '').toLowerCase().trim();
     if (!qEmail) return json(response, 400, { error: 'Email parameter is required' });
-    const match = authorizedTeachers.find((t) => t.email.toLowerCase().trim() === qEmail);
-    if (!match) return json(response, 404, { found: false, error: 'Teacher not found in roster' });
-    return json(response, 200, { found: true, email: match.email, unit: match.unit, name: match.name });
+    const teacherMatch = authorizedTeachers.find((t) => t.email.toLowerCase().trim() === qEmail);
+    if (teacherMatch) {
+      return json(response, 200, { found: true, email: teacherMatch.email, unit: teacherMatch.unit, name: teacherMatch.name, role: 'teacher' });
+    }
+    const studentMatch = await repository.getStudent(qEmail);
+    if (studentMatch) {
+      return json(response, 200, { found: true, email: studentMatch.email, unit: studentMatch.unit, name: studentMatch.name, role: 'student', student_id: studentMatch.student_id, grade: studentMatch.grade });
+    }
+    return json(response, 404, { found: false, error: 'Candidate not found in school roster (teachers or students)' });
   }
   if (url.pathname === '/api/auth/logout' && request.method === 'POST') {
     const user = currentUser(request);
@@ -2570,7 +2889,8 @@ const server = createServer(async (request, response) => {
       maxAudioPlayCount: Number(currentSystemSettings.maxAudioPlayCount) || 2,
       maintenanceMode: Boolean(currentSystemSettings.maintenanceMode),
       maintenanceMessage: currentSystemSettings.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance.',
-      passingBand: currentSystemSettings.passingBand || '6.5'
+      passingBand: currentSystemSettings.passingBand || '6.5',
+      antiCheat: currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat
     });
   }
   if (url.pathname === '/api/admin/settings' && request.method === 'GET') {
@@ -2766,6 +3086,70 @@ const server = createServer(async (request, response) => {
     await workbook.xlsx.write(response);
     return response.end();
   }
+
+  // Exam Sessions API
+  if (url.pathname === '/api/admin/exam-sessions' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const sessions = await repository.listExamSessions();
+    return json(response, 200, { sessions });
+  }
+  if (url.pathname === '/api/admin/exam-sessions' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const currentAdmin = currentUser(request);
+    const body = await requestBody(request);
+    const title = (body.title || 'Sesi Ujian').trim();
+    const targetUnit = body.targetUnit || 'ALL';
+    const scheduledStart = body.scheduledStart || null;
+    const antiCheat = body.antiCheat || currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat;
+
+    // Apply anti-cheat settings globally so tests use the configured parameters
+    if (body.applyToActiveSettings !== false) {
+      currentSystemSettings.antiCheat = { ...antiCheat };
+      await repository.setSetting('system_settings', currentSystemSettings);
+    }
+
+    const session = await repository.createExamSession({
+      title,
+      targetUnit,
+      scheduledStart,
+      antiCheat,
+      createdBy: currentAdmin?.username || 'admin'
+    });
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'CREATE_EXAM_SESSION',
+      category: 'ASSESSMENT',
+      target: session.id,
+      details: { title, targetUnit, scheduledStart, antiCheat },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    return json(response, 201, { session, currentSettings: currentSystemSettings });
+  }
+  if (url.pathname.startsWith('/api/admin/exam-sessions/') && request.method === 'DELETE') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const currentAdmin = currentUser(request);
+    const sessionId = url.pathname.slice('/api/admin/exam-sessions/'.length);
+    const deleted = await repository.deleteExamSession(sessionId);
+    if (!deleted) return json(response, 404, { error: 'Exam session not found' });
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: currentAdmin?.username || 'admin',
+      actorName: currentAdmin?.name || 'Administrator',
+      action: 'DELETE_EXAM_SESSION',
+      category: 'ASSESSMENT',
+      target: sessionId,
+      ip: getClientIp(request),
+      status: 'WARNING'
+    });
+    return json(response, 200, { ok: true, id: sessionId });
+  }
+
   if (url.pathname === '/api/admin/google-workspace/connect' && request.method === 'GET') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
     try {
@@ -2790,7 +3174,7 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === '/api/speaking-meeting' && request.method === 'GET') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
     return json(response, 410, { error: 'Speaking links are created automatically after assessment submission' });
   }
   if (url.pathname === '/api/admin/results') {
@@ -2893,6 +3277,76 @@ const server = createServer(async (request, response) => {
       return json(response, 201, { success: true, teacher: created });
     } catch (e) {
       return json(response, 400, { error: e.message });
+    }
+  }
+
+  // Bulk Add Teachers endpoint
+  if (url.pathname === '/api/admin/teachers/bulk' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const unit = (body.unit || '').trim();
+      const rawList = Array.isArray(body.teachers) ? body.teachers : [];
+
+      if (!unit) return json(response, 400, { error: 'Please select a school unit first.' });
+      if (!rawList.length) return json(response, 400, { error: 'No user data provided.' });
+      if (rawList.length > 500) return json(response, 400, { error: 'Maximum 500 users can be imported per batch.' });
+
+      const validTeachers = [];
+      const invalidRows = [];
+
+      for (let i = 0; i < rawList.length; i++) {
+        const item = rawList[i] || {};
+        const name = String(item.name || item.fullName || item['Nama Lengkap'] || item.Nama || '').trim();
+        const email = String(item.email || item.emailAddress || item['Email Address'] || item.Email || '').toLowerCase().trim();
+        const rowUnit = String(item.unit || item.Unit || unit).trim();
+        const status = ['active', 'suspended', 'archived'].includes(String(item.status || '').toLowerCase())
+          ? String(item.status).toLowerCase()
+          : 'active';
+
+        if (!name || !email) {
+          invalidRows.push({ row: i + 1, error: 'Name and email are required' });
+          continue;
+        }
+
+        if (!email.includes('@')) {
+          invalidRows.push({ row: i + 1, email, error: 'Invalid email address' });
+          continue;
+        }
+
+        validTeachers.push({ name, email, unit: rowUnit, status });
+      }
+
+      if (!validTeachers.length) {
+        return json(response, 400, { error: 'No valid teacher records found to import.', details: invalidRows });
+      }
+
+      const result = await repository.bulkCreateTeachers(validTeachers);
+      await syncAuthorizedTeachersBackup();
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'BULK_IMPORT_TEACHERS',
+        category: 'USER_MGMT',
+        target: unit,
+        details: { unit, total: validTeachers.length, added: result.added, updated: result.updated, invalid: invalidRows.length },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 201, {
+        success: true,
+        message: `Successfully processed ${validTeachers.length} users (${result.added} added, ${result.updated} updated).`,
+        added: result.added,
+        updated: result.updated,
+        total: validTeachers.length,
+        invalidCount: invalidRows.length,
+        invalidRows
+      });
+    } catch (e) {
+      console.error('Bulk teacher import error:', e);
+      return json(response, 500, { error: `Failed to import users: ${e.message}` });
     }
   }
 
@@ -3010,6 +3464,217 @@ const server = createServer(async (request, response) => {
     }
   }
 
+  // Student Accounts API
+  if (url.pathname === '/api/admin/students' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const search = (url.searchParams.get('search') || '').toLowerCase().trim();
+    const unitFilter = (url.searchParams.get('unit') || '').trim();
+    let students = await repository.listStudents();
+    if (unitFilter && unitFilter.toLowerCase() !== 'all') {
+      students = students.filter((s) => (s.unit || '').toLowerCase() === unitFilter.toLowerCase());
+    }
+    if (search) {
+      students = students.filter((s) => (s.name || '').toLowerCase().includes(search) || (s.email || '').toLowerCase().includes(search) || (s.student_id || '').toLowerCase().includes(search));
+    }
+    return json(response, 200, { total: students.length, students });
+  }
+
+  if (url.pathname === '/api/admin/students' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const name = (body.name || '').trim();
+      const email = (body.email || '').toLowerCase().trim();
+      const unit = (body.unit || '').trim();
+      const student_id = (body.student_id || '').trim();
+      const grade = (body.grade || '').trim();
+      const status = (body.status || 'active').toLowerCase().trim();
+
+      if (!name) return json(response, 400, { error: 'Student full name is required' });
+      if (!email) return json(response, 400, { error: 'Student email is required' });
+      if (!unit) return json(response, 400, { error: 'School unit assignment is required' });
+
+      const existing = await repository.getStudent(email);
+      if (existing) {
+        return json(response, 409, { error: `A student with email "${email}" is already registered.` });
+      }
+
+      const created = await repository.createStudent({ name, email, unit, student_id, grade, status });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CREATE_STUDENT',
+        category: 'USER_MGMT',
+        target: created.email,
+        details: { name: created.name, unit: created.unit, grade: created.grade, student_id: created.student_id, status: created.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+      return json(response, 201, { success: true, student: created });
+    } catch (e) {
+      return json(response, 400, { error: e.message });
+    }
+  }
+
+  if (url.pathname === '/api/admin/students/bulk' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const unit = (body.unit || '').trim();
+      const rawList = Array.isArray(body.students) ? body.students : [];
+
+      if (!unit) return json(response, 400, { error: 'Please select a school unit first.' });
+      if (!rawList.length) return json(response, 400, { error: 'No student data provided.' });
+      if (rawList.length > 500) return json(response, 400, { error: 'Maximum 500 students can be imported per batch.' });
+
+      const validStudents = [];
+      const invalidRows = [];
+
+      for (let i = 0; i < rawList.length; i++) {
+        const item = rawList[i] || {};
+        const name = String(item.name || item.fullName || item['Nama Lengkap'] || item.Nama || '').trim();
+        const email = String(item.email || item.emailAddress || item['Email Address'] || item.Email || '').toLowerCase().trim();
+        const rowUnit = String(item.unit || item.Unit || unit).trim();
+        const student_id = String(item.student_id || item.studentId || item.nisn || item.NISN || '').trim();
+        const grade = String(item.grade || item.Grade || item.kelas || item.Kelas || '').trim();
+        const status = ['active', 'suspended', 'archived'].includes(String(item.status || '').toLowerCase())
+          ? String(item.status).toLowerCase()
+          : 'active';
+
+        if (!name || !email) {
+          invalidRows.push({ row: i + 1, error: 'Name and email are required' });
+          continue;
+        }
+        if (!email.includes('@')) {
+          invalidRows.push({ row: i + 1, email, error: 'Invalid email address' });
+          continue;
+        }
+        validStudents.push({ name, email, unit: rowUnit, student_id, grade, status });
+      }
+
+      if (!validStudents.length) {
+        return json(response, 400, { error: 'No valid student records found to import.', details: invalidRows });
+      }
+
+      const result = await repository.bulkCreateStudents(validStudents);
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'BULK_IMPORT_STUDENTS',
+        category: 'USER_MGMT',
+        target: unit,
+        details: { unit, total: validStudents.length, added: result.added, updated: result.updated, invalid: invalidRows.length },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, {
+        success: true,
+        message: `Successfully processed ${validStudents.length} students (${result.added} added, ${result.updated} updated).`,
+        added: result.added,
+        updated: result.updated,
+        total: validStudents.length,
+        invalidCount: invalidRows.length,
+        invalidRows
+      });
+    } catch (e) {
+      console.error('Bulk student import error:', e);
+      return json(response, 500, { error: `Failed to import students: ${e.message}` });
+    }
+  }
+
+  // Student Status Change
+  if (url.pathname.startsWith('/api/admin/students/') && url.pathname.endsWith('/status') && (request.method === 'PUT' || request.method === 'PATCH')) {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const parts = url.pathname.split('/');
+      const idOrEmail = decodeURIComponent(parts[parts.length - 2]);
+      const body = await requestBody(request);
+      const status = (body.status || '').toLowerCase().trim();
+      if (!['active', 'suspended', 'archived'].includes(status)) {
+        return json(response, 400, { error: 'Status must be active, suspended, or archived.' });
+      }
+      const current = await repository.getStudent(idOrEmail);
+      if (!current) return json(response, 404, { error: 'Student not found' });
+      const updated = await repository.updateStudent(current.id, { status });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'CHANGE_STUDENT_STATUS',
+        category: 'USER_MGMT',
+        target: updated.email,
+        details: { newStatus: status, previousStatus: current.status },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+      return json(response, 200, { success: true, student: updated });
+    } catch (e) {
+      return json(response, 400, { error: e.message });
+    }
+  }
+
+  if (url.pathname.startsWith('/api/admin/students/') && request.method === 'PUT') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const idOrEmail = decodeURIComponent(url.pathname.slice('/api/admin/students/'.length));
+      const current = await repository.getStudent(idOrEmail);
+      if (!current) return json(response, 404, { error: 'Student not found' });
+      const body = await requestBody(request);
+      const name = (body.name || current.name).trim();
+      const email = (body.email || current.email).toLowerCase().trim();
+      const unit = (body.unit || current.unit).trim();
+      const student_id = body.student_id !== undefined ? String(body.student_id).trim() : current.student_id;
+      const grade = body.grade !== undefined ? String(body.grade).trim() : current.grade;
+      const status = body.status ? body.status.toLowerCase().trim() : current.status;
+
+      const updated = await repository.updateStudent(current.id, { name, email, unit, student_id, grade, status });
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'UPDATE_STUDENT',
+        category: 'USER_MGMT',
+        target: updated.email,
+        details: { id: updated.id, name: updated.name, unit: updated.unit },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+      return json(response, 200, { success: true, student: updated });
+    } catch (e) {
+      return json(response, 400, { error: e.message });
+    }
+  }
+
+  if (url.pathname.startsWith('/api/admin/students/') && request.method === 'DELETE') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const idOrEmail = decodeURIComponent(url.pathname.slice('/api/admin/students/'.length));
+      const current = await repository.getStudent(idOrEmail);
+      if (!current) return json(response, 404, { error: 'Student not found' });
+      const ok = await repository.deleteStudent(current.id);
+      if (ok) {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: currentUser(request)?.username || 'admin',
+          actorName: currentUser(request)?.name || 'Admin',
+          action: 'DELETE_STUDENT',
+          category: 'USER_MGMT',
+          target: current.email,
+          details: { id: current.id, name: current.name },
+          ip: getClientIp(request),
+          status: 'SUCCESS'
+        });
+        return json(response, 200, { success: true });
+      }
+      return json(response, 404, { error: 'Student not found or could not be deleted' });
+    } catch (e) {
+      return json(response, 400, { error: e.message });
+    }
+  }
+
   // Administrator Accounts Management
   if (url.pathname === '/api/admin/admins' && request.method === 'GET') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
@@ -3051,6 +3716,65 @@ const server = createServer(async (request, response) => {
       return json(response, 201, { success: true, admin: created });
     } catch (e) {
       return json(response, 400, { error: e.message });
+    }
+  }
+
+  // Bulk Import Administrators API
+  if (url.pathname === '/api/admin/admins/bulk' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const rawList = Array.isArray(body.admins) ? body.admins : [];
+      if (!rawList.length) return json(response, 400, { error: 'No administrator data provided.' });
+      if (rawList.length > 100) return json(response, 400, { error: 'Maximum 100 administrators can be imported per batch.' });
+
+      const validAdmins = [];
+      const invalidRows = [];
+      for (let i = 0; i < rawList.length; i++) {
+        const row = rawList[i];
+        const username = String(row.username || '').toLowerCase().trim();
+        const name = String(row.name || '').trim();
+        const password = String(row.password || 'admin123').trim();
+        const email = String(row.email || '').toLowerCase().trim() || null;
+        const status = ['active', 'suspended', 'archived'].includes(String(row.status || '').toLowerCase().trim())
+          ? String(row.status).toLowerCase().trim()
+          : 'active';
+
+        if (!username || !name) {
+          invalidRows.push({ row: i + 1, error: 'Username and name are required.' });
+          continue;
+        }
+        validAdmins.push({ username, name, password, email, status });
+      }
+
+      if (!validAdmins.length) {
+        return json(response, 400, { error: 'No valid administrator records found to import.', details: invalidRows });
+      }
+
+      const result = await repository.bulkCreateAdmins(validAdmins);
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'BULK_IMPORT_ADMINS',
+        category: 'USER_MGMT',
+        target: 'admin_users',
+        details: { total: validAdmins.length, added: result.added, updated: result.updated, invalid: invalidRows.length },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, {
+        success: true,
+        message: `Successfully processed ${validAdmins.length} administrators (${result.added} added, ${result.updated} updated).`,
+        added: result.added,
+        updated: result.updated,
+        total: validAdmins.length,
+        invalidCount: invalidRows.length,
+        invalidRows
+      });
+    } catch (e) {
+      return json(response, 500, { error: `Failed to import administrators: ${e.message}` });
     }
   }
 
@@ -3204,11 +3928,14 @@ const server = createServer(async (request, response) => {
       const currentAdmin = currentUser(request);
       let updatedCount = 0;
       for (const target of targets || []) {
-        if (target.role === 'admin') {
+        if (target.role === 'admin' || target.role === 'admin_user') {
           if (status !== 'active' && currentAdmin && (currentAdmin.username === target.username || String(currentAdmin.id) === String(target.id))) {
             continue; // skip self-suspension/archival
           }
           await repository.updateAdmin(target.id, { status });
+          updatedCount++;
+        } else if (target.role === 'students' || target.role === 'student') {
+          await repository.updateStudent(target.id, { status });
           updatedCount++;
         } else {
           await repository.updateTeacher(target.id, { status });
@@ -3229,11 +3956,14 @@ const server = createServer(async (request, response) => {
       const currentAdmin = currentUser(request);
       let deletedCount = 0;
       for (const target of targets || []) {
-        if (target.role === 'admin') {
+        if (target.role === 'admin' || target.role === 'admin_user') {
           const allAdmins = await repository.listAdmins();
           if (allAdmins.length <= 1) continue;
           if (currentAdmin && (currentAdmin.username === target.username || String(currentAdmin.id) === String(target.id))) continue;
           await repository.deleteAdmin(target.id);
+          deletedCount++;
+        } else if (target.role === 'students' || target.role === 'student') {
+          await repository.deleteStudent(target.id);
           deletedCount++;
         } else {
           await repository.deleteTeacher(target.id);
@@ -3787,7 +4517,7 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/recording') && request.method === 'POST') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
     const attemptId = url.pathname.split('/')[3];
     const attempt = await repository.getAttempt(attemptId);
     if (!attempt || attempt.email !== user.email) return json(response, 404, { error: 'Attempt not found' });
@@ -3885,12 +4615,12 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/submit') && request.method === 'POST') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
     const attemptId = url.pathname.split('/')[3];
     const attempt = await repository.getAttempt(attemptId);
     if (!attempt || attempt.email !== user.email) return json(response, 404, { error: 'Attempt not found' });
     if (attempt.status === 'Completed') return json(response, 409, { error: 'This assessment has already been submitted.' });
-    const { writing = '', speaking = '', responses = {}, speakingRecording = null, earlyTermination = false } = await requestBody(request);
+    const { writing = '', speaking = '', responses = {}, speakingRecording = null, earlyTermination = false, antiCheat = null } = await requestBody(request);
     if (speakingRecording?.dataUrl && speakingRecording.dataUrl.length > 14_000_000) return json(response, 413, { error: 'Speaking recording is too large. Please record a shorter response.' });
     const grammarVocabularyScore = scoreObjective('grammar-vocabulary', responses);
     // All section scores are now CEFR levels (A1/A2/B1/B2/C1)
@@ -3933,6 +4663,7 @@ const server = createServer(async (request, response) => {
       writing,
       speaking,
       speakingRecording: finalRecording,
+      antiCheat: antiCheat || attempt.antiCheat || null,
       submittedAt: new Date().toISOString()
     };
     await repository.updateAttempt(attemptId, scored);
@@ -3963,7 +4694,7 @@ const server = createServer(async (request, response) => {
   // Auto-Save Draft Progress Endpoint (resilient to power cuts and connection loss)
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/draft') && request.method === 'POST') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
     const attemptId = url.pathname.split('/')[3];
     const attempt = await repository.getAttempt(attemptId);
     if (!attempt || (attempt.email || '').toLowerCase().trim() !== user.email.toLowerCase().trim()) {
@@ -3991,6 +4722,9 @@ const server = createServer(async (request, response) => {
       if (body.sectionEndTimes && typeof body.sectionEndTimes === 'object') {
         update.sectionEndTimes = Object.assign({}, attempt.sectionEndTimes || {}, body.sectionEndTimes);
       }
+      if (body.antiCheat && typeof body.antiCheat === 'object') {
+        update.antiCheat = Object.assign({}, attempt.antiCheat || {}, body.antiCheat);
+      }
       update.lastSavedAt = new Date().toISOString();
 
       await repository.updateAttempt(attemptId, update);
@@ -3998,6 +4732,70 @@ const server = createServer(async (request, response) => {
     } catch (e) {
       return json(response, 400, { error: e.message });
     }
+  }
+
+  // Real-time Anti-Cheat Violation Event Endpoint
+  if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/anti-cheat-event') && request.method === 'POST') {
+    const user = currentUser(request);
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
+    const attemptId = url.pathname.split('/')[3];
+    const attempt = await repository.getAttempt(attemptId);
+    if (!attempt || (attempt.email || '').toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return json(response, 404, { error: 'Attempt not found' });
+    }
+    const { type = 'UNKNOWN', message = '', details = {} } = await requestBody(request);
+    const existingAc = attempt.antiCheat || {
+      enabled: true,
+      tabSwitches: 0,
+      fullscreenExits: 0,
+      splitScreenDetections: 0,
+      devToolsAttempts: 0,
+      copyPasteAttempts: 0,
+      violations: []
+    };
+
+    if (type === 'TAB_SWITCH') existingAc.tabSwitches = (existingAc.tabSwitches || 0) + 1;
+    else if (type === 'FULLSCREEN_EXIT') existingAc.fullscreenExits = (existingAc.fullscreenExits || 0) + 1;
+    else if (type === 'SPLIT_SCREEN') existingAc.splitScreenDetections = (existingAc.splitScreenDetections || 0) + 1;
+    else if (type === 'DEVTOOLS_ATTEMPT') existingAc.devToolsAttempts = (existingAc.devToolsAttempts || 0) + 1;
+    else if (type === 'COPY_PASTE_ATTEMPT') existingAc.copyPasteAttempts = (existingAc.copyPasteAttempts || 0) + 1;
+
+    existingAc.violations = Array.isArray(existingAc.violations) ? existingAc.violations : [];
+    existingAc.violations.push({
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      details
+    });
+    if (existingAc.violations.length > 200) existingAc.violations.shift();
+
+    const totalCount = (existingAc.tabSwitches || 0) +
+      (existingAc.fullscreenExits || 0) +
+      (existingAc.splitScreenDetections || 0) +
+      (existingAc.devToolsAttempts || 0) +
+      (existingAc.copyPasteAttempts || 0);
+    existingAc.totalCount = totalCount;
+
+    await repository.updateAttempt(attemptId, { antiCheat: existingAc });
+
+    await recordAuditLog({
+      actorType: 'teacher',
+      actorId: attempt.email,
+      actorName: attempt.teacher,
+      action: `ANTI_CHEAT_${type}`,
+      category: 'SECURITY',
+      target: attempt.id,
+      details: {
+        type,
+        message,
+        totalViolations: totalCount,
+        unit: attempt.unit
+      },
+      ip: getClientIp(request),
+      status: 'WARNING'
+    });
+
+    return json(response, 200, { ok: true, totalCount, antiCheat: existingAc });
   }
 
   // Real-time Attempt Status Check Endpoint
@@ -4009,21 +4807,49 @@ const server = createServer(async (request, response) => {
     if (!attempt || (attempt.email || '').toLowerCase().trim() !== user.email.toLowerCase().trim()) {
       return json(response, 404, { error: 'Attempt not found', attemptDeleted: true });
     }
+    const isAcActive = Boolean(
+      currentSystemSettings.antiCheat?.enabled !== false &&
+      (
+        currentSystemSettings.antiCheat?.tabSwitchDetection ||
+        currentSystemSettings.antiCheat?.requireFullscreen ||
+        currentSystemSettings.antiCheat?.splitScreenDetection ||
+        currentSystemSettings.antiCheat?.blockDevTools ||
+        currentSystemSettings.antiCheat?.blockCopyPaste
+      )
+    );
     return json(response, 200, {
       id: attempt.id,
       status: attempt.status,
       sectionIndex: attempt.sectionIndex,
-      sectionRemainingMs: attempt.sectionRemainingMs
+      sectionRemainingMs: attempt.sectionRemainingMs,
+      antiCheat: {
+        enabled: isAcActive,
+        rules: { ...(currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat) }
+      }
     });
   }
 
   if (url.pathname === '/api/attempts/me' && request.method === 'GET') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
     const all = await repository.listAttempts();
     const userAttempts = all.filter((att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim());
     const completedAttempt = userAttempts.find((att) => att.status === 'Completed') || null;
     const inProgressAttempt = userAttempts.find((att) => att.status === 'In progress') || null;
+    if (inProgressAttempt && inProgressAttempt.antiCheat) {
+      const isAcActive = Boolean(
+        currentSystemSettings.antiCheat?.enabled !== false &&
+        (
+          currentSystemSettings.antiCheat?.tabSwitchDetection ||
+          currentSystemSettings.antiCheat?.requireFullscreen ||
+          currentSystemSettings.antiCheat?.splitScreenDetection ||
+          currentSystemSettings.antiCheat?.blockDevTools ||
+          currentSystemSettings.antiCheat?.blockCopyPaste
+        )
+      );
+      inProgressAttempt.antiCheat.enabled = isAcActive;
+      inProgressAttempt.antiCheat.rules = { ...(currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat) };
+    }
     return json(response, 200, {
       hasCompleted: Boolean(completedAttempt),
       completedAttempt,
@@ -4032,7 +4858,7 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === '/api/attempts' && request.method === 'POST') {
     const user = currentUser(request);
-    if (!user || user.role !== 'teacher') return json(response, 401, { error: 'Teacher sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
 
     if (currentSystemSettings.maintenanceMode) {
       return json(response, 503, {
@@ -4127,6 +4953,26 @@ const server = createServer(async (request, response) => {
         0: 30 * 60 * 1000,
         1: 20 * 60 * 1000,
         2: 15 * 60 * 1000
+      },
+      antiCheat: {
+        enabled: Boolean(
+          currentSystemSettings.antiCheat?.enabled !== false &&
+          (
+            currentSystemSettings.antiCheat?.tabSwitchDetection ||
+            currentSystemSettings.antiCheat?.requireFullscreen ||
+            currentSystemSettings.antiCheat?.splitScreenDetection ||
+            currentSystemSettings.antiCheat?.blockDevTools ||
+            currentSystemSettings.antiCheat?.blockCopyPaste
+          )
+        ),
+        rules: { ...(currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat) },
+        tabSwitches: 0,
+        fullscreenExits: 0,
+        splitScreenDetections: 0,
+        devToolsAttempts: 0,
+        copyPasteAttempts: 0,
+        totalCount: 0,
+        violations: []
       }
     };
     await repository.createAttempt(attempt);

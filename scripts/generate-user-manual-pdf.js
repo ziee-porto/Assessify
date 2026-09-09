@@ -228,7 +228,7 @@ function buildUserManualPDF() {
     'Access the platform and sign in with your official institutional identity.',
     [
       'Navigate to http://localhost:3001 in Google Chrome or Microsoft Edge.',
-      'Ensure the Workspace dropdown is set to "Teacher Placement Assessment".',
+      'Ensure the Workspace dropdown is set to "Placement Candidate".',
       'Enter your Full Name with academic titles (e.g., Anita Wijaya, S.Pd.).',
       'Enter your institutional school email ending with @karyabangsa.sch.id.',
       'Select your teaching assignment: TK, SD, SMP, SMA, or SMK KARYA BANGSA.',

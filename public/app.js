@@ -189,12 +189,12 @@ function renderLogin(initialRole) {
       <section class="panel login-panel">
         <div class="eyebrow">Karya Bangsa School</div>
         <h1 style="font:700 32px 'Space Grotesk';margin:8px 0;color:var(--ink)">Welcome to Assessify</h1>
-        <p style="color:var(--muted);line-height:1.6;font-size:14px;margin-bottom:20px">Sign in with your educator credentials to begin a placement assessment or access administration reports.</p>
+        <p style="color:var(--muted);line-height:1.6;font-size:14px;margin-bottom:20px">Sign in with your student or educator credentials to begin a placement assessment or access administration reports.</p>
         
         <form id="login-form">
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Workspace</label>
           <select class="select-filter" id="login-role" name="role" style="width:100%;padding:12px;margin-bottom:6px">
-            <option value="teacher" ${!isAdminRole ? 'selected' : ''}>Teacher Placement Assessment</option>
+            <option value="teacher" ${!isAdminRole ? 'selected' : ''}>Placement Candidate</option>
             <option value="admin" ${isAdminRole ? 'selected' : ''}>School Administration Portal</option>
           </select>
 
@@ -289,7 +289,9 @@ function renderLogin(initialRole) {
           if (verifyBadge) {
             verifyBadge.style.display = 'block';
             verifyBadge.style.color = '#15803d';
-            verifyBadge.innerHTML = `✓ Verified Educator Roster: <strong>${res.unit}</strong>`;
+            const rosterLabel = res.role === 'student' ? 'Verified Student Roster' : 'Verified Educator Roster';
+            const extra = res.grade ? ` • ${res.grade}` : (res.student_id ? ` • NISN: ${res.student_id}` : '');
+            verifyBadge.innerHTML = `✓ ${rosterLabel}: <strong>${res.unit}</strong>${extra}`;
           }
           if (unitSelect) unitSelect.value = res.unit;
           if (nameInput && res.name) nameInput.value = res.name;
@@ -299,7 +301,7 @@ function renderLogin(initialRole) {
           if (verifyBadge) {
             verifyBadge.style.display = 'block';
             verifyBadge.style.color = '#dc2626';
-            verifyBadge.innerHTML = `⚠ Email is not registered in the Karya Bangsa teacher roster.`;
+            verifyBadge.innerHTML = `⚠ Email is not registered in the Karya Bangsa roster (Students or Teachers).`;
           }
         }
       } catch (e) { }
@@ -341,7 +343,7 @@ function renderLogin(initialRole) {
 
 function boot(user) {
   document.querySelector('#logout').hidden = false;
-  document.querySelector('#role-label').textContent = user.role === 'admin' ? 'Admin workspace' : 'Teacher workspace';
+  document.querySelector('#role-label').textContent = user.role === 'admin' ? 'Admin workspace' : (user.role === 'student' ? 'Student workspace' : 'Placement Candidate workspace');
   user.role === 'admin' ? renderAdmin() : request('/api/test').then((test) => renderTeacher(test, user));
 }
 
@@ -987,21 +989,41 @@ async function renderTeacher(test, user) {
     const btn = document.querySelector('#start');
     btn.disabled = true;
     btn.textContent = inProgressAttempt ? 'Resuming assessment…' : 'Preparing assessment…';
-    const result = await request('/api/attempts', { method: 'POST' });
-    if (result.error) {
+    try {
+      await loadPublicSettings();
+      const result = await request('/api/attempts', { method: 'POST' });
+      if (result.error) {
+        btn.disabled = false;
+        btn.textContent = inProgressAttempt ? 'Resume Assessment →' : 'Start Assessment →';
+        showToast(result.error, 'error');
+        if (result.hasCompleted && result.attempt) {
+          renderCompletedTeacher(result.attempt, user);
+        }
+        return;
+      }
+      renderSectionFlow(test, result.expiresAt, result.attempt.id, { ...result.attempt, resumed: Boolean(result.resumed) }, user);
+    } catch (err) {
+      console.error('Failed to start section flow:', err);
       btn.disabled = false;
       btn.textContent = inProgressAttempt ? 'Resume Assessment →' : 'Start Assessment →';
-      showToast(result.error, 'error');
-      if (result.hasCompleted && result.attempt) {
-        renderCompletedTeacher(result.attempt, user);
-      }
-      return;
+      showToast('Error initializing assessment: ' + (err.message || err), 'error');
     }
-    renderSectionFlow(test, result.expiresAt, result.attempt.id, { ...result.attempt, resumed: Boolean(result.resumed) }, user);
   };
 }
 
 function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = {}) {
+  // Normalize section labels so current.label is always defined
+  (test.sections || []).forEach((sec) => {
+    if (!sec.label) {
+      sec.label = sec.title || (
+        sec.id === 'grammar-vocabulary' ? 'Grammar & Vocabulary Placement Test' :
+        sec.id === 'writing' ? 'Writing Placement Test' :
+        sec.id === 'speaking' ? 'Oral Placement Test' :
+        (sec.id ? sec.id.charAt(0).toUpperCase() + sec.id.slice(1) : 'Assessment Section')
+      );
+    }
+  });
+
   let sectionIndex = 0;
   let mediaRecorder = null;
   let mediaStream = null;
@@ -1107,9 +1129,318 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   let saveDebounceTimer = null;
   let hasRestoredToastShown = false;
 
+  // ==========================================
+  // ANTI-CHEAT CONTROLS ENGINE
+  // ==========================================
+  const getActiveRules = () => {
+    // Current institutional system settings always takes authority
+    const sysAc = window.assessifySettings?.antiCheat;
+    const attemptAc = attemptData?.antiCheat?.rules;
+    const base = sysAc || attemptAc || {
+      enabled: false,
+      tabSwitchDetection: false,
+      requireFullscreen: false,
+      splitScreenDetection: false,
+      blockDevTools: false,
+      blockCopyPaste: false
+    };
+    const isEnabled = Boolean(
+      base.enabled !== false &&
+      (
+        Boolean(base.tabSwitchDetection) ||
+        Boolean(base.requireFullscreen) ||
+        Boolean(base.splitScreenDetection) ||
+        Boolean(base.blockDevTools) ||
+        Boolean(base.blockCopyPaste)
+      )
+    );
+    return { ...base, enabled: isEnabled };
+  };
+
+  let activeAntiCheat = getActiveRules();
+  const isAntiCheatActive = () => Boolean(activeAntiCheat && activeAntiCheat.enabled);
+
+  const antiCheatTracker = Object.assign({
+    tabSwitches: 0,
+    fullscreenExits: 0,
+    splitScreenDetections: 0,
+    devToolsAttempts: 0,
+    copyPasteAttempts: 0,
+    totalCount: 0,
+    violations: []
+  }, attemptData?.antiCheat || {}, localState?.antiCheat || {});
+
+  const updateSecurityPill = () => {
+    const pill = document.querySelector('#anti-cheat-status-pill');
+    if (!pill) return;
+    activeAntiCheat = getActiveRules();
+    const active = isAntiCheatActive();
+    if (!active) {
+      pill.className = 'anti-cheat-pill-badge inactive';
+      pill.innerHTML = `🛡️ Anti-Cheat Inactive`;
+      pill.title = `Proctoring protections are disabled in System Settings.`;
+      return;
+    }
+
+    const total = (antiCheatTracker.tabSwitches || 0) +
+      (antiCheatTracker.fullscreenExits || 0) +
+      (antiCheatTracker.splitScreenDetections || 0) +
+      (antiCheatTracker.devToolsAttempts || 0) +
+      (antiCheatTracker.copyPasteAttempts || 0);
+
+    if (total > 0) {
+      pill.className = 'anti-cheat-pill-badge warning';
+      pill.innerHTML = `⚠️ Anti-Cheat: ${total} Warning${total === 1 ? '' : 's'}`;
+      pill.title = `Proctoring Warnings: ${antiCheatTracker.tabSwitches} Tab Switch, ${antiCheatTracker.fullscreenExits} Fullscreen Exit, ${antiCheatTracker.splitScreenDetections} Split Screen, ${antiCheatTracker.devToolsAttempts} DevTools, ${antiCheatTracker.copyPasteAttempts} Copy/Paste`;
+    } else {
+      pill.className = 'anti-cheat-pill-badge active';
+      pill.innerHTML = `🛡️ Anti-Cheat Active`;
+      pill.title = `Active Protections: Tab Switch, Mandatory Fullscreen, Split Screen, DevTools, Copy/Paste`;
+    }
+  };
+
+  const reportAntiCheatViolation = async (type, message, details = {}) => {
+    if (isTerminated || !isAntiCheatActive()) return;
+    if (type === 'TAB_SWITCH') antiCheatTracker.tabSwitches = (antiCheatTracker.tabSwitches || 0) + 1;
+    else if (type === 'FULLSCREEN_EXIT') antiCheatTracker.fullscreenExits = (antiCheatTracker.fullscreenExits || 0) + 1;
+    else if (type === 'SPLIT_SCREEN') antiCheatTracker.splitScreenDetections = (antiCheatTracker.splitScreenDetections || 0) + 1;
+    else if (type === 'DEVTOOLS_ATTEMPT') antiCheatTracker.devToolsAttempts = (antiCheatTracker.devToolsAttempts || 0) + 1;
+    else if (type === 'COPY_PASTE_ATTEMPT') antiCheatTracker.copyPasteAttempts = (antiCheatTracker.copyPasteAttempts || 0) + 1;
+
+    antiCheatTracker.totalCount = (antiCheatTracker.tabSwitches || 0) +
+      (antiCheatTracker.fullscreenExits || 0) +
+      (antiCheatTracker.splitScreenDetections || 0) +
+      (antiCheatTracker.devToolsAttempts || 0) +
+      (antiCheatTracker.copyPasteAttempts || 0);
+
+    updateSecurityPill();
+    if (typeof persistProgress === 'function') persistProgress(false);
+
+    try {
+      await request(`/api/attempts/${attemptId}/anti-cheat-event`, {
+        method: 'POST',
+        body: { type, message, details }
+      });
+    } catch (e) {
+      console.warn('Anti-cheat reporting warning:', e.message);
+    }
+  };
+
+  // 1. Tab Switch Detection
+  let lastTabHiddenTime = null;
+  let lastTabWarningShown = 0;
+  const handleVisibilityChange = () => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.tabSwitchDetection === false) return;
+    if (document.hidden) {
+      lastTabHiddenTime = Date.now();
+    } else {
+      if (lastTabHiddenTime && (Date.now() - lastTabHiddenTime > 800) && (Date.now() - lastTabWarningShown > 2500)) {
+        lastTabWarningShown = Date.now();
+        lastTabHiddenTime = null;
+        reportAntiCheatViolation('TAB_SWITCH', 'Candidate switched browser tab or minimized window');
+
+        const warningDiv = document.createElement('div');
+        warningDiv.id = 'tab-warning-overlay';
+        warningDiv.className = 'fullscreen-lockdown-overlay';
+        const currentViolations = (antiCheatTracker.tabSwitches || 1);
+        warningDiv.innerHTML = `
+          <div class="fullscreen-lockdown-card" style="border-top:6px solid #dc2626">
+            <div class="fullscreen-lockdown-icon" style="background:#fee2e2;color:#dc2626">⚠️</div>
+            <h2 style="font:700 22px 'Space Grotesk';color:#0f172a;margin:0 0 10px">Anti-Cheat Alert: Tab Switch Detected!</h2>
+            <p style="font-size:14px;color:#475569;margin:0 0 16px;line-height:1.5">
+              The system detected that you switched browser tabs or minimized the assessment window. This activity has been recorded in the proctoring audit log (Incident #<strong>${currentViolations}</strong>).
+            </p>
+            <div style="background:#fff7ed;border:1px solid #ffedd5;border-radius:10px;padding:12px;font-size:13px;color:#c2410c;margin-bottom:20px;text-align:left">
+              ⓘ Please remain on this assessment tab until all your responses have been submitted.
+            </div>
+            <button type="button" class="btn-restore-fullscreen" id="btn-ack-tab-warning" style="background:#1e3a8a">
+              I Understand &amp; Continue Assessment
+            </button>
+          </div>
+        `;
+        document.body.appendChild(warningDiv);
+        document.querySelector('#btn-ack-tab-warning')?.addEventListener('click', () => {
+          warningDiv.remove();
+        });
+      }
+    }
+  };
+
+  // 2. Mandatory Fullscreen Mode
+  let fullscreenLockdownEl = null;
+  const handleFullscreenChange = () => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.requireFullscreen === false) return;
+    if (!document.fullscreenElement) {
+      reportAntiCheatViolation('FULLSCREEN_EXIT', 'Candidate exited fullscreen mode');
+      if (!fullscreenLockdownEl) {
+        fullscreenLockdownEl = document.createElement('div');
+        fullscreenLockdownEl.className = 'fullscreen-lockdown-overlay';
+        fullscreenLockdownEl.id = 'fullscreen-lockdown-overlay';
+        fullscreenLockdownEl.innerHTML = `
+          <div class="fullscreen-lockdown-card">
+            <div class="fullscreen-lockdown-icon">🔒</div>
+            <h2 style="font:700 22px 'Space Grotesk';color:#0f172a;margin:0 0 10px">Mandatory Fullscreen Mode Active</h2>
+            <p style="font-size:14px;color:#64748b;margin:0 0 20px;line-height:1.5">
+              This assessment requires fullscreen mode. You must remain in fullscreen view to see and answer questions.
+            </p>
+            <button type="button" class="btn-restore-fullscreen" id="btn-enter-fullscreen-again">
+              🖥️ Return to Fullscreen Mode
+            </button>
+          </div>
+        `;
+        document.body.appendChild(fullscreenLockdownEl);
+        document.querySelector('#btn-enter-fullscreen-again')?.addEventListener('click', async () => {
+          try {
+            if (document.documentElement.requestFullscreen) {
+              await document.documentElement.requestFullscreen();
+            }
+          } catch (e) {
+            showToast('Click the screen to allow fullscreen mode', 'info');
+          }
+        });
+      }
+    } else {
+      if (fullscreenLockdownEl) {
+        fullscreenLockdownEl.remove();
+        fullscreenLockdownEl = null;
+      }
+    }
+  };
+
+  // Initial Fullscreen Request
+  if (isAntiCheatActive() && activeAntiCheat.requireFullscreen !== false) {
+    try {
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch {}
+  }
+
+  // 3. Split Screen Detection
+  let splitScreenBannerEl = null;
+  let lastSplitReport = 0;
+  const handleWindowResize = () => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.splitScreenDetection === false) return;
+    const baseW = window.screen.availWidth || window.outerWidth || 1280;
+    const baseH = window.screen.availHeight || window.outerHeight || 800;
+    const isSplit = (window.innerWidth < baseW * 0.65) || (window.innerHeight < baseH * 0.65);
+
+    if (isSplit) {
+      if (!splitScreenBannerEl) {
+        splitScreenBannerEl = document.createElement('div');
+        splitScreenBannerEl.className = 'anti-cheat-split-screen-banner';
+        splitScreenBannerEl.innerHTML = `<span>⚠️</span> <span>Split Screen Detected (&lt; 65% Screen Width). Please maximize your browser window!</span>`;
+        document.body.appendChild(splitScreenBannerEl);
+      }
+      if (Date.now() - lastSplitReport > 12000) {
+        lastSplitReport = Date.now();
+        reportAntiCheatViolation('SPLIT_SCREEN', `Split screen detected: ${window.innerWidth}x${window.innerHeight} vs ${baseW}x${baseH}`);
+      }
+    } else {
+      if (splitScreenBannerEl) {
+        splitScreenBannerEl.remove();
+        splitScreenBannerEl = null;
+      }
+    }
+  };
+
+  // 4. Block DevTools & Shortcuts
+  const handleKeyDownSecurity = (e) => {
+    if (isTerminated || !isAntiCheatActive()) return;
+
+    if (activeAntiCheat.blockDevTools !== false) {
+      const isF12 = e.key === 'F12' || e.keyCode === 123;
+      const isCtrlShiftI = (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c');
+      const isCtrlU = (e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U');
+      if (isF12 || isCtrlShiftI || isCtrlU) {
+        e.preventDefault();
+        e.stopPropagation();
+        showToast('🚫 Developer Tools access (F12 / Inspect) is disabled for assessment integrity.', 'warning');
+        reportAntiCheatViolation('DEVTOOLS_ATTEMPT', `Blocked shortcut: ${e.key || e.keyCode}`);
+        return false;
+      }
+    }
+
+    if (activeAntiCheat.blockCopyPaste !== false) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C' || e.key === 'v' || e.key === 'V' || e.key === 'x' || e.key === 'X' || e.key === 'a' || e.key === 'A')) {
+        const isTextarea = e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
+        if (e.key === 'v' || e.key === 'V') {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('Pasting text is disabled. Please type your responses independently.', 'warning');
+          reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Blocked paste keyboard shortcut');
+          return false;
+        }
+        if (!isTextarea && (e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X' || e.key === 'a' || e.key === 'A')) {
+          e.preventDefault();
+          e.stopPropagation();
+          showToast('Copying question text is disabled for assessment integrity.', 'warning');
+          reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Blocked copy keyboard shortcut');
+          return false;
+        }
+      }
+    }
+  };
+
+  // 5. Block Copy/Paste & Context Menu
+  const handleContextMenuSecurity = (e) => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.blockCopyPaste === false) return;
+    e.preventDefault();
+    showToast('Right-click context menu is disabled during the assessment.', 'warning');
+    reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Right click context menu blocked');
+  };
+
+  const handleCopySecurity = (e) => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.blockCopyPaste === false) return;
+    e.preventDefault();
+    showToast('Copying text is disabled for assessment integrity.', 'warning');
+    reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Text copy blocked');
+  };
+
+  const handleCutSecurity = (e) => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.blockCopyPaste === false) return;
+    e.preventDefault();
+    showToast('Cutting text is disabled.', 'warning');
+    reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Text cut blocked');
+  };
+
+  const handlePasteSecurity = (e) => {
+    if (isTerminated || !isAntiCheatActive() || activeAntiCheat.blockCopyPaste === false) return;
+    e.preventDefault();
+    showToast('Pasting text is disabled. Please type your responses independently.', 'warning');
+    reportAntiCheatViolation('COPY_PASTE_ATTEMPT', 'Text paste blocked');
+  };
+
+  // Attach Security Event Listeners
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  window.addEventListener('resize', handleWindowResize);
+  window.addEventListener('keydown', handleKeyDownSecurity, true);
+  document.addEventListener('contextmenu', handleContextMenuSecurity, true);
+  document.addEventListener('copy', handleCopySecurity, true);
+  document.addEventListener('cut', handleCutSecurity, true);
+  document.addEventListener('paste', handlePasteSecurity, true);
+
+  const cleanupAntiCheat = () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    window.removeEventListener('resize', handleWindowResize);
+    window.removeEventListener('keydown', handleKeyDownSecurity, true);
+    document.removeEventListener('contextmenu', handleContextMenuSecurity, true);
+    document.removeEventListener('copy', handleCopySecurity, true);
+    document.removeEventListener('cut', handleCutSecurity, true);
+    document.removeEventListener('paste', handlePasteSecurity, true);
+    if (fullscreenLockdownEl) { fullscreenLockdownEl.remove(); fullscreenLockdownEl = null; }
+    if (splitScreenBannerEl) { splitScreenBannerEl.remove(); splitScreenBannerEl = null; }
+    const warningDiv = document.querySelector('#tab-warning-overlay');
+    if (warningDiv) warningDiv.remove();
+  };
+
   const handleAttemptDeleted = () => {
     if (isTerminated) return;
     isTerminated = true;
+
+    cleanupAntiCheat();
 
     if (timerTimeoutId) clearTimeout(timerTimeoutId);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -1201,6 +1532,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         sectionStartTimes,
         sectionEndTimes,
         sectionRemainingMs,
+        antiCheat: antiCheatTracker,
         savedAt: new Date().toISOString()
       }));
     } catch (e) {
@@ -1219,7 +1551,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           speakingStep,
           sectionStartTimes,
           sectionRemainingMs,
-          sectionEndTimes
+          sectionEndTimes,
+          antiCheat: antiCheatTracker
         };
         const res = await fetch(`/api/attempts/${attemptId}/draft`, {
           method: 'POST',
@@ -1267,6 +1600,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         sectionStartTimes,
         sectionEndTimes,
         sectionRemainingMs,
+        antiCheat: antiCheatTracker,
         savedAt: new Date().toISOString()
       }));
       if (navigator.sendBeacon) {
@@ -1277,7 +1611,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           speakingStep,
           sectionStartTimes,
           sectionRemainingMs,
-          sectionEndTimes
+          sectionEndTimes,
+          antiCheat: antiCheatTracker
         })], { type: 'application/json' });
         navigator.sendBeacon(`/api/attempts/${attemptId}/draft`, blob);
       }
@@ -1309,7 +1644,12 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       }
       resolve();
     }, { once: true });
-    try { mediaRecorder.stop(); } catch { resolve(); }
+    try {
+      if (mediaRecorder.state === 'recording') {
+        try { mediaRecorder.requestData(); } catch { }
+      }
+      mediaRecorder.stop();
+    } catch { resolve(); }
   });
 
   const submitAssessment = async (isEarlyEnd = false, isAutoTimeLimit = false) => {
@@ -1326,12 +1666,13 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         <div class="panel" style="padding:48px 36px">
           <div style="width:56px;height:56px;border-radius:50%;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-size:28px;margin:0 auto 20px">⏳</div>
           <h2 style="font:700 24px 'Space Grotesk';margin:0 0 10px;color:var(--ink)">Submitting Assessment Responses…</h2>
-          <p style="color:var(--muted);font-size:14px">Processing audio recordings, grammar items, and written responses. Please wait a moment.</p>
+          <p style="color:var(--muted);font-size:14px">Saving video/audio recording and submitting test responses. Please wait a moment.</p>
         </div>
       </div>
     `;
 
     await stopMedia();
+    speakingRecordingState = 'stopped';
     const video = recordingChunks.length ? new Blob(recordingChunks, { type: mediaRecorder?.mimeType || 'video/webm' }) : null;
     let recordingMeta = null;
     if (video) {
@@ -1361,9 +1702,12 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         responses: answers,
         writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || ['writing-0', 'writing-1'].map((id) => answers[id] || '').filter(Boolean).join('\n\n') || Object.entries(answers).filter(([k]) => k.startsWith('writing') && !k.includes('selected')).map(([, v]) => v).join('\n\n'),
         speakingRecording: recordingMeta,
-        earlyTermination: Boolean(isEarlyEnd)
+        earlyTermination: Boolean(isEarlyEnd),
+        antiCheat: antiCheatTracker
       })
     });
+
+    cleanupAntiCheat();
 
     if (result?.error) {
       if (result.error === 'Attempt not found' || result.attemptDeleted) {
@@ -1509,8 +1853,12 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       }
 
       if (left <= 0) {
+        const secName = currSec.label || currSec.title || (
+          currSec.id === 'grammar-vocabulary' ? 'Grammar & Vocabulary' :
+          currSec.id === 'writing' ? 'Writing' : 'Speaking'
+        );
         if (sectionIndex < test.sections.length - 1) {
-          showToast(`Time limit reached for ${currSec.label}. Advancing to next section...`, 'info', 4500);
+          showToast(`Time limit reached for ${secName}. Advancing to next section...`, 'info', 4500);
           advanceToNextSection();
         } else {
           showToast('15-minute Speaking time limit reached. Concluding assessment...', 'info', 5000);
@@ -1525,8 +1873,14 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
   const draw = () => {
     if (isTerminated) return;
-    const current = section();
-    const speaking = current.id === 'speaking' || current.label.toLowerCase().includes('speaking');
+    const current = section() || {};
+    const currentLabel = current.label || current.title || (
+      current.id === 'grammar-vocabulary' ? 'Grammar & Vocabulary Placement Test' :
+      current.id === 'writing' ? 'Writing Placement Test' :
+      current.id === 'speaking' ? 'Oral Placement Test' :
+      'Assessment Section'
+    );
+    const speaking = current.id === 'speaking' || (current.label && current.label.toLowerCase().includes('speaking')) || currentLabel.toLowerCase().includes('speaking');
     const isLastSection = sectionIndex === test.sections.length - 1;
 
     let contentHtml = '';
@@ -1534,35 +1888,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       const activePrompt = current.questions[speakingStep] || current.questions[0];
       contentHtml = `
         <div class="speaking-flow-container">
-          <div class="speaking-stepper">
-            ${current.questions.map((q, idx) => `
-              <div class="speaking-step-chip ${idx === speakingStep ? 'active' : (idx < speakingStep ? 'completed' : '')}">
-                <span class="step-num">${idx < speakingStep ? '✓' : idx + 1}</span>
-                <span>Part ${idx + 1}: ${idx === 0 ? 'Intro & Teaching Philosophy' : 'Scenarios & Scaffolding'}</span>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- Integrated Listening: Audio Format Prompt Player Card -->
-          <div class="speaking-audio-prompt-card" style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:16px 20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(22,163,74,0.06)">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
-              <div style="display:flex;align-items:center;gap:12px">
-                <div style="width:40px;height:40px;border-radius:50%;background:#16a34a;color:#fff;display:grid;place-items:center;font-size:20px;flex-shrink:0">
-                  ${ICONS.volume2}
-                </div>
-                <div>
-                  <div style="font-weight:700;font-size:15px;color:#166534;margin-bottom:2px">Spoken Audio Prompt (Integrated Listening)</div>
-                  <div style="font-size:12.5px;color:#15803d">Listen to the prompt audio carefully. Teacher/examiner will record the student's spoken response.</div>
-                </div>
-              </div>
-              <button class="button button-sm" id="play-speaking-prompt-btn" data-text="${(activePrompt.audioScript || activePrompt.prompt).replaceAll('"', '&quot;')}" type="button" style="background:#16a34a;color:#fff;padding:9px 18px;font-size:13px;display:inline-flex;align-items:center;gap:8px">
-                ${ICONS.volume2} <span>Play Spoken Prompt</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Camera Monitor Card (Examiner Recording Station) -->
-          <div class="camera-monitor-card" style="background:#0f172a;border-radius:14px;padding:20px;margin-bottom:24px;max-width:680px;box-shadow:0 8px 24px rgba(0,0,0,0.15)">
+          <!-- 1. Camera Monitor Card (Teacher / Examiner Recording Station) ON TOP -->
+          <div class="camera-monitor-card" style="background:#0f172a;border-radius:14px;padding:20px;margin-bottom:20px;box-shadow:0 8px 24px rgba(0,0,0,0.15)">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <span style="font-size:13px;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px">
                 👨‍🏫 Teacher / Examiner Recording Control
@@ -1574,7 +1901,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               <video id="camera-preview" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
               ${speakingRecordingState === 'recording' ? `
                 <div style="position:absolute;top:12px;left:12px;background:rgba(220,38,38,0.9);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px">
-                  <span class="pill-dot" style="background:#fff;animation:pulse-dot 1s infinite"></span> Recording
+                  <span class="pill-dot" style="background:#fff;animation:pulse-dot 1s infinite"></span> Recording in progress
                 </div>
               ` : ''}
             </div>
@@ -1591,7 +1918,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:10px">
               <div>
                 <span id="recording-status" style="font-weight:600;font-size:13px;color:${speakingRecordingState === 'recording' ? '#f87171' : (speakingRecordingState === 'stopped' ? '#4ade80' : '#94a3b8')}">
-                  ${speakingRecordingState === 'idle' ? 'Camera & Mic Ready — Click Start Recording to record answer' : (speakingRecordingState === 'recording' ? '● Recording student response…' : '✓ Recording completed and attached to submission')}
+                  ${speakingRecordingState === 'idle' ? 'Camera & Mic Ready — Click Start Recording to record answer' : (speakingRecordingState === 'recording' ? '● Recording candidate response…' : '✓ Recording completed (auto-saved on submission)')}
                 </span>
               </div>
               <div style="display:flex;gap:10px;align-items:center">
@@ -1609,31 +1936,83 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
             </div>
           </div>
 
-          <div class="question" style="margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-              <span class="eyebrow">Speaking Prompt ${speakingStep + 1} of ${current.questions.length}</span>
-              <span class="attempt-pill">${activePrompt.part || 'Speaking Task'}</span>
+          <!-- 2. Listening Stepper Chips AT THE BOTTOM OF THE CAMERA -->
+          <div style="margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px">
+                🎧 Listening Parts:
+              </span>
+              <span style="font-size:12.5px;font-weight:600;color:var(--blue)">
+                Part ${speakingStep + 1} of ${current.questions.length}
+              </span>
             </div>
-            <p style="font-size:17px;font-weight:700;color:var(--ink);margin:0 0 10px;line-height:1.4">
-              ${activePrompt.prompt}
-            </p>
-            ${activePrompt.guidance ? `
-              <div style="font-size:13px;color:var(--muted);background:#f8fafc;padding:10px 14px;border-radius:8px;border-left:3.5px solid var(--blue);margin-bottom:18px;display:flex;align-items:center;gap:8px">
-                <span style="color:var(--blue);display:inline-flex">${ICONS.lightbulb}</span>
-                <span><strong>Guidance:</strong> ${activePrompt.guidance}</span>
-              </div>
-            ` : ''}
+            <div class="speaking-stepper" style="margin-bottom:0">
+              ${current.questions.map((q, idx) => `
+                <div class="speaking-step-chip ${idx === speakingStep ? 'active' : (idx < speakingStep ? 'completed' : '')}" data-step="${idx}" role="button" tabindex="0" title="Go to Part ${idx + 1}">
+                  <span class="step-num">${idx < speakingStep ? '✓' : idx + 1}</span>
+                  <span>Part ${idx + 1}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
+          <!-- 3. Listening Audio Prompt Card (NO QUESTION TEXT) -->
+          <div class="speaking-audio-prompt-card" style="background:#ffffff;border:1.5px solid #e2e8f0;border-radius:14px;padding:22px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.04)">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #f1f5f9">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="eyebrow" style="font-size:13px;font-weight:700;color:#1e40af">Listening Prompt ${speakingStep + 1} of ${current.questions.length}</span>
+                <span class="attempt-pill" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0">Part ${speakingStep + 1}</span>
+              </div>
+              <span style="font-size:12px;background:#f1f5f9;color:#475569;padding:4px 12px;border-radius:20px;font-weight:600;display:inline-flex;align-items:center;gap:5px">
+                🎧 Listening Only · No Written Text
+              </span>
+            </div>
+
+            <!-- Focused Listening Audio Centerpiece (Audio Only, No Written Question) -->
+            <div style="background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:26px 20px;text-align:center;margin-bottom:20px">
+              <div style="width:54px;height:54px;border-radius:50%;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-size:24px;margin:0 auto 12px">
+                ${ICONS.volume2}
+              </div>
+              <h3 style="font:700 17px 'Space Grotesk';margin:0 0 6px;color:var(--ink)">
+                Spoken Audio Prompt (Listening Only)
+              </h3>
+              <p style="font-size:13px;color:var(--muted);margin:0 0 18px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.5">
+                Listen carefully to the spoken prompt. The question text is not displayed so candidates rely on listening comprehension. Candidates respond orally.
+              </p>
+
+              <div style="display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap">
+                <button class="button" id="play-speaking-prompt-btn" data-text="${(activePrompt.audioScript || activePrompt.prompt).replaceAll('"', '&quot;')}" type="button" style="background:#16a34a;color:#fff;padding:12px 26px;font-size:14.5px;font-weight:600;border-radius:10px;display:inline-flex;align-items:center;gap:10px;box-shadow:0 4px 12px rgba(22,163,74,0.25)">
+                  ${ICONS.volume2} <span id="play-speaking-btn-text">Play Spoken Prompt</span>
+                </button>
+              </div>
+              <div id="speaking-audio-status" style="font-size:12.5px;color:#64748b;margin-top:12px;font-weight:500">
+                Click button above to hear Part ${speakingStep + 1}
+              </div>
+            </div>
+
+            <!-- Navigation between Parts & Early End -->
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-top:14px;border-top:1px solid #f1f5f9">
               <button class="button" id="end-early-btn" type="button" style="background:#b91c1c;color:#fff;padding:9px 18px;font-size:13px;display:inline-flex;align-items:center;gap:6px">
                 <span>⏹ End Test Early (Student Unable to Continue)</span>
               </button>
 
-              ${speakingStep < current.questions.length - 1 ? `
-                <button class="button" id="speaking-next-prompt-btn" type="button" style="padding:10px 22px;margin-left:auto">
-                  <span>Next Question</span> <span aria-hidden="true">→</span>
-                </button>
-              ` : ''}
+              <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
+                ${speakingStep > 0 ? `
+                  <button class="ghost" id="speaking-prev-prompt-btn" type="button" style="padding:9px 18px;font-size:13px">
+                    ← Previous Part
+                  </button>
+                ` : ''}
+
+                ${speakingStep < current.questions.length - 1 ? `
+                  <button class="button" id="speaking-next-prompt-btn" type="button" style="padding:10px 22px">
+                    <span>Next Part</span> <span aria-hidden="true">→</span>
+                  </button>
+                ` : `
+                  <span style="font-size:13px;color:#16a34a;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+                    ✓ Final Part Reached
+                  </span>
+                `}
+              </div>
             </div>
           </div>
         </div>
@@ -1804,26 +2183,31 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               `;
             }).join('')}
           </div>
-          <div id="autosave-indicator" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#16a34a;background:#f0fdf4;padding:6px 14px;border-radius:20px;border:1px solid #bbf7d0;box-shadow:0 1px 3px rgba(0,0,0,0.05);transition:all 0.2s ease">
-            ${ICONS.check} <span>All answers saved</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div id="anti-cheat-status-pill" class="anti-cheat-pill-badge ${isAntiCheatActive() ? 'active' : 'inactive'}" title="${isAntiCheatActive() ? 'Anti-Cheat Protections Active' : 'Anti-Cheat Protections Inactive'}">
+              🛡️ Anti-Cheat ${isAntiCheatActive() ? 'Active' : 'Inactive'}
+            </div>
+            <div id="autosave-indicator" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#16a34a;background:#f0fdf4;padding:6px 14px;border-radius:20px;border:1px solid #bbf7d0;box-shadow:0 1px 3px rgba(0,0,0,0.05);transition:all 0.2s ease">
+              ${ICONS.check} <span>All answers saved</span>
+            </div>
           </div>
         </div>
 
         <section class="hero">
           <div>
             <div class="eyebrow">Section ${sectionIndex + 1} of ${test.sections.length}</div>
-            <h1>${current.label}</h1>
+            <h1>${currentLabel}</h1>
             <p>${current.instructions || 'Answer all questions carefully before proceeding.'}</p>
           </div>
           <div class="hero-note" id="timer-box">
             <strong id="timer">--:--</strong>
-            <span id="timer-subtitle">${current.label} Remaining</span>
+            <span id="timer-subtitle">${currentLabel} Remaining</span>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
-            <h2>${current.label} ${speaking ? 'Interview' : 'Questions'}</h2>
+            <h2>${currentLabel} ${speaking ? 'Interview' : 'Questions'}</h2>
             <span class="status" id="section-status-counter">
               ${hasOptions ? `<strong id="live-answered-count" style="color:${answeredCount === current.questions.length ? '#16a34a' : 'var(--blue)'};font-weight:700">${answeredCount}/${current.questions.length} answered</strong> · ` : ''}
               ${current.questions.length} ${speaking ? 'interview prompts' : 'questions'} · ${current.durationMinutes} mins allocated
@@ -1856,6 +2240,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         </button>
       </div>
     `;
+
+    updateSecurityPill();
 
     document.querySelectorAll('input[type="radio"]').forEach((input) => {
       input.addEventListener('change', () => {
@@ -2038,32 +2424,58 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
       // Audio prompt player
       const playSpeakingBtn = document.querySelector('#play-speaking-prompt-btn');
+      const audioStatusEl = document.querySelector('#speaking-audio-status');
+      const audioBtnTextEl = document.querySelector('#play-speaking-btn-text');
       if (playSpeakingBtn) {
         playSpeakingBtn.onclick = () => {
           const textToSpeak = playSpeakingBtn.dataset.text || activePrompt.prompt;
           playSpeakingBtn.disabled = true;
-          playSpeakingBtn.innerHTML = `${ICONS.volume2} <span>Playing Spoken Prompt…</span>`;
+          if (audioBtnTextEl) audioBtnTextEl.textContent = 'Playing Spoken Prompt…';
           playSpeakingBtn.style.background = '#fef3c7';
           playSpeakingBtn.style.color = '#92400e';
+          if (audioStatusEl) {
+            audioStatusEl.textContent = `🔊 Playing Part ${speakingStep + 1} audio prompt...`;
+            audioStatusEl.style.color = '#2563eb';
+          }
           speakQuestionAudio(
             textToSpeak,
             speakingStep,
             null,
             () => {
               playSpeakingBtn.disabled = false;
-              playSpeakingBtn.innerHTML = `${ICONS.volume2} <span>Play Spoken Prompt</span>`;
+              if (audioBtnTextEl) audioBtnTextEl.textContent = 'Replay Spoken Prompt';
               playSpeakingBtn.style.background = '#16a34a';
               playSpeakingBtn.style.color = '#fff';
+              if (audioStatusEl) {
+                audioStatusEl.textContent = `✓ Audio finished. Click to replay Part ${speakingStep + 1}.`;
+                audioStatusEl.style.color = '#16a34a';
+              }
             },
             () => {
               playSpeakingBtn.disabled = false;
-              playSpeakingBtn.innerHTML = `${ICONS.volume2} <span>Play Spoken Prompt</span>`;
+              if (audioBtnTextEl) audioBtnTextEl.textContent = 'Play Spoken Prompt';
               playSpeakingBtn.style.background = '#16a34a';
               playSpeakingBtn.style.color = '#fff';
+              if (audioStatusEl) {
+                audioStatusEl.textContent = `Click button above to hear Part ${speakingStep + 1}`;
+                audioStatusEl.style.color = '#64748b';
+              }
             }
           );
         };
       }
+
+      // Step chip click handlers
+      document.querySelectorAll('.speaking-step-chip').forEach((chip) => {
+        chip.onclick = () => {
+          const step = Number(chip.dataset.step);
+          if (!isNaN(step) && step >= 0 && step < current.questions.length) {
+            speakingStep = step;
+            persistProgress(true);
+            draw();
+          }
+        };
+      });
 
       const startRecordBtn = document.querySelector('#start-speaking-record-btn');
       if (startRecordBtn) {
@@ -2088,6 +2500,15 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           } catch (e) { console.warn('MediaRecorder error:', e); }
         }
         draw();
+      }
+
+      const prevPromptBtn = document.querySelector('#speaking-prev-prompt-btn');
+      if (prevPromptBtn) {
+        prevPromptBtn.onclick = () => {
+          speakingStep = Math.max(speakingStep - 1, 0);
+          persistProgress(true);
+          draw();
+        };
       }
 
       const nextPromptBtn = document.querySelector('#speaking-next-prompt-btn');
@@ -2266,6 +2687,16 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         if (res.status === 404) {
           handleAttemptDeleted();
         }
+        return;
+      }
+      if (res.status === 200) {
+        const sData = await res.json();
+        if (sData && sData.antiCheat) {
+          if (!window.assessifySettings) window.assessifySettings = {};
+          window.assessifySettings.antiCheat = sData.antiCheat.rules || sData.antiCheat;
+          activeAntiCheat = getActiveRules();
+          updateSecurityPill();
+        }
       }
     } catch {}
   }, 8000);
@@ -2273,9 +2704,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
 const getStoredAdminTab = () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash)) return hash;
+  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash)) return hash;
   const stored = localStorage.getItem('assessify_admin_tab');
-  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(stored)) return stored;
+  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(stored)) return stored;
   return 'results';
 };
 
@@ -2287,13 +2718,13 @@ const adminState = {
 
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash) && adminState.activeTab !== hash) {
+  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash) && adminState.activeTab !== hash) {
     renderAdmin(hash);
   }
 });
 
 async function renderAdmin(tab) {
-  if (!tab || !['results', 'users', 'questions', 'rubrics', 'audit', 'settings'].includes(tab)) {
+  if (!tab || !['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(tab)) {
     tab = getStoredAdminTab();
   }
   adminState.activeTab = tab;
@@ -2359,6 +2790,10 @@ async function renderAdmin(tab) {
                 <span class="sidebar-icon">${ICONS.users}</span>
                 <span>User Manager</span>
               </button>
+              <button class="sidebar-btn ${tab === 'bulk-users' ? 'active' : ''}" id="nav-bulk-users" type="button">
+                <span class="sidebar-icon">${ICONS.upload}</span>
+                <span>Bulk Import Users</span>
+              </button>
             </nav>
           </div>
 
@@ -2415,6 +2850,7 @@ async function renderAdmin(tab) {
   document.querySelector('#nav-questions').onclick = () => navTabClick('questions');
   document.querySelector('#nav-rubrics').onclick = () => navTabClick('rubrics');
   document.querySelector('#nav-users').onclick = () => navTabClick('users');
+  document.querySelector('#nav-bulk-users').onclick = () => navTabClick('bulk-users');
   document.querySelector('#nav-audit').onclick = () => navTabClick('audit');
   document.querySelector('#nav-settings').onclick = () => navTabClick('settings');
 
@@ -2440,6 +2876,8 @@ async function renderAdmin(tab) {
     await renderAdminResultsTab(mainContainer);
   } else if (tab === 'users') {
     await renderAdminUsersTab(mainContainer);
+  } else if (tab === 'bulk-users') {
+    await renderAdminBulkUsersTab(mainContainer);
   } else if (tab === 'questions') {
     await renderAdminQuestionsTab(mainContainer);
   } else if (tab === 'rubrics') {
@@ -2575,13 +3013,14 @@ async function renderAdminResultsTab(container) {
               <th style="width:40px;text-align:center;padding:12px 8px">
                 <input type="checkbox" id="select-all-attempts" class="custom-table-checkbox" title="Select all visible candidates">
               </th>
-              <th style="width:26%">Teacher Candidate</th>
-              <th style="width:16%">School Unit</th>
-              <th style="width:11%">Attempt ID</th>
-              <th style="width:12%">Status</th>
-              <th style="width:11%">Overall Band</th>
-              <th style="width:12%">Review Status</th>
-              <th style="width:12%;text-align:right">Actions</th>
+              <th style="width:23%">Teacher Candidate</th>
+              <th style="width:14%">School Unit</th>
+              <th style="width:10%">Attempt ID</th>
+              <th style="width:11%">Status</th>
+              <th style="width:10%">Overall Band</th>
+              <th style="width:11%">Review Status</th>
+              <th style="width:11%">Anti-Cheat</th>
+              <th style="width:10%;text-align:right">Actions</th>
             </tr>
           </thead>
           <tbody id="results">${renderTableRows(data.results)}</tbody>
@@ -2595,6 +3034,8 @@ async function renderAdminResultsTab(container) {
     const isCompleted = row.status === 'Completed';
     const initials = (row.teacher || 'T').split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'T';
     const overallBand = row.overall || row.overallBand || (isCompleted ? 'Pending' : '—');
+    const ac = row.antiCheat || row.raw_data?.antiCheat || null;
+    const violations = ac ? (ac.totalCount || (ac.violations?.length) || (ac.tabSwitches || 0) + (ac.fullscreenExits || 0) + (ac.splitScreenDetections || 0) + (ac.devToolsAttempts || 0) + (ac.copyPasteAttempts || 0)) : 0;
 
     return `
       <tr data-attempt-id="${row.id}">
@@ -2619,6 +3060,11 @@ async function renderAdminResultsTab(container) {
             : `<span style="color:var(--muted);font-size:12.5px">${overallBand}</span>`}
         </td>
         <td><span class="pill ${isReviewed ? 'success' : 'pending'}">${row.review || 'Pending'}</span></td>
+        <td>
+          ${violations === 0
+            ? '<span class="pill success" style="font-size:11.5px;white-space:nowrap">🛡️ 0 Violations</span>'
+            : `<span class="pill" style="font-size:11.5px;background:#fef2f2;color:#dc2626;border-color:#fecaca;white-space:nowrap" title="${violations} anti-cheat incident(s) recorded">⚠️ ${violations} Violation${violations === 1 ? '' : 's'}</span>`}
+        </td>
         <td style="text-align:right">
           <div style="display:inline-flex;align-items:center;gap:6px">
             <button type="button" class="button button-sm detail" data-id="${row.id}" style="padding:6px 12px;font-size:12.5px" title="Evaluate and grade candidate responses">
@@ -2730,6 +3176,7 @@ async function renderAdminResultsTab(container) {
         openDeleteModal(attemptId, teacherName, () => renderAdminResultsTab(container));
       };
     });
+
   }
 
   const filter = () => {
@@ -2771,16 +3218,36 @@ async function renderAdminResultsTab(container) {
 }
 
 async function renderAdminUsersTab(container) {
-  const [teachersRes, adminsRes] = await Promise.all([
+  const [teachersRes, adminsRes, studentsRes] = await Promise.all([
     request('/api/admin/teachers'),
-    request('/api/admin/admins')
+    request('/api/admin/admins'),
+    request('/api/admin/students')
   ]);
 
   if (teachersRes.error) return showToast(teachersRes.error, 'error');
 
-  const teachers = (teachersRes.teachers || []).map((t) => ({ ...t, role: 'candidate', status: t.status || 'active' }));
-  const admins = (adminsRes.admins || []).map((a) => ({ ...a, role: 'admin', unit: 'All School Units', status: a.status || 'active' }));
-  const allUsers = [...admins, ...teachers];
+  const students = (studentsRes?.students || []).map((s) => ({
+    ...s,
+    role: 'students',
+    roleLabel: 'Student',
+    unit: s.unit || 'Unassigned Unit',
+    status: s.status || 'active'
+  }));
+  const teachers = (teachersRes.teachers || []).map((t) => ({
+    ...t,
+    role: 'authorized_teacher',
+    roleLabel: 'Teacher Candidate',
+    unit: t.unit || 'Unassigned Unit',
+    status: t.status || 'active'
+  }));
+  const admins = (adminsRes.admins || []).map((a) => ({
+    ...a,
+    role: 'admin_user',
+    roleLabel: 'Administrator',
+    unit: 'All School Units',
+    status: a.status || 'active'
+  }));
+  const allUsers = [...students, ...teachers, ...admins];
 
   const selectedKeys = new Set();
 
@@ -2790,11 +3257,11 @@ async function renderAdminUsersTab(container) {
         <div>
           <div class="eyebrow">School Administration</div>
           <h1 style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">User Manager</h1>
-          <p style="color:var(--muted);font-size:14px;margin:0">Manage authorized educators and administrators across Karya Bangsa School.</p>
+          <p style="color:var(--muted);font-size:14px;margin:0">Manage students, teacher candidates, and administrators across Karya Bangsa School.</p>
         </div>
-        <div class="admin-toolbar">
-          <button class="button" id="btn-add-user" type="button" style="display:flex;align-items:center;gap:6px">
-            <span>+</span> <span>Add New User</span>
+        <div class="admin-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="button" id="btn-add-user" type="button" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;font-weight:600;font-size:13.5px">
+            <span>+</span> <span>Add Single User</span>
           </button>
         </div>
       </div>
@@ -2808,10 +3275,19 @@ async function renderAdminUsersTab(container) {
           </div>
           <div class="kpi-card-icon">${ICONS.users}</div>
         </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-card-info">
+            <strong>${students.length}</strong>
+            <span>Students</span>
+          </div>
+          <div class="kpi-card-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+          </div>
+        </div>
         <div class="kpi-card kpi-blue">
           <div class="kpi-card-info">
             <strong>${teachers.length}</strong>
-            <span>Placement Candidates</span>
+            <span>Teacher Candidates</span>
           </div>
           <div class="kpi-card-icon">${ICONS.penTool}</div>
         </div>
@@ -2823,13 +3299,6 @@ async function renderAdminUsersTab(container) {
           <div class="kpi-card-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-        </div>
-        <div class="kpi-card kpi-green">
-          <div class="kpi-card-info">
-            <strong>5 Units</strong>
-            <span>KB-TK · SD · SMP · SMA · SMK</span>
-          </div>
-          <div class="kpi-card-icon">${ICONS.school}</div>
         </div>
       </div>
 
@@ -2855,7 +3324,7 @@ async function renderAdminUsersTab(container) {
         </div>
       </div>
 
-      <!-- User Accounts Table Card (Styled like Teacher Results page) -->
+      <!-- User Accounts Table Card -->
       <div class="panel" style="padding:24px 28px">
         <div class="table-toolbar">
           <div class="search-wrap">
@@ -2863,9 +3332,10 @@ async function renderAdminUsersTab(container) {
             <input id="user-search" placeholder="Search by name, email, or unit…">
           </div>
           <select class="select-filter" id="user-role-filter">
-            <option value="">All Accounts (${allUsers.length})</option>
-            <option value="candidate">Candidates (${teachers.length})</option>
-            <option value="admin">Administrators (${admins.length})</option>
+            <option value="">All Roles (${allUsers.length})</option>
+            <option value="students">Students (${students.length})</option>
+            <option value="authorized_teacher">Teacher Candidates (${teachers.length})</option>
+            <option value="admin_user">Administrators (${admins.length})</option>
           </select>
           <select class="select-filter" id="user-status-filter">
             <option value="">All Statuses</option>
@@ -2892,11 +3362,11 @@ async function renderAdminUsersTab(container) {
                   <input type="checkbox" id="user-select-all" class="custom-table-checkbox" title="Select all accounts">
                 </th>
                 <th style="width:26%">User / Name</th>
-                <th style="width:20%">Account / Identifier</th>
+                <th style="width:22%">Account / Identifier</th>
                 <th style="width:16%">System Role</th>
                 <th style="width:16%">Assigned Unit / Scope</th>
-                <th style="width:11%">Status</th>
-                <th style="width:11%;text-align:right">Actions</th>
+                <th style="width:10%">Status</th>
+                <th style="width:10%;text-align:right">Actions</th>
               </tr>
             </thead>
             <tbody id="users-table-body"></tbody>
@@ -2914,8 +3384,7 @@ async function renderAdminUsersTab(container) {
     const bulkBar = container.querySelector('#user-bulk-bar');
     const bulkCount = container.querySelector('#user-selected-count');
     const addUserBtn = container.querySelector('#btn-add-user');
-
-    addUserBtn.onclick = () => openUserModal(null, roleFilter?.value === 'admin' ? 'admin' : 'candidate');
+    if (addUserBtn) addUserBtn.onclick = () => openUserModal(null, roleFilter?.value || 'students');
 
     const updateBulkBar = () => {
       if (!bulkBar || !bulkCount) return;
@@ -2934,10 +3403,16 @@ async function renderAdminUsersTab(container) {
       const u = (unitFilter?.value || '').trim();
 
       const filtered = allUsers.filter((user) => {
-        const matchRole = !r || user.role === r || (r === 'candidate' && (user.role === 'candidate' || user.role === 'teacher'));
+        let matchRole = true;
+        if (r) {
+          if (r === 'students' || r === 'student') matchRole = user.role === 'students' || user.role === 'student';
+          else if (r === 'authorized_teacher' || r === 'candidate' || r === 'teacher') matchRole = user.role === 'authorized_teacher' || user.role === 'candidate' || user.role === 'teacher';
+          else if (r === 'admin_user' || r === 'admin') matchRole = user.role === 'admin_user' || user.role === 'admin';
+          else matchRole = user.role === r;
+        }
         const matchStatus = !s || (user.status || 'active') === s;
         const matchUnit = !u || (user.unit || '').trim().toLowerCase() === u.toLowerCase();
-        const searchStr = `${user.name || ''} ${user.email || ''} ${user.username || ''} ${user.unit || ''}`.toLowerCase();
+        const searchStr = `${user.name || ''} ${user.email || ''} ${user.username || ''} ${user.student_id || ''} ${user.grade || ''} ${user.unit || ''}`.toLowerCase();
         const matchSearch = !q || searchStr.includes(q);
         return matchRole && matchStatus && matchUnit && matchSearch;
       });
@@ -2957,23 +3432,28 @@ async function renderAdminUsersTab(container) {
       }
 
       tbody.innerHTML = filtered.map((item) => {
-        const isAdminUser = item.role === 'admin';
+        const isAdminUser = item.role === 'admin_user' || item.role === 'admin';
+        const isStudent = item.role === 'students' || item.role === 'student';
         const key = `${item.role}_${item.id}`;
         const isChecked = selectedKeys.has(key);
 
-        const rolePill = isAdminUser
-          ? `<span class="pill" style="background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff;font-weight:700">Admin</span>`
-          : `<span class="pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe;font-weight:700">Placement Candidate</span>`;
+        let rolePill = `<span class="pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe;font-weight:700">Teacher</span>`;
+        let avatarStyle = '';
+        let identifier = `<span style="font-family:monospace;font-size:12.5px;color:var(--ink);background:#f1f5f9;padding:3px 8px;border-radius:4px">${item.email}</span>`;
+
+        if (isAdminUser) {
+          rolePill = `<span class="pill" style="background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff;font-weight:700">Administrator</span>`;
+          avatarStyle = 'background:#f3e8ff;color:#7e22ce;border-color:#e9d5ff;';
+          identifier = `<span style="font-family:monospace;font-size:12.5px;color:#7e22ce;background:#faf5ff;border:1px solid #e9d5ff;padding:3px 8px;border-radius:4px">@${item.username || 'admin'}</span>`;
+        } else if (isStudent) {
+          rolePill = `<span class="pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-weight:700">Student</span>`;
+          avatarStyle = 'background:#ecfdf5;color:#047857;border-color:#a7f3d0;';
+          identifier = `<span style="font-family:monospace;font-size:12.5px;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;padding:3px 8px;border-radius:4px">${item.email}</span>`;
+        }
 
         const unitPill = isAdminUser
           ? `<span class="unit-pill" style="background:#faf5ff;color:#6b21a8;border-color:#e9d5ff;font-weight:600">All Units (Full Access)</span>`
           : `<span class="unit-pill">${item.unit}</span>`;
-
-        const identifier = isAdminUser
-          ? `<span style="color:var(--muted);font-weight:700;font-size:15px">-</span>`
-          : `<span style="font-family:monospace;font-size:13px;color:var(--ink);background:#f1f5f9;padding:3px 8px;border-radius:4px">${item.email}</span>`;
-
-        const avatarStyle = isAdminUser ? 'background:#f3e8ff;color:#7e22ce;border-color:#e9d5ff;' : '';
 
         const st = item.status || 'active';
         let statusPill = `<span class="pill success"><span class="pill-dot"></span> Active</span>`;
@@ -3099,13 +3579,23 @@ async function renderAdminUsersTab(container) {
     };
 
     const findUser = (id, role) => {
-      return role === 'admin'
-        ? admins.find((a) => String(a.id) === String(id))
-        : teachers.find((t) => String(t.id) === String(id));
+      if (role === 'admin_user' || role === 'admin') {
+        return admins.find((a) => String(a.id) === String(id));
+      }
+      if (role === 'students' || role === 'student') {
+        return students.find((s) => String(s.id) === String(id));
+      }
+      return teachers.find((t) => String(t.id) === String(id));
     };
 
     const changeUserStatus = async (user, newStatus) => {
-      const endpoint = user.role === 'admin' ? `/api/admin/admins/${user.id}/status` : `/api/admin/teachers/${user.id}/status`;
+      let endpoint = `/api/admin/teachers/${user.id}/status`;
+      if (user.role === 'admin_user' || user.role === 'admin') {
+        endpoint = `/api/admin/admins/${user.id}/status`;
+      } else if (user.role === 'students' || user.role === 'student') {
+        endpoint = `/api/admin/students/${user.id}/status`;
+      }
+
       const res = await request(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -3133,10 +3623,16 @@ async function renderAdminUsersTab(container) {
         const u = (unitFilter?.value || '').trim();
 
         const filtered = allUsers.filter((user) => {
-          const matchRole = !r || user.role === r || (r === 'candidate' && (user.role === 'candidate' || user.role === 'teacher'));
+          let matchRole = true;
+          if (r) {
+            if (r === 'students' || r === 'student') matchRole = user.role === 'students' || user.role === 'student';
+            else if (r === 'authorized_teacher' || r === 'candidate' || r === 'teacher') matchRole = user.role === 'authorized_teacher' || user.role === 'candidate' || user.role === 'teacher';
+            else if (r === 'admin_user' || r === 'admin') matchRole = user.role === 'admin_user' || user.role === 'admin';
+            else matchRole = user.role === r;
+          }
           const matchStatus = !s || (user.status || 'active') === s;
           const matchUnit = !u || (user.unit || '').trim().toLowerCase() === u.toLowerCase();
-          const searchStr = `${user.name || ''} ${user.email || ''} ${user.username || ''} ${user.unit || ''}`.toLowerCase();
+          const searchStr = `${user.name || ''} ${user.email || ''} ${user.username || ''} ${user.student_id || ''} ${user.grade || ''} ${user.unit || ''}`.toLowerCase();
           return matchRole && matchStatus && matchUnit && (!q || searchStr.includes(q));
         });
 
@@ -3196,238 +3692,1075 @@ async function renderAdminUsersTab(container) {
   renderDashboard();
 }
 
-function openUserModal(user = null, defaultRole = 'candidate') {
+function openUserModal(user = null, defaultRole = 'students') {
   const isEdit = Boolean(user);
-  let selectedRole = isEdit ? user.role : defaultRole;
+  let selectedRole = 'students';
+  if (isEdit && user) {
+    if (user.role === 'admin' || user.role === 'admin_user') selectedRole = 'admin_user';
+    else if (user.role === 'authorized_teacher' || user.role === 'candidate' || user.role === 'teacher') selectedRole = 'authorized_teacher';
+    else selectedRole = 'students';
+  } else {
+    if (defaultRole === 'admin' || defaultRole === 'admin_user') selectedRole = 'admin_user';
+    else if (defaultRole === 'authorized_teacher' || defaultRole === 'candidate' || defaultRole === 'teacher') selectedRole = 'authorized_teacher';
+    else selectedRole = 'students';
+  }
+
   const modalRoot = document.querySelector('#modal-root');
   if (!modalRoot) return;
 
-  const renderModal = () => {
-    modalRoot.innerHTML = `
-      <div class="modal-backdrop" id="user-modal-backdrop">
-        <div class="modal-card" style="max-width:540px" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
-          <div class="modal-header">
-            <div class="modal-title-wrap">
-              <div class="modal-icon" style="background:${selectedRole === 'admin' ? 'rgba(126,34,206,0.1)' : 'rgba(37,99,235,0.1)'};color:${selectedRole === 'admin' ? '#7e22ce' : '#2563eb'}">
-                ${selectedRole === 'admin' ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' : ICONS.users}
-              </div>
-              <div>
-                <h2 id="user-modal-title" style="margin:0">${isEdit ? (selectedRole === 'admin' ? 'Edit Administrator' : 'Edit Placement Candidate') : 'Add New User'}</h2>
-                <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">${isEdit ? 'Update account details and credentials.' : 'Create a new candidate or administrator account.'}</p>
-              </div>
+  const roleMeta = {
+    students: {
+      title: isEdit ? 'Edit Student Account' : 'Add New Student',
+      subtitle: isEdit ? 'Update student account and academic unit details.' : 'Register a new student account for placement assessment.',
+      badgeText: 'Student',
+      iconBg: 'rgba(5,150,105,0.1)',
+      iconColor: '#059669',
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+      btnLabel: isEdit ? 'Save Changes' : 'Add Student'
+    },
+    authorized_teacher: {
+      title: isEdit ? 'Edit Teacher Candidate' : 'Add Teacher Candidate',
+      subtitle: isEdit ? 'Update educator credentials and assigned school unit.' : 'Register a new educator for English assessment.',
+      badgeText: 'Teacher Candidate',
+      iconBg: 'rgba(37,99,235,0.1)',
+      iconColor: '#2563eb',
+      icon: ICONS.users,
+      btnLabel: isEdit ? 'Save Changes' : 'Add Candidate'
+    },
+    admin_user: {
+      title: isEdit ? 'Edit Administrator' : 'Add Administrator',
+      subtitle: isEdit ? 'Update administrator credentials and security permissions.' : 'Create a portal administrator with management privileges.',
+      badgeText: 'Administrator',
+      iconBg: 'rgba(126,34,206,0.1)',
+      iconColor: '#7e22ce',
+      icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+      btnLabel: isEdit ? 'Save Changes' : 'Create Administrator'
+    }
+  };
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="user-modal-backdrop">
+      <div class="modal-card" style="max-width:580px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+        <div class="modal-header" style="padding:20px 24px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+          <div class="modal-title-wrap" style="display:flex;align-items:center;gap:12px">
+            <div class="modal-icon" id="um-modal-icon" style="background:${roleMeta[selectedRole].iconBg};color:${roleMeta[selectedRole].iconColor};width:42px;height:42px;border-radius:10px;display:grid;place-items:center">
+              ${roleMeta[selectedRole].icon}
             </div>
-            <button class="modal-close" id="close-user-modal" type="button" aria-label="Close modal">✕</button>
+            <div>
+              <h2 id="user-modal-title" style="margin:0;font:700 20px 'Space Grotesk';color:var(--ink)">${roleMeta[selectedRole].title}</h2>
+              <p id="user-modal-subtitle" style="margin:2px 0 0;font-size:13px;color:var(--muted)">${roleMeta[selectedRole].subtitle}</p>
+            </div>
           </div>
-          <div class="modal-body" style="padding:20px 24px">
-            <form id="user-modal-form">
-              <!-- Role Selector (Only when creating new user) -->
-              ${!isEdit ? `
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">Account Role</label>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
-                  <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid ${selectedRole === 'candidate' ? 'var(--blue)' : 'var(--line)'};border-radius:8px;cursor:pointer;background:${selectedRole === 'candidate' ? '#eff6ff' : 'var(--white)'}">
-                    <input type="radio" name="modal-role" value="candidate" ${selectedRole === 'candidate' ? 'checked' : ''} style="accent-color:var(--blue)">
-                    <div>
-                      <div style="font-weight:700;font-size:13.5px;color:var(--ink)">Placement Candidate</div>
-                      <div style="font-size:11.5px;color:var(--muted)">candidate taking assessment</div>
-                    </div>
+          <button class="modal-close" id="close-user-modal" type="button" aria-label="Close modal" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px;max-height:80vh;overflow-y:auto">
+          <form id="user-modal-form">
+            <!-- Role Selector (Only when creating new user) -->
+            ${!isEdit ? `
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">Account Role</label>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px">
+                <label id="card-role-students" class="role-select-card" style="display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;background:var(--white);transition:all 0.2s ease">
+                  <input type="radio" name="modal-role" value="students" ${selectedRole === 'students' ? 'checked' : ''} style="accent-color:#059669;margin-top:2px">
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--ink)">Students</div>
+                    <div style="font-size:11px;color:var(--muted)">Student Account</div>
+                  </div>
+                </label>
+                <label id="card-role-teacher" class="role-select-card" style="display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;background:var(--white);transition:all 0.2s ease">
+                  <input type="radio" name="modal-role" value="authorized_teacher" ${selectedRole === 'authorized_teacher' ? 'checked' : ''} style="accent-color:#2563eb;margin-top:2px">
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--ink)">Teacher</div>
+                    <div style="font-size:11px;color:var(--muted)">Educator / Candidate</div>
+                  </div>
+                </label>
+                <label id="card-role-admin" class="role-select-card" style="display:flex;align-items:flex-start;gap:8px;padding:12px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;background:var(--white);transition:all 0.2s ease">
+                  <input type="radio" name="modal-role" value="admin_user" ${selectedRole === 'admin_user' ? 'checked' : ''} style="accent-color:#7e22ce;margin-top:2px">
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--ink)">Admin</div>
+                    <div style="font-size:11px;color:var(--muted)">Full Access</div>
+                  </div>
+                </label>
+              </div>
+            ` : ''}
+
+            <!-- Common Field: Full Name -->
+            <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+              Full Name <span id="um-name-hint" style="font-weight:400;color:var(--muted)">(student full name)</span>
+            </label>
+            <input type="text" id="um-name" name="name" value="${user?.name || ''}" placeholder="e.g. Siti Aminah, S.Pd." required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+
+            <!-- Student Specific Fields -->
+            <div id="um-fields-student" style="display:none">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                  <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                    Student ID / NISN <span style="font-weight:400;color:var(--muted)">(optional)</span>
                   </label>
-                  <label style="display:flex;align-items:center;gap:8px;padding:12px;border:1.5px solid ${selectedRole === 'admin' ? '#7e22ce' : 'var(--line)'};border-radius:8px;cursor:pointer;background:${selectedRole === 'admin' ? '#faf5ff' : 'var(--white)'}">
-                    <input type="radio" name="modal-role" value="admin" ${selectedRole === 'admin' ? 'checked' : ''} style="accent-color:#7e22ce">
-                    <div>
-                      <div style="font-weight:700;font-size:13.5px;color:var(--ink)">Administrator</div>
-                      <div style="font-size:11.5px;color:var(--muted)">Full Portal Access</div>
-                    </div>
+                  <input type="text" id="um-student-id" name="student_id" value="${user?.student_id || ''}" placeholder="e.g. 0081234567" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+                </div>
+                <div>
+                  <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                    Grade / Class <span style="font-weight:400;color:var(--muted)">(optional)</span>
                   </label>
+                  <input type="text" id="um-student-grade" name="grade" value="${user?.grade || ''}" placeholder="e.g. 10-A / 7-B" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+                </div>
+              </div>
+
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Student Official Email <span style="font-weight:400;color:var(--muted)">(@karyabangsa.sch.id)</span>
+              </label>
+              <input type="email" id="um-student-email" name="student_email" value="${user?.email || ''}" placeholder="student@karyabangsa.sch.id" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Assigned School Unit
+              </label>
+              <select id="um-student-unit" name="student_unit" class="select-filter" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+                <option value="" disabled ${!user?.unit ? 'selected' : ''}>Select School Unit</option>
+                <option value="KB-TK GOLDEN BEE" ${user?.unit === 'KB-TK GOLDEN BEE' ? 'selected' : ''}>KB-TK GOLDEN BEE</option>
+                <option value="SD KARYA BANGSA" ${user?.unit === 'SD KARYA BANGSA' ? 'selected' : ''}>SD KARYA BANGSA</option>
+                <option value="SMP KARYA BANGSA" ${user?.unit === 'SMP KARYA BANGSA' ? 'selected' : ''}>SMP KARYA BANGSA</option>
+                <option value="SMA KARYA BANGSA" ${user?.unit === 'SMA KARYA BANGSA' ? 'selected' : ''}>SMA KARYA BANGSA</option>
+                <option value="SMK KARYA BANGSA" ${user?.unit === 'SMK KARYA BANGSA' ? 'selected' : ''}>SMK KARYA BANGSA</option>
+              </select>
+            </div>
+
+            <!-- Teacher Specific Fields -->
+            <div id="um-fields-teacher" style="display:none">
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Official School Email <span style="font-weight:400;color:var(--muted)">(@karyabangsa.sch.id)</span>
+              </label>
+              <input type="email" id="um-teacher-email" name="teacher_email" value="${user?.email || ''}" placeholder="teacher@karyabangsa.sch.id" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Assigned School Unit
+              </label>
+              <select id="um-teacher-unit" name="teacher_unit" class="select-filter" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+                <option value="" disabled ${!user?.unit ? 'selected' : ''}>Select School Unit</option>
+                <option value="KB-TK GOLDEN BEE" ${user?.unit === 'KB-TK GOLDEN BEE' ? 'selected' : ''}>KB-TK GOLDEN BEE</option>
+                <option value="SD KARYA BANGSA" ${user?.unit === 'SD KARYA BANGSA' ? 'selected' : ''}>SD KARYA BANGSA</option>
+                <option value="SMP KARYA BANGSA" ${user?.unit === 'SMP KARYA BANGSA' ? 'selected' : ''}>SMP KARYA BANGSA</option>
+                <option value="SMA KARYA BANGSA" ${user?.unit === 'SMA KARYA BANGSA' ? 'selected' : ''}>SMA KARYA BANGSA</option>
+                <option value="SMK KARYA BANGSA" ${user?.unit === 'SMK KARYA BANGSA' ? 'selected' : ''}>SMK KARYA BANGSA</option>
+              </select>
+            </div>
+
+            <!-- Administrator Specific Fields -->
+            <div id="um-fields-admin" style="display:none">
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Admin Username <span style="font-weight:400;color:var(--muted)">(used for admin sign-in)</span>
+              </label>
+              <input type="text" id="um-admin-username" name="admin_username" value="${user?.username || ''}" placeholder="e.g. refka_admin" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                ${isEdit ? 'New Password <span style="font-weight:400;color:var(--muted)">(leave blank to keep current)</span>' : 'Password <span style="font-weight:400;color:var(--muted)">(min. 4 characters)</span>'}
+              </label>
+              <input type="password" id="um-admin-password" name="admin_password" placeholder="${isEdit ? '••••••••' : 'Enter admin password'}" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+
+              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+                Email Address <span style="font-weight:400;color:var(--muted)">(optional)</span>
+              </label>
+              <input type="email" id="um-admin-email" name="admin_email" value="${user?.email || ''}" placeholder="admin@karyabangsa.sch.id" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+            </div>
+
+            <!-- Common Field: Account Status -->
+            <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
+              Account Status
+            </label>
+            <select id="um-status" name="status" class="select-filter" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:8px">
+              <option value="active" ${(user?.status || 'active') === 'active' ? 'selected' : ''}>Active</option>
+              <option value="suspended" ${user?.status === 'suspended' ? 'selected' : ''}>Suspended</option>
+              <option value="archived" ${user?.status === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+
+            <div id="um-error" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:7px;font-size:13px;margin-top:12px;display:none"></div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">
+              <button type="button" class="button ghost" id="btn-cancel-um" style="padding:10px 18px">Cancel</button>
+              <button type="submit" class="button" id="btn-save-um" style="padding:10px 22px;display:flex;align-items:center;gap:6px">
+                ${ICONS.check} <span id="btn-save-um-text">${roleMeta[selectedRole].btnLabel}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#close-user-modal').onclick = closeModal;
+  modalRoot.querySelector('#btn-cancel-um').onclick = closeModal;
+  modalRoot.querySelector('#user-modal-backdrop').onclick = (e) => {
+    if (e.target.id === 'user-modal-backdrop') closeModal();
+  };
+
+  // IN-PLACE ROLE SWITCHING: Never wipes innerHTML, loads smoothly in-place
+  const switchRole = (role) => {
+    selectedRole = role;
+    const meta = roleMeta[role] || roleMeta.students;
+
+    // 1. Header updates
+    const iconEl = modalRoot.querySelector('#um-modal-icon');
+    const titleEl = modalRoot.querySelector('#user-modal-title');
+    const subEl = modalRoot.querySelector('#user-modal-subtitle');
+    const saveBtnText = modalRoot.querySelector('#btn-save-um-text');
+    const nameHint = modalRoot.querySelector('#um-name-hint');
+
+    if (iconEl) {
+      iconEl.style.background = meta.iconBg;
+      iconEl.style.color = meta.iconColor;
+      iconEl.innerHTML = meta.icon;
+    }
+    if (titleEl) titleEl.textContent = meta.title;
+    if (subEl) subEl.textContent = meta.subtitle;
+    if (saveBtnText) saveBtnText.textContent = meta.btnLabel;
+    if (nameHint) {
+      nameHint.textContent = role === 'authorized_teacher'
+        ? '(with academic title)'
+        : (role === 'students' ? '(student full name)' : '(administrator name)');
+    }
+
+    // 2. Role radio card border and highlight updates
+    if (!isEdit) {
+      const cardStudents = modalRoot.querySelector('#card-role-students');
+      const cardTeacher = modalRoot.querySelector('#card-role-teacher');
+      const cardAdmin = modalRoot.querySelector('#card-role-admin');
+
+      if (cardStudents) {
+        cardStudents.style.borderColor = role === 'students' ? '#059669' : 'var(--line)';
+        cardStudents.style.background = role === 'students' ? '#ecfdf5' : 'var(--white)';
+      }
+      if (cardTeacher) {
+        cardTeacher.style.borderColor = role === 'authorized_teacher' ? 'var(--blue)' : 'var(--line)';
+        cardTeacher.style.background = role === 'authorized_teacher' ? '#eff6ff' : 'var(--white)';
+      }
+      if (cardAdmin) {
+        cardAdmin.style.borderColor = role === 'admin_user' ? '#7e22ce' : 'var(--line)';
+        cardAdmin.style.background = role === 'admin_user' ? '#faf5ff' : 'var(--white)';
+      }
+    }
+
+    // 3. Field sections visibility
+    const studentFields = modalRoot.querySelector('#um-fields-student');
+    const teacherFields = modalRoot.querySelector('#um-fields-teacher');
+    const adminFields = modalRoot.querySelector('#um-fields-admin');
+
+    if (studentFields) studentFields.style.display = role === 'students' ? 'block' : 'none';
+    if (teacherFields) teacherFields.style.display = role === 'authorized_teacher' ? 'block' : 'none';
+    if (adminFields) adminFields.style.display = role === 'admin_user' ? 'block' : 'none';
+
+    // 4. Update input required flags so hidden fields don't prevent form submission
+    const studentEmail = modalRoot.querySelector('#um-student-email');
+    const studentUnit = modalRoot.querySelector('#um-student-unit');
+    const teacherEmail = modalRoot.querySelector('#um-teacher-email');
+    const teacherUnit = modalRoot.querySelector('#um-teacher-unit');
+    const adminUsername = modalRoot.querySelector('#um-admin-username');
+    const adminPassword = modalRoot.querySelector('#um-admin-password');
+
+    if (studentEmail) studentEmail.required = (role === 'students');
+    if (studentUnit) studentUnit.required = (role === 'students');
+    if (teacherEmail) teacherEmail.required = (role === 'authorized_teacher');
+    if (teacherUnit) teacherUnit.required = (role === 'authorized_teacher');
+    if (adminUsername) adminUsername.required = (role === 'admin_user');
+    if (adminPassword) adminPassword.required = (role === 'admin_user' && !isEdit);
+
+    // 5. Cross-field value retention
+    if (role === 'authorized_teacher' && studentEmail && teacherEmail && !teacherEmail.value && studentEmail.value) {
+      teacherEmail.value = studentEmail.value;
+    } else if (role === 'students' && teacherEmail && studentEmail && !studentEmail.value && teacherEmail.value) {
+      studentEmail.value = teacherEmail.value;
+    }
+    if (role === 'authorized_teacher' && studentUnit && teacherUnit && !teacherUnit.value && studentUnit.value) {
+      teacherUnit.value = studentUnit.value;
+    } else if (role === 'students' && teacherUnit && studentUnit && !studentUnit.value && teacherUnit.value) {
+      studentUnit.value = teacherUnit.value;
+    }
+
+    // 6. Clear error alert
+    const errEl = modalRoot.querySelector('#um-error');
+    if (errEl) errEl.style.display = 'none';
+  };
+
+  // Set initial state
+  switchRole(selectedRole);
+
+  // Wire radio buttons to switch in-place without page or modal reload
+  if (!isEdit) {
+    modalRoot.querySelectorAll('input[name="modal-role"]').forEach((radio) => {
+      radio.onchange = () => {
+        switchRole(radio.value);
+      };
+    });
+  }
+
+  const form = modalRoot.querySelector('#user-modal-form');
+  const errEl = modalRoot.querySelector('#um-error');
+  const saveBtn = modalRoot.querySelector('#btn-save-um');
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+
+    const name = modalRoot.querySelector('#um-name').value.trim();
+    const status = modalRoot.querySelector('#um-status')?.value || 'active';
+
+    if (!name) {
+      errEl.textContent = 'Please provide full name.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Role 1: Students
+    if (selectedRole === 'students') {
+      const email = (modalRoot.querySelector('#um-student-email')?.value || '').trim().toLowerCase();
+      const unit = (modalRoot.querySelector('#um-student-unit')?.value || '').trim();
+      const student_id = (modalRoot.querySelector('#um-student-id')?.value || '').trim();
+      const grade = (modalRoot.querySelector('#um-student-grade')?.value || '').trim();
+
+      if (!email || !unit) {
+        errEl.textContent = 'Student email and school unit are required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!email.endsWith('@karyabangsa.sch.id')) {
+        errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const url = isEdit ? `/api/admin/students/${user.id}` : '/api/admin/students';
+      const method = isEdit ? 'PUT' : 'POST';
+      const res = await request(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, unit, student_id: student_id || null, grade: grade || null, status })
+      });
+
+      if (res.error) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Add Student'}</span>`;
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+        return;
+      }
+
+      closeModal();
+      showToast(isEdit ? `✓ Student "${name}" updated successfully!` : `✓ Student "${name}" registered successfully!`, 'success');
+      renderAdmin('users');
+    }
+    // Role 2: Teacher Candidate
+    else if (selectedRole === 'authorized_teacher') {
+      const email = (modalRoot.querySelector('#um-teacher-email')?.value || '').trim().toLowerCase();
+      const unit = (modalRoot.querySelector('#um-teacher-unit')?.value || '').trim();
+
+      if (!email || !unit) {
+        errEl.textContent = 'Official teacher email and school unit are required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!email.endsWith('@karyabangsa.sch.id')) {
+        errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const url = isEdit ? `/api/admin/teachers/${user.id}` : '/api/admin/teachers';
+      const method = isEdit ? 'PUT' : 'POST';
+      const res = await request(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, unit, status })
+      });
+
+      if (res.error) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Add Candidate'}</span>`;
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+        return;
+      }
+
+      closeModal();
+      showToast(isEdit ? `✓ Teacher candidate "${name}" updated successfully!` : `✓ Teacher candidate "${name}" added to roster!`, 'success');
+      renderAdmin('users');
+    }
+    // Role 3: Administrator
+    else {
+      const username = (modalRoot.querySelector('#um-admin-username')?.value || '').trim().toLowerCase();
+      const password = (modalRoot.querySelector('#um-admin-password')?.value || '').trim();
+      const email = (modalRoot.querySelector('#um-admin-email')?.value || '').trim().toLowerCase();
+
+      if (!username) {
+        errEl.textContent = 'Admin username is required.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!isEdit && (!password || password.length < 4)) {
+        errEl.textContent = 'Password must be at least 4 characters.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const url = isEdit ? `/api/admin/admins/${user.id}` : '/api/admin/admins';
+      const method = isEdit ? 'PUT' : 'POST';
+      const payload = { name, username, email: email || null, status };
+      if (password) payload.password = password;
+
+      const res = await request(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.error) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Create Administrator'}</span>`;
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+        return;
+      }
+
+      closeModal();
+      showToast(isEdit ? `✓ Administrator "${name}" updated successfully!` : `✓ Administrator "${name}" created!`, 'success');
+      renderAdmin('users');
+    }
+  };
+}
+
+function openBulkUserModal(onSuccess) {
+  renderAdmin('bulk-users');
+}
+
+async function renderAdminBulkUsersTab(container) {
+  let activeRole = 'students';
+  let activeUploadTab = 'csv';
+  let parsedUsers = [];
+  let selectedUnit = '';
+  let selectedFileName = '';
+
+  const schoolDomain = 'karyabangsa.sch.id';
+
+  const getTemplates = () => {
+    if (activeRole === 'students') {
+      const csv = `student_id,name,email,unit,grade,status\r\n202601001,Ananda Pratama,ananda@${schoolDomain},SMA KARYA BANGSA,Kelas 10-A,active\r\n202601002,Clarissa Putri,clarissa@${schoolDomain},SMA KARYA BANGSA,Kelas 10-A,active\r\n202601003,Dimas Anggara,dimas@${schoolDomain},SMA KARYA BANGSA,Kelas 10-B,active`;
+      const json = JSON.stringify([
+        { student_id: '202601001', name: 'Ananda Pratama', email: `ananda@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', grade: 'Kelas 10-A', status: 'active' },
+        { student_id: '202601002', name: 'Clarissa Putri', email: `clarissa@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', grade: 'Kelas 10-A', status: 'active' },
+        { student_id: '202601003', name: 'Dimas Anggara', email: `dimas@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', grade: 'Kelas 10-B', status: 'active' }
+      ], null, 2);
+      return { csv, json };
+    } else if (activeRole === 'authorized_teacher') {
+      const csv = `name,email,unit,status\r\nBudi Santoso,budi.santoso@${schoolDomain},SMA KARYA BANGSA,active\r\nSiti Rahmawati,siti.rahma@${schoolDomain},SMA KARYA BANGSA,active\r\nAhmad Fauzi,ahmad.fauzi@${schoolDomain},SMA KARYA BANGSA,active`;
+      const json = JSON.stringify([
+        { name: 'Budi Santoso', email: `budi.santoso@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', status: 'active' },
+        { name: 'Siti Rahmawati', email: `siti.rahma@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', status: 'active' },
+        { name: 'Ahmad Fauzi', email: `ahmad.fauzi@${schoolDomain}`, unit: selectedUnit || 'SMA KARYA BANGSA', status: 'active' }
+      ], null, 2);
+      return { csv, json };
+    } else {
+      const csv = `username,name,email,password,status\r\nadmin_smp,Dewi Lestari,dewi.admin@${schoolDomain},admin123,active\r\nadmin_sma,Fajar Nugraha,fajar.admin@${schoolDomain},admin123,active`;
+      const json = JSON.stringify([
+        { username: 'admin_smp', name: 'Dewi Lestari', email: `dewi.admin@${schoolDomain}`, password: 'password123', status: 'active' },
+        { username: 'admin_sma', name: 'Fajar Nugraha', email: `fajar.admin@${schoolDomain}`, password: 'password123', status: 'active' }
+      ], null, 2);
+      return { csv, json };
+    }
+  };
+
+  function triggerDownload(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function parseCSVText(text) {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return [];
+
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
+    const parseLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result.map((c) => c.replace(/^["']|["']$/g, '').trim());
+    };
+
+    const headers = parseLine(firstLine).map((h) => h.toLowerCase());
+    const nameIdx = headers.findIndex((h) => ['name', 'nama', 'fullname', 'full name', 'nama lengkap'].includes(h));
+    const emailIdx = headers.findIndex((h) => ['email', 'email address', 'surel'].includes(h));
+    const unitIdx = headers.findIndex((h) => ['unit', 'sekolah', 'school unit'].includes(h));
+    const statusIdx = headers.findIndex((h) => ['status'].includes(h));
+    const studentIdIdx = headers.findIndex((h) => ['student_id', 'nisn', 'nis', 'no_induk', 'id'].includes(h));
+    const gradeIdx = headers.findIndex((h) => ['grade', 'kelas', 'class', 'tingkat'].includes(h));
+    const usernameIdx = headers.findIndex((h) => ['username', 'user', 'login'].includes(h));
+    const passwordIdx = headers.findIndex((h) => ['password', 'pass', 'pwd'].includes(h));
+
+    const users = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseLine(lines[i]);
+      if (cols.length === 0 || (cols.length === 1 && !cols[0])) continue;
+
+      if (activeRole === 'admin_user') {
+        const username = usernameIdx !== -1 ? cols[usernameIdx] : (cols[0] || '');
+        const name = nameIdx !== -1 ? cols[nameIdx] : (cols[1] || username);
+        const email = emailIdx !== -1 ? cols[emailIdx] : '';
+        const password = passwordIdx !== -1 ? cols[passwordIdx] : 'admin123';
+        const status = statusIdx !== -1 ? cols[statusIdx] : 'active';
+        if (username && name) {
+          users.push({ username, name, email, password, status });
+        }
+      } else {
+        const name = nameIdx !== -1 ? cols[nameIdx] : cols[0];
+        const email = emailIdx !== -1 ? cols[emailIdx] : (cols[1] || '');
+        const unit = unitIdx !== -1 ? cols[unitIdx] : selectedUnit;
+        const status = statusIdx !== -1 ? cols[statusIdx] : 'active';
+        const student_id = studentIdIdx !== -1 ? cols[studentIdIdx] : null;
+        const grade = gradeIdx !== -1 ? cols[gradeIdx] : null;
+        if (name && email) {
+          users.push({ name, email, unit, status, student_id, grade });
+        }
+      }
+    }
+    return users;
+  }
+
+  function parseJSONText(text) {
+    try {
+      const data = JSON.parse(text);
+      const arr = Array.isArray(data) ? data : (data.users || data.students || data.teachers || data.admins || []);
+      return arr.map((u) => {
+        if (activeRole === 'admin_user') {
+          return {
+            username: String(u.username || u.user || '').toLowerCase().trim(),
+            name: String(u.name || u.Nama || u.fullName || u.username || '').trim(),
+            email: String(u.email || u.Email || '').toLowerCase().trim(),
+            password: String(u.password || 'admin123').trim(),
+            status: String(u.status || 'active').toLowerCase().trim()
+          };
+        }
+        return {
+          name: String(u.name || u.Nama || u.fullName || u['Nama Lengkap'] || '').trim(),
+          email: String(u.email || u.Email || u['Email Address'] || '').toLowerCase().trim(),
+          unit: String(u.unit || u.Unit || selectedUnit || '').trim(),
+          status: String(u.status || 'active').toLowerCase().trim(),
+          student_id: u.student_id || u.nisn || u.NISN || null,
+          grade: u.grade || u.kelas || u.Kelas || null
+        };
+      }).filter((u) => (activeRole === 'admin_user' ? (u.username && u.name) : (u.name && u.email)));
+    } catch {
+      return [];
+    }
+  }
+
+  const renderModule = () => {
+    const roleBadges = {
+      students: { name: 'Student Accounts', color: '#059669', bg: '#ecfdf5', icon: '🧑‍🎓' },
+      authorized_teacher: { name: 'Teacher Candidates', color: '#2563eb', bg: '#eff6ff', icon: '👨‍🏫' },
+      admin_user: { name: 'Administrators', color: '#7e22ce', bg: '#faf5ff', icon: '🛡️' }
+    };
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
+        <div>
+          <div class="eyebrow">School Administration</div>
+          <h1 style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">Bulk User Import</h1>
+          <p style="color:var(--muted);font-size:14px;margin:0">Dedicated bulk management module: import students, teacher candidates, or administrators via CSV or JSON files.</p>
+        </div>
+      </div>
+
+      <!-- 2-Column Responsive Setup Grid -->
+      <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:24px;margin-bottom:24px" class="bulk-import-layout">
+        
+        <!-- Left Column: Step Workflow -->
+        <div class="panel" style="padding:24px 28px;background:#ffffff;border-radius:16px;border:1px solid var(--line)">
+          
+          <!-- STEP 1: Select School Unit -->
+          <div style="margin-bottom:22px">
+            <label for="bulk-unit-select" style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:8px">
+              <span style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">1</span>
+                Select School Unit First *
+              </span>
+              <span style="font-size:11.5px;font-weight:600;color:#2563eb;background:#eff6ff;padding:2px 8px;border-radius:10px">Required</span>
+            </label>
+            <select id="bulk-unit-select" class="select-filter" style="width:100%;padding:11px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font:14px 'DM Sans',sans-serif;background:#ffffff">
+              <option value="" disabled ${!selectedUnit ? 'selected' : ''}>-- Select Assigned School Unit --</option>
+              <option value="KB-TK GOLDEN BEE" ${selectedUnit === 'KB-TK GOLDEN BEE' ? 'selected' : ''}>KB-TK GOLDEN BEE</option>
+              <option value="SD KARYA BANGSA" ${selectedUnit === 'SD KARYA BANGSA' ? 'selected' : ''}>SD KARYA BANGSA</option>
+              <option value="SMP KARYA BANGSA" ${selectedUnit === 'SMP KARYA BANGSA' ? 'selected' : ''}>SMP KARYA BANGSA</option>
+              <option value="SMA KARYA BANGSA" ${selectedUnit === 'SMA KARYA BANGSA' ? 'selected' : ''}>SMA KARYA BANGSA</option>
+              <option value="SMK KARYA BANGSA" ${selectedUnit === 'SMK KARYA BANGSA' ? 'selected' : ''}>SMK KARYA BANGSA</option>
+            </select>
+            <div style="font-size:12px;color:#64748b;margin-top:6px">
+              All imported accounts will automatically be assigned to this target school unit.
+            </div>
+          </div>
+
+          <!-- STEP 2: Select Role -->
+          <div style="margin-bottom:22px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">
+              <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">2</span>
+              Select Target User Role *
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <label id="role-btn-students" class="role-select-card" style="display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1.5px solid ${activeRole === 'students' ? '#059669' : '#e2e8f0'};border-radius:10px;cursor:pointer;background:${activeRole === 'students' ? '#ecfdf5' : '#ffffff'};transition:all 0.2s ease">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <input type="radio" name="bulk-target-role" value="students" ${activeRole === 'students' ? 'checked' : ''} style="accent-color:#059669">
+                  <span style="font-size:15px">🧑‍🎓</span>
+                  <strong style="font-size:13px;color:#0f172a">Students</strong>
+                </div>
+                <span style="font-size:11px;color:#64748b;padding-left:22px">Enrolled Students</span>
+              </label>
+
+              <label id="role-btn-teachers" class="role-select-card" style="display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1.5px solid ${activeRole === 'authorized_teacher' ? '#2563eb' : '#e2e8f0'};border-radius:10px;cursor:pointer;background:${activeRole === 'authorized_teacher' ? '#eff6ff' : '#ffffff'};transition:all 0.2s ease">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <input type="radio" name="bulk-target-role" value="authorized_teacher" ${activeRole === 'authorized_teacher' ? 'checked' : ''} style="accent-color:#2563eb">
+                  <span style="font-size:15px">👨‍🏫</span>
+                  <strong style="font-size:13px;color:#0f172a">Teachers</strong>
+                </div>
+                <span style="font-size:11px;color:#64748b;padding-left:22px">Educators & Candidates</span>
+              </label>
+
+              <label id="role-btn-admins" class="role-select-card" style="display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1.5px solid ${activeRole === 'admin_user' ? '#7e22ce' : '#e2e8f0'};border-radius:10px;cursor:pointer;background:${activeRole === 'admin_user' ? '#faf5ff' : '#ffffff'};transition:all 0.2s ease">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <input type="radio" name="bulk-target-role" value="admin_user" ${activeRole === 'admin_user' ? 'checked' : ''} style="accent-color:#7e22ce">
+                  <span style="font-size:15px">🛡️</span>
+                  <strong style="font-size:13px;color:#0f172a">Admins</strong>
+                </div>
+                <span style="font-size:11px;color:#64748b;padding-left:22px">Administrator Portal</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- STEP 3: Choose Format & Upload -->
+          <div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">
+              <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">3</span>
+              Format & Upload Method (CSV or JSON) *
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+              <button type="button" class="btn-bulk-method ${activeUploadTab === 'csv' ? 'active' : ''}" id="bulk-method-csv" style="padding:10px;border-radius:8px;border:1.5px solid ${activeUploadTab === 'csv' ? '#2563eb' : '#cbd5e1'};background:${activeUploadTab === 'csv' ? '#eff6ff' : '#fff'};font-weight:600;font-size:13px;cursor:pointer">
+                📄 CSV File (.csv)
+              </button>
+              <button type="button" class="btn-bulk-method ${activeUploadTab === 'json' ? 'active' : ''}" id="bulk-method-json" style="padding:10px;border-radius:8px;border:1.5px solid ${activeUploadTab === 'json' ? '#2563eb' : '#cbd5e1'};background:${activeUploadTab === 'json' ? '#eff6ff' : '#fff'};font-weight:600;font-size:13px;cursor:pointer">
+                📋 JSON File (.json)
+              </button>
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="bulk-page-dropzone" class="bulk-drop-zone" style="border:2px dashed #94a3b8;border-radius:12px;padding:28px 20px;text-align:center;background:#f8fafc;cursor:pointer">
+              <input type="file" id="bulk-page-file-input" accept="${activeUploadTab === 'csv' ? '.csv,text/csv' : '.json,application/json'}" style="display:none">
+              <div style="font-size:36px;margin-bottom:8px">📂</div>
+              <div style="font-weight:700;font-size:14.5px;color:#0f172a;margin-bottom:4px">
+                Drag & drop ${activeUploadTab.toUpperCase()} file here or <span style="color:#2563eb;text-decoration:underline">Browse from Computer</span>
+              </div>
+              <div style="font-size:12px;color:#64748b">
+                ${activeUploadTab === 'csv' ? 'Supports .csv format (comma or semicolon delimited, UTF-8 encoding)' : 'Supports valid .json files with an array of objects'}
+              </div>
+              ${selectedFileName ? `
+                <div style="display:inline-flex;margin-top:12px;padding:6px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;font-size:12.5px;color:#1e40af;font-weight:600;align-items:center;gap:6px">
+                  <span>📄 ${selectedFileName} (${parsedUsers.length} accounts detected)</span>
+                  <button type="button" id="btn-clear-file" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:14px;padding:0 4px">✕</button>
                 </div>
               ` : ''}
+            </div>
+          </div>
 
-              <!-- Common: Full Name -->
-              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                Full Name <span style="font-weight:400;color:var(--muted)">${selectedRole === 'candidate' ? '(with academic title)' : ''}</span>
-              </label>
-              <input type="text" id="um-name" name="name" value="${user ? user.name : ''}" placeholder="${selectedRole === 'admin' ? 'e.g. Refka Admin' : 'e.g. Siti Aminah, S.Pd.'}" required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+        </div>
 
-              <!-- Teacher Fields -->
-              ${selectedRole === 'candidate' ? `
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                  Official School Email <span style="font-weight:400;color:var(--muted)">(@karyabangsa.sch.id)</span>
-                </label>
-                <input type="email" id="um-email" name="email" value="${user?.email || ''}" placeholder="name@karyabangsa.sch.id" required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+        <!-- Right Column: Panduan & Download Template -->
+        <div class="panel" style="padding:24px 28px;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1e293b;margin-bottom:12px">
+              <span style="color:#f59e0b;font-size:18px">💡</span>
+              <span>File Format Guide (${roleBadges[activeRole].name})</span>
+            </div>
 
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                  Assigned School Unit
-                </label>
-                <select id="um-unit" name="unit" class="select-filter" required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
-                  <option value="" disabled ${!user ? 'selected' : ''}>Select School Unit</option>
-                  <option value="KB-TK GOLDEN BEE" ${user?.unit === 'KB-TK GOLDEN BEE' ? 'selected' : ''}>KB-TK GOLDEN BEE</option>
-                  <option value="SD KARYA BANGSA" ${user?.unit === 'SD KARYA BANGSA' ? 'selected' : ''}>SD KARYA BANGSA</option>
-                  <option value="SMP KARYA BANGSA" ${user?.unit === 'SMP KARYA BANGSA' ? 'selected' : ''}>SMP KARYA BANGSA</option>
-                  <option value="SMA KARYA BANGSA" ${user?.unit === 'SMA KARYA BANGSA' ? 'selected' : ''}>SMA KARYA BANGSA</option>
-                  <option value="SMK KARYA BANGSA" ${user?.unit === 'SMK KARYA BANGSA' ? 'selected' : ''}>SMK KARYA BANGSA</option>
-                </select>
-              ` : `
-                <!-- Administrator Fields -->
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                  Admin Username <span style="font-weight:400;color:var(--muted)">(used for admin sign-in)</span>
-                </label>
-                <input type="text" id="um-username" name="username" value="${user?.username || ''}" placeholder="e.g. refka" required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+            ${activeRole === 'students' ? `
+              <ul style="margin:0 0 16px 18px;padding:0;font-size:13px;color:#475569;line-height:1.65">
+                <li><strong>Required Fields:</strong> <code>name</code> (Full Name) and <code>email</code> (Official student email <code>@${schoolDomain}</code>).</li>
+                <li><strong>Optional Fields:</strong> <code>student_id</code> (NISN / Student ID), <code>grade</code> (Class/Grade, e.g. 10-A), <code>unit</code>, and <code>status</code> (default: <code>active</code>).</li>
+                <li><strong>CSV Format:</strong> Header row: <code>student_id,name,email,unit,grade,status</code>.</li>
+                <li><strong>JSON Format:</strong> Array of objects, e.g. <code>[{"student_id":"...", "name":"...", "email":"..."}]</code>.</li>
+              </ul>
+            ` : (activeRole === 'authorized_teacher' ? `
+              <ul style="margin:0 0 16px 18px;padding:0;font-size:13px;color:#475569;line-height:1.65">
+                <li><strong>Required Fields:</strong> <code>name</code> (Teacher Name + Academic Title) and <code>email</code> (Official school email <code>@${schoolDomain}</code>).</li>
+                <li><strong>Optional Fields:</strong> <code>unit</code> (School unit name) and <code>status</code> (default: <code>active</code>).</li>
+                <li><strong>CSV Format:</strong> Header row: <code>name,email,unit,status</code>.</li>
+                <li><strong>JSON Format:</strong> Array of objects, e.g. <code>[{"name":"...", "email":"..."}]</code>.</li>
+              </ul>
+            ` : `
+              <ul style="margin:0 0 16px 18px;padding:0;font-size:13px;color:#475569;line-height:1.65">
+                <li><strong>Required Fields:</strong> <code>username</code> (Used for admin login) and <code>name</code> (Admin Full Name).</li>
+                <li><strong>Optional Fields:</strong> <code>password</code> (Min 4 chars, default: admin123), <code>email</code>, and <code>status</code>.</li>
+                <li><strong>CSV Format:</strong> Header row: <code>username,name,email,password,status</code>.</li>
+                <li><strong>JSON Format:</strong> Array of objects, e.g. <code>[{"username":"...", "name":"...", "password":"..."}]</code>.</li>
+              </ul>
+            `)}
 
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                  ${isEdit ? 'New Password <span style="font-weight:400;color:var(--muted)">(leave blank to keep current)</span>' : 'Password <span style="font-weight:400;color:var(--muted)">(min. 4 characters)</span>'}
-                </label>
-                <input type="password" id="um-password" name="password" placeholder="${isEdit ? '••••••••' : 'Enter admin password'}" ${isEdit ? '' : 'required'} style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
-
-                <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                  Email Address <span style="font-weight:400;color:var(--muted)">(optional)</span>
-                </label>
-                <input type="email" id="um-admin-email" name="email" value="${user?.email || ''}" placeholder="admin@karyabangsa.sch.id" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
-              `}
-
-              <!-- Account Status Selector -->
-              <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
-                Account Status
-              </label>
-              <select id="um-status" name="status" class="select-filter" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:8px">
-                <option value="active" ${(user?.status || 'active') === 'active' ? 'selected' : ''}>Active</option>
-                <option value="suspended" ${user?.status === 'suspended' ? 'selected' : ''}>Suspended</option>
-                <option value="archived" ${user?.status === 'archived' ? 'selected' : ''}>Archived</option>
-              </select>
-
-              <div id="um-error" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:7px;font-size:13px;margin-top:12px;display:none"></div>
-
-              <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">
-                <button type="button" class="button ghost" id="btn-cancel-um" style="padding:10px 18px">Cancel</button>
-                <button type="submit" class="button" id="btn-save-um" style="padding:10px 22px;display:flex;align-items:center;gap:6px">
-                  ${ICONS.check} <span>${isEdit ? 'Save Changes' : (selectedRole === 'admin' ? 'Create Administrator' : 'Add Candidate')}</span>
-                </button>
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:16px">
+              <div style="font-weight:700;font-size:12px;color:#0f172a;margin-bottom:4px">Character Encoding Note</div>
+              <div style="font-size:12px;color:#64748b">
+                Save files with <strong>UTF-8</strong> encoding to preserve special characters and academic titles properly.
               </div>
-            </form>
+            </div>
+          </div>
+
+          <!-- Download Template Buttons -->
+          <div style="border-top:1px dashed #cbd5e1;padding-top:16px">
+            <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:10px">Download Ready-to-Use Templates:</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button type="button" class="button button-sm" id="btn-bulk-dl-csv" style="background:#0284c7;color:#fff;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px">
+                ${ICONS.download} <span>Download CSV Template</span>
+              </button>
+              <button type="button" class="button button-sm" id="btn-bulk-dl-json" style="background:#334155;color:#fff;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px">
+                ${ICONS.download} <span>Download JSON Template</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Preview Table & Submission Bar -->
+      <div class="panel" style="padding:24px 28px;background:#ffffff;border-radius:16px;border:1px solid var(--line);margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <h3 style="font:700 18px 'Space Grotesk';margin:0;color:#0f172a">
+              Live Data Preview (${parsedUsers.length} candidate accounts detected)
+            </h3>
+            <p style="font-size:13px;color:#64748b;margin:2px 0 0">
+              Review parsed data below before importing to the database.
+            </p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:20px;background:${selectedUnit ? '#ecfdf5' : '#fef2f2'};color:${selectedUnit ? '#047857' : '#b91c1c'};border:1px solid ${selectedUnit ? '#a7f3d0' : '#fecaca'}">
+              ${selectedUnit ? `✓ Target Unit: ${selectedUnit}` : '⚠️ Select school unit in Step 1'}
+            </span>
           </div>
         </div>
+
+        <!-- Table Container -->
+        <div class="table-responsive" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px">
+          <table style="width:100%;font-size:13px">
+            <thead style="background:#f8fafc;position:sticky;top:0;z-index:2">
+              <tr>
+                <th style="padding:10px 14px;text-align:left;width:50px">#</th>
+                <th style="padding:10px 14px;text-align:left">${activeRole === 'admin_user' ? 'Username' : 'Full Name'}</th>
+                <th style="padding:10px 14px;text-align:left">${activeRole === 'admin_user' ? 'Full Name' : 'Email'}</th>
+                ${activeRole === 'students' ? `<th style="padding:10px 14px;text-align:left">Student ID / Grade</th>` : ''}
+                <th style="padding:10px 14px;text-align:left">School Unit</th>
+                <th style="padding:10px 14px;text-align:left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${parsedUsers.length === 0 ? `
+                <tr>
+                  <td colspan="6" style="text-align:center;padding:36px 16px;color:#64748b">
+                    <div style="font-size:28px;margin-bottom:6px">📁</div>
+                    <div style="font-weight:600;font-size:14px;color:#0f172a">No file uploaded yet</div>
+                    <div style="font-size:12.5px;color:#64748b;margin-top:2px">Please upload a CSV or JSON file in Step 3 above.</div>
+                  </td>
+                </tr>
+              ` : parsedUsers.slice(0, 20).map((u, idx) => `
+                <tr style="border-bottom:1px solid #f1f5f9">
+                  <td style="padding:10px 14px;color:#64748b">${idx + 1}</td>
+                  <td style="padding:10px 14px;font-weight:600;color:#0f172a">${activeRole === 'admin_user' ? `@${u.username}` : u.name}</td>
+                  <td style="padding:10px 14px;color:#2563eb">${activeRole === 'admin_user' ? u.name : u.email}</td>
+                  ${activeRole === 'students' ? `
+                    <td style="padding:10px 14px;color:#047857;font-family:monospace;font-size:12px">
+                      ${u.student_id ? `ID: ${u.student_id}` : '-'}${u.grade ? ` · ${u.grade}` : ''}
+                    </td>
+                  ` : ''}
+                  <td style="padding:10px 14px;color:#475569">${u.unit || selectedUnit || '-'}</td>
+                  <td style="padding:10px 14px">
+                    <span style="background:#dcfce7;color:#166534;padding:3px 8px;border-radius:10px;font-size:11.5px;font-weight:600">
+                      ${u.status || 'active'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        ${parsedUsers.length > 20 ? `
+          <div style="font-size:12.5px;color:#64748b;text-align:center;margin-bottom:16px">
+            Showing first 20 of <strong>${parsedUsers.length}</strong> accounts detected. All rows will be processed when clicking Import.
+          </div>
+        ` : ''}
+
+        <!-- Error Alert -->
+        <div id="bulk-page-error" style="display:none;padding:12px 16px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:13px;color:#dc2626;margin-bottom:16px"></div>
+
+        <!-- Submission Buttons -->
+        <div style="display:flex;justify-content:flex-end;gap:12px;align-items:center">
+          ${parsedUsers.length > 0 ? `
+            <button type="button" class="button ghost" id="btn-reset-bulk-data" style="padding:10px 18px">
+              Reset Data
+            </button>
+          ` : ''}
+          <button type="button" class="button" id="btn-execute-bulk-import" ${(!selectedUnit || parsedUsers.length === 0) ? 'disabled' : ''} style="padding:11px 26px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:${(!selectedUnit || parsedUsers.length === 0) ? '#94a3b8' : '#2563eb'};color:#ffffff">
+            ${ICONS.upload}
+            <span id="btn-execute-text">
+              ${parsedUsers.length > 0 ? `Import ${parsedUsers.length} ${roleBadges[activeRole].name} to Database` : 'Import to Database'}
+            </span>
+          </button>
+        </div>
+
       </div>
     `;
 
-    const closeModal = () => { modalRoot.innerHTML = ''; };
-    modalRoot.querySelector('#close-user-modal').onclick = closeModal;
-    modalRoot.querySelector('#btn-cancel-um').onclick = closeModal;
-    modalRoot.querySelector('#user-modal-backdrop').onclick = (e) => {
-      if (e.target.id === 'user-modal-backdrop') closeModal();
-    };
-
-    if (!isEdit) {
-      modalRoot.querySelectorAll('input[name="modal-role"]').forEach((r) => {
-        r.onchange = () => {
-          selectedRole = r.value;
-          renderModal();
-        };
-      });
-    }
-
-    const form = modalRoot.querySelector('#user-modal-form');
-    const errEl = modalRoot.querySelector('#um-error');
-    const saveBtn = modalRoot.querySelector('#btn-save-um');
-
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      errEl.style.display = 'none';
-      errEl.textContent = '';
-
-      const name = modalRoot.querySelector('#um-name').value.trim();
-
-      if (selectedRole === 'candidate') {
-        const email = modalRoot.querySelector('#um-email').value.trim().toLowerCase();
-        const unit = modalRoot.querySelector('#um-unit').value.trim();
-
-        if (!name || !email || !unit) {
-          errEl.textContent = 'Please fill in all required fields.';
-          errEl.style.display = 'block';
-          return;
-        }
-
-        if (!email.endsWith('@karyabangsa.sch.id')) {
-          errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
-          errEl.style.display = 'block';
-          return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving…';
-
-        const status = modalRoot.querySelector('#um-status')?.value || 'active';
-        const url = isEdit ? `/api/admin/teachers/${user.id}` : '/api/admin/teachers';
-        const method = isEdit ? 'PUT' : 'POST';
-        const res = await request(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, unit, status })
-        });
-
-        if (res.error) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = `${ICONS.check} <span>${isEdit ? 'Save Changes' : 'Add Candidate'}</span>`;
-          errEl.textContent = res.error;
-          errEl.style.display = 'block';
-          return;
-        }
-
-        closeModal();
-        showToast(isEdit ? `✓ Placement candidate "${name}" updated successfully!` : `✓ Placement candidate "${name}" added to roster!`, 'success');
-        renderAdmin('users');
-      } else {
-        const username = modalRoot.querySelector('#um-username').value.trim().toLowerCase();
-        const password = modalRoot.querySelector('#um-password').value.trim();
-        const email = (modalRoot.querySelector('#um-admin-email')?.value || '').trim().toLowerCase();
-        const status = modalRoot.querySelector('#um-status')?.value || 'active';
-
-        if (!name || !username) {
-          errEl.textContent = 'Name and username are required.';
-          errEl.style.display = 'block';
-          return;
-        }
-
-        if (!isEdit && (!password || password.length < 4)) {
-          errEl.textContent = 'Password must be at least 4 characters.';
-          errEl.style.display = 'block';
-          return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving…';
-
-        const url = isEdit ? `/api/admin/admins/${user.id}` : '/api/admin/admins';
-        const method = isEdit ? 'PUT' : 'POST';
-        const payload = { name, username, email: email || null, status };
-        if (password) payload.password = password;
-
-        const res = await request(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (res.error) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = `${ICONS.check} <span>${isEdit ? 'Save Changes' : 'Create Administrator'}</span>`;
-          errEl.textContent = res.error;
-          errEl.style.display = 'block';
-          return;
-        }
-
-        closeModal();
-        showToast(isEdit ? `✓ Administrator "${name}" updated successfully!` : `✓ Administrator "${name}" created!`, 'success');
-        renderAdmin('users');
-      }
-    };
+    bindModuleEvents();
   };
 
-  renderModal();
+  const bindModuleEvents = () => {
+    const backBtn = container.querySelector('#btn-back-to-users');
+    const unitSelect = container.querySelector('#bulk-unit-select');
+    const methodCsvBtn = container.querySelector('#bulk-method-csv');
+    const methodJsonBtn = container.querySelector('#bulk-method-json');
+    const dropzone = container.querySelector('#bulk-page-dropzone');
+    const fileInput = container.querySelector('#bulk-page-file-input');
+    const dlCsvBtn = container.querySelector('#btn-bulk-dl-csv');
+    const dlJsonBtn = container.querySelector('#btn-bulk-dl-json');
+    const submitBtn = container.querySelector('#btn-execute-bulk-import');
+    const resetBtn = container.querySelector('#btn-reset-bulk-data');
+    const errorAlert = container.querySelector('#bulk-page-error');
+    const clearFileBtn = container.querySelector('#btn-clear-file');
+
+    if (backBtn) backBtn.onclick = () => renderAdmin('users');
+
+    if (unitSelect) {
+      unitSelect.onchange = (e) => {
+        selectedUnit = e.target.value;
+        renderModule();
+      };
+    }
+
+    container.querySelectorAll('input[name="bulk-target-role"]').forEach((r) => {
+      r.onchange = () => {
+        activeRole = r.value;
+        parsedUsers = [];
+        selectedFileName = '';
+        renderModule();
+      };
+    });
+
+    if (methodCsvBtn) {
+      methodCsvBtn.onclick = () => {
+        activeUploadTab = 'csv';
+        renderModule();
+      };
+    }
+    if (methodJsonBtn) {
+      methodJsonBtn.onclick = () => {
+        activeUploadTab = 'json';
+        renderModule();
+      };
+    }
+
+    if (dlCsvBtn) {
+      dlCsvBtn.onclick = () => {
+        const { csv } = getTemplates();
+        triggerDownload(csv, `assessify_bulk_${activeRole}_template.csv`, 'text/csv;charset=utf-8;');
+      };
+    }
+    if (dlJsonBtn) {
+      dlJsonBtn.onclick = () => {
+        const { json } = getTemplates();
+        triggerDownload(json, `assessify_bulk_${activeRole}_template.json`, 'application/json');
+      };
+    }
+
+    const processFile = (content, fileName) => {
+      selectedFileName = fileName;
+      let users = [];
+      if (activeUploadTab === 'csv') {
+        users = parseCSVText(content);
+      } else {
+        users = parseJSONText(content);
+      }
+
+      if (users.length === 0) {
+        if (errorAlert) {
+          errorAlert.textContent = `File "${fileName}" does not contain a valid format for "${activeRole}". Please check the header columns according to the guide.`;
+          errorAlert.style.display = 'block';
+        }
+        parsedUsers = [];
+      } else {
+        parsedUsers = users;
+      }
+      renderModule();
+    };
+
+    if (dropzone && fileInput) {
+      dropzone.onclick = (e) => {
+        if (e.target.id === 'btn-clear-file') return;
+        fileInput.click();
+      };
+      dropzone.ondragover = (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#2563eb';
+        dropzone.style.background = '#eff6ff';
+      };
+      dropzone.ondragleave = () => {
+        dropzone.style.borderColor = '#94a3b8';
+        dropzone.style.background = '#f8fafc';
+      };
+      dropzone.ondrop = (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#94a3b8';
+        dropzone.style.background = '#f8fafc';
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          const reader = new FileReader();
+          reader.onload = (evt) => processFile(evt.target.result, file.name);
+          reader.readAsText(file);
+        }
+      };
+      fileInput.onchange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onload = (evt) => processFile(evt.target.result, file.name);
+          reader.readAsText(file);
+        }
+      };
+    }
+
+    if (clearFileBtn) {
+      clearFileBtn.onclick = (e) => {
+        e.stopPropagation();
+        parsedUsers = [];
+        selectedFileName = '';
+        renderModule();
+      };
+    }
+
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        parsedUsers = [];
+        selectedFileName = '';
+        renderModule();
+      };
+    }
+
+    if (submitBtn) {
+      submitBtn.onclick = async () => {
+        if (!selectedUnit) {
+          if (errorAlert) {
+            errorAlert.textContent = 'Please select a school unit first in Step 1.';
+            errorAlert.style.display = 'block';
+          }
+          return;
+        }
+        if (parsedUsers.length === 0) {
+          if (errorAlert) {
+            errorAlert.textContent = 'No valid account data found to import.';
+            errorAlert.style.display = 'block';
+          }
+          return;
+        }
+
+        submitBtn.disabled = true;
+        const textSpan = container.querySelector('#btn-execute-text');
+        if (textSpan) textSpan.textContent = 'Importing data into database…';
+
+        try {
+          let endpoint = '/api/admin/teachers/bulk';
+          let payload = { unit: selectedUnit, teachers: parsedUsers };
+
+          if (activeRole === 'students') {
+            endpoint = '/api/admin/students/bulk';
+            payload = { unit: selectedUnit, students: parsedUsers };
+          } else if (activeRole === 'admin_user') {
+            endpoint = '/api/admin/admins/bulk';
+            payload = { admins: parsedUsers };
+          }
+
+          const res = await request(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.error) {
+            submitBtn.disabled = false;
+            if (textSpan) textSpan.textContent = `Import ${parsedUsers.length} Accounts to Database`;
+            if (errorAlert) {
+              errorAlert.textContent = res.error;
+              errorAlert.style.display = 'block';
+            }
+            return;
+          }
+
+          showToast(`✓ Successfully processed ${res.total || parsedUsers.length} accounts (${res.added || 0} added, ${res.updated || 0} updated)!`, 'success', 5000);
+          renderAdmin('users');
+        } catch (err) {
+          submitBtn.disabled = false;
+          if (textSpan) textSpan.textContent = `Import ${parsedUsers.length} Accounts to Database`;
+          if (errorAlert) {
+            errorAlert.textContent = `Failed to save to database: ${err.message}`;
+            errorAlert.style.display = 'block';
+          }
+        }
+      };
+    }
+  };
+
+  renderModule();
 }
 
 function openDeleteUserModal(user) {
   const modalRoot = document.querySelector('#modal-root');
   if (!modalRoot) return;
 
-  const isAdminUser = user.role === 'admin';
+  const isAdminUser = user.role === 'admin' || user.role === 'admin_user';
+  const isStudent = user.role === 'students' || user.role === 'student';
+
+  let roleLabel = 'Teacher Candidate';
+  let deleteUrl = `/api/admin/teachers/${user.id}`;
+  let warningText = 'This candidate will no longer be authorized to take placement assessments.';
+
+  if (isAdminUser) {
+    roleLabel = 'Administrator';
+    deleteUrl = `/api/admin/admins/${user.id}`;
+    warningText = 'This administrator will permanently lose access to the administration portal.';
+  } else if (isStudent) {
+    roleLabel = 'Student Account';
+    deleteUrl = `/api/admin/students/${user.id}`;
+    warningText = 'This student account will be permanently removed from the assessment roster.';
+  }
 
   modalRoot.innerHTML = `
     <div class="modal-backdrop" id="delete-user-modal-backdrop">
@@ -3436,18 +4769,18 @@ function openDeleteUserModal(user) {
           <div class="modal-title-wrap">
             <div class="modal-icon" style="background:rgba(220,38,38,0.1);color:#dc2626">${ICONS.trash}</div>
             <div>
-              <h2 id="delete-um-title" style="margin:0;color:#dc2626">${isAdminUser ? 'Delete Administrator' : 'Delete Candidate'}</h2>
-              <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Remove user from system</p>
+              <h2 id="delete-um-title" style="margin:0;color:#dc2626">Delete ${roleLabel}</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Remove user account from system</p>
             </div>
           </div>
           <button class="modal-close" id="close-delete-um" type="button" aria-label="Close modal">✕</button>
         </div>
         <div class="modal-body" style="padding:20px 24px">
           <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:var(--ink)">
-            Are you sure you want to remove ${isAdminUser ? 'administrator' : 'placement candidate'} <strong>${user.name}</strong> (${isAdminUser ? `@${user.username}` : user.email})?
+            Are you sure you want to remove ${roleLabel.toLowerCase()} <strong>${user.name}</strong> (${isAdminUser ? `@${user.username}` : user.email})?
           </p>
           <div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;border-radius:8px;font-size:13px;color:#991b1b;margin-bottom:20px">
-            ⚠️ <strong>Warning:</strong> This ${isAdminUser ? 'administrator will permanently lose access to the administration portal.' : 'candidate will no longer be authorized to take placement assessments.'}
+            ⚠️ <strong>Warning:</strong> ${warningText}
           </div>
           <div id="delete-um-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-bottom:12px"></div>
           <div style="display:flex;justify-content:flex-end;gap:10px">
@@ -3475,9 +4808,7 @@ function openDeleteUserModal(user) {
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Deleting…';
 
-    const url = isAdminUser ? `/api/admin/admins/${user.id}` : `/api/admin/teachers/${user.id}`;
-    const res = await request(url, { method: 'DELETE' });
-
+    const res = await request(deleteUrl, { method: 'DELETE' });
     if (res.error) {
       confirmBtn.disabled = false;
       confirmBtn.innerHTML = `${ICONS.trash} <span>Confirm Delete</span>`;
@@ -5204,6 +6535,9 @@ async function openGradingModal(attemptInput) {
       ? `<span class="${getLevelBadgeClass(totals.speaking.level)}">${totals.speaking.level} (${totals.speaking.total}/${totals.speaking.max})</span>`
       : `<span class="pill pending">Incomplete (${totals.speaking.selected}/${totals.speaking.count} criteria)</span>`;
 
+    const ac = attempt.antiCheat || attempt.raw_data?.antiCheat || null;
+    const totalViolations = ac ? (ac.totalCount || (ac.violations?.length) || (ac.tabSwitches || 0) + (ac.fullscreenExits || 0) + (ac.splitScreenDetections || 0) + (ac.devToolsAttempts || 0) + (ac.copyPasteAttempts || 0)) : 0;
+
     return `
       <div class="modal-backdrop" id="grading-modal-backdrop">
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -5237,6 +6571,9 @@ async function openGradingModal(attemptInput) {
                 <span class="pill">Attempt: ${attempt.id}</span>
                 <span class="pill ${attempt.status === 'Completed' ? 'success' : 'pending'}">${attempt.status}</span>
                 <span class="pill ${attempt.review === 'Teacher reviewed' ? 'success' : 'pending'}">${attempt.review || 'Pending'}</span>
+                <span class="pill ${totalViolations === 0 ? 'success' : 'pending'}" style="${totalViolations > 0 ? 'background:#fef2f2;color:#dc2626;border-color:#fecaca;' : ''}">
+                  ${totalViolations === 0 ? '🛡️ Anti-Cheat: 0 Violations' : `⚠️ Anti-Cheat: ${totalViolations} Violation${totalViolations === 1 ? '' : 's'}`}
+                </span>
                 <button class="btn-ai-grade" id="modal-ai-grade-btn" type="button" title="Auto-grade Writing & Speaking responses using Google Gemini AI">
                   <span class="ai-sparkle-icon">✨</span>
                   <span>Auto-Grade with Gemini AI</span>
@@ -5261,6 +6598,41 @@ async function openGradingModal(attemptInput) {
               <div class="band-mini-card" style="background:#eff6ff;border-color:#bfdbfe">
                 <span style="color:#1d4ed8">Overall Placement</span>
                 <strong style="color:#1e40af">${attempt.overall || (totals.writing.level && totals.speaking.level ? 'Ready to finalize' : 'Pending')}</strong>
+              </div>
+            </div>
+
+            <!-- Anti-Cheat Audit Record Card -->
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:18px">${totalViolations === 0 ? '🛡️' : '⚠️'}</span>
+                  <strong style="font-size:14px;color:#0f172a">Assessment Anti-Cheat &amp; Integrity Record</strong>
+                </div>
+                <span class="pill ${totalViolations === 0 ? 'success' : 'pending'}" style="${totalViolations > 0 ? 'background:#fef2f2;color:#dc2626;border-color:#fecaca;' : ''}">
+                  ${totalViolations === 0 ? 'Clean Assessment (0 Violations)' : `${totalViolations} Violation Incident${totalViolations === 1 ? '' : 's'}`}
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;font-size:12px">
+                <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #f1f5f9">
+                  <span style="color:#64748b;display:block;margin-bottom:2px">Tab Switches</span>
+                  <strong style="font-size:15px;color:${(ac?.tabSwitches || 0) > 0 ? '#dc2626' : '#16a34a'}">${ac?.tabSwitches || 0}x</strong>
+                </div>
+                <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #f1f5f9">
+                  <span style="color:#64748b;display:block;margin-bottom:2px">Fullscreen Exits</span>
+                  <strong style="font-size:15px;color:${(ac?.fullscreenExits || 0) > 0 ? '#dc2626' : '#16a34a'}">${ac?.fullscreenExits || 0}x</strong>
+                </div>
+                <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #f1f5f9">
+                  <span style="color:#64748b;display:block;margin-bottom:2px">Split Screen (&lt;65%)</span>
+                  <strong style="font-size:15px;color:${(ac?.splitScreenDetections || 0) > 0 ? '#dc2626' : '#16a34a'}">${ac?.splitScreenDetections || 0}x</strong>
+                </div>
+                <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #f1f5f9">
+                  <span style="color:#64748b;display:block;margin-bottom:2px">DevTools Access</span>
+                  <strong style="font-size:15px;color:${(ac?.devToolsAttempts || 0) > 0 ? '#dc2626' : '#16a34a'}">${ac?.devToolsAttempts || 0}x</strong>
+                </div>
+                <div style="background:#f8fafc;padding:10px 14px;border-radius:8px;border:1px solid #f1f5f9">
+                  <span style="color:#64748b;display:block;margin-bottom:2px">Copy / Paste</span>
+                  <strong style="font-size:15px;color:${(ac?.copyPasteAttempts || 0) > 0 ? '#dc2626' : '#16a34a'}">${ac?.copyPasteAttempts || 0}x</strong>
+                </div>
               </div>
             </div>
 
@@ -6387,6 +7759,16 @@ async function renderAdminSettingsTab(container) {
   }
 
   const s = data.settings || {};
+  const acSettings = s.antiCheat || {
+    enabled: true,
+    tabSwitchDetection: true,
+    requireFullscreen: true,
+    splitScreenDetection: true,
+    blockDevTools: true,
+    blockCopyPaste: true
+  };
+  const activeCount = [acSettings.tabSwitchDetection, acSettings.requireFullscreen, acSettings.splitScreenDetection, acSettings.blockDevTools, acSettings.blockCopyPaste].filter((x) => x !== false).length;
+  const isAllActive = activeCount === 5;
   const aiData = aiDataRes || { configured: false, model: 'gemini-1.5-flash' };
   const storageMode = data.storageMode || 'mysql';
 
@@ -6498,6 +7880,95 @@ async function renderAdminSettingsTab(container) {
                 <option value="2" ${s.maxAudioPlayCount === 2 || !s.maxAudioPlayCount ? 'selected' : ''}>2 Plays (Standard)</option>
                 <option value="0" ${s.maxAudioPlayCount === 0 ? 'selected' : ''}>Unlimited</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anti-Cheat & Proctoring Rules -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#eff6ff;color:#1e40af">${ICONS.shield}</div>
+            <div>
+              <h2 class="setting-card-title">Anti-Cheat & Proctoring</h2>
+              <p class="setting-card-subtitle">Active assessment security and integrity rules</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Master Anti-Cheat Protection</label>
+              <span class="setting-desc" id="sys-anti-cheat-status-desc">${activeCount === 5 ? 'All proctoring rules active across candidate assessments.' : (activeCount === 0 ? 'All proctoring protections disabled.' : `Partially active (${activeCount}/5 rules enabled).`)}</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" id="sys-anti-cheat-master" ${isAllActive ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Tab Switch Detection</label>
+              <span class="setting-desc">Record violations when candidate switches tabs or minimizes the window.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" class="sys-anti-cheat-subtoggle" id="sys-ac-tab-switch" ${acSettings.tabSwitchDetection !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Mandatory Fullscreen Mode</label>
+              <span class="setting-desc">Enforce fullscreen view throughout assessment with exit lockdown screen.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" class="sys-anti-cheat-subtoggle" id="sys-ac-fullscreen" ${acSettings.requireFullscreen !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Split Screen Detection</label>
+              <span class="setting-desc">Detect and alert when screen viewport is reduced to &lt; 65% of screen size.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" class="sys-anti-cheat-subtoggle" id="sys-ac-split-screen" ${acSettings.splitScreenDetection !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Block Developer Tools</label>
+              <span class="setting-desc">Prevent F12, Ctrl+Shift+I, and shortcut inspection utilities.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" class="sys-anti-cheat-subtoggle" id="sys-ac-dev-tools" ${acSettings.blockDevTools !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Block Copy & Paste</label>
+              <span class="setting-desc">Disable right-click context menu, clipboard cut, copy, and paste actions.</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" class="sys-anti-cheat-subtoggle" id="sys-ac-copy-paste" ${acSettings.blockCopyPaste !== false ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+              </label>
             </div>
           </div>
         </div>
@@ -6742,6 +8213,33 @@ async function renderAdminSettingsTab(container) {
     };
   }
 
+  // Anti-Cheat master & sub-toggles synchronization
+  const masterToggle = document.querySelector('#sys-anti-cheat-master');
+  const subToggles = document.querySelectorAll('.sys-anti-cheat-subtoggle');
+  const statusDesc = document.querySelector('#sys-anti-cheat-status-desc');
+
+  const updateMasterStatus = () => {
+    const total = subToggles.length;
+    const checked = Array.from(subToggles).filter((t) => t.checked).length;
+    if (masterToggle) {
+      masterToggle.checked = checked > 0;
+      masterToggle.indeterminate = (checked > 0 && checked < total);
+    }
+    if (statusDesc) {
+      if (checked === total) statusDesc.textContent = 'All proctoring rules active across candidate assessments.';
+      else if (checked === 0) statusDesc.textContent = 'All proctoring protections disabled.';
+      else statusDesc.textContent = `Partially active (${checked}/${total} rules enabled).`;
+    }
+  };
+
+  if (masterToggle) {
+    masterToggle.addEventListener('change', (e) => {
+      subToggles.forEach((st) => { st.checked = e.target.checked; });
+      updateMasterStatus();
+    });
+  }
+  subToggles.forEach((st) => st.addEventListener('change', updateMasterStatus));
+
   // Save Settings
   document.querySelector('#btn-save-settings').onclick = async () => {
     const saveBtn = document.querySelector('#btn-save-settings');
@@ -6749,6 +8247,14 @@ async function renderAdminSettingsTab(container) {
     saveBtn.innerHTML = `<span>Saving…</span>`;
 
     const payload = {
+      antiCheat: {
+        enabled: document.querySelector('#sys-anti-cheat-master')?.checked || false,
+        tabSwitchDetection: document.querySelector('#sys-ac-tab-switch')?.checked || false,
+        requireFullscreen: document.querySelector('#sys-ac-fullscreen')?.checked || false,
+        splitScreenDetection: document.querySelector('#sys-ac-split-screen')?.checked || false,
+        blockDevTools: document.querySelector('#sys-ac-dev-tools')?.checked || false,
+        blockCopyPaste: document.querySelector('#sys-ac-copy-paste')?.checked || false
+      },
       durationMinutes: Number(document.querySelector('#setting-duration').value) || 65,
       allowResume: document.querySelector('#setting-allow-resume').checked,
       autosaveIntervalSeconds: Number(document.querySelector('#setting-autosave-interval').value) || 30,

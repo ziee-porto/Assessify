@@ -74,7 +74,7 @@ Assessify operates with a **dual-layer evaluation engine**:
 
 ### 3.1 Authentication & School Unit Selection
 1. Open your web browser and navigate to the Assessify application URL (e.g., `http://localhost:3001`).
-2. Ensure the **Workspace Selector** is set to **"Teacher Placement Assessment"**.
+2. Ensure the **Workspace Selector** is set to **"Placement Candidate"**.
 3. Enter your details into the login form:
    - **Full Name with Academic Titles**: (e.g., `Anita Wijaya, S.Pd.` or `Dr. Hendra Gunawan, M.Pd.`).
    - **School Email Address**: Must use the institutional school domain (`@karyabangsa.sch.id`).
