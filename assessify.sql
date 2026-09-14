@@ -77,6 +77,27 @@ INSERT INTO `attempts` (`id`, `teacher`, `email`, `unit`, `status`, `started_at`
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `attempt_recordings`
+--
+
+CREATE TABLE `attempt_recordings` (
+  `id` int(11) NOT NULL,
+  `attempt_id` varchar(64) NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  `mime_type` varchar(128) NOT NULL,
+  `file_size` bigint(20) NOT NULL DEFAULT 0,
+  `media_data` longblob DEFAULT NULL,
+  `status` varchar(64) NOT NULL DEFAULT 'saved_to_mysql',
+  `drive_file_id` varchar(255) DEFAULT NULL,
+  `drive_view_link` text DEFAULT NULL,
+  `drive_download_link` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `audit_logs`
 --
 
@@ -255,6 +276,14 @@ ALTER TABLE `attempts`
   ADD KEY `idx_status_review` (`status`,`review`);
 
 --
+-- Indexes for table `attempt_recordings`
+--
+ALTER TABLE `attempt_recordings`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `idx_rec_attempt` (`attempt_id`),
+  ADD KEY `idx_rec_status` (`status`);
+
+--
 -- Indexes for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
@@ -298,6 +327,12 @@ ALTER TABLE `students`
 --
 ALTER TABLE `admin_users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=98;
+
+--
+-- AUTO_INCREMENT for table `attempt_recordings`
+--
+ALTER TABLE `attempt_recordings`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1;
 
 --
 -- AUTO_INCREMENT for table `audit_logs`

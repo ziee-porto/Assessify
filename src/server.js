@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile, unlink } from 'node:fs/promises';
@@ -7,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
@@ -27,6 +29,9 @@ async function deleteAttemptFiles(attemptId) {
       await unlink(join(uploadsDir, `${attemptId}${ext}`));
     } catch {}
   }
+  try {
+    await repository?.deleteRecording?.(attemptId);
+  } catch {}
 }
 let content = JSON.parse(await readFile(join(root, 'content', 'ielts-placement.json'), 'utf8'));
 let rubrics = JSON.parse(await readFile(join(root, 'content', 'ielts-rubrics.json'), 'utf8'));
@@ -303,6 +308,50 @@ const memoryRepository = {
       }
     }
     return { added, updated, total: studentsList.length };
+  },
+  recordings: new Map(),
+  async saveRecordingToDb({ attemptId, filename, mimeType, fileSize, buffer }) {
+    const rec = {
+      attemptId,
+      filename,
+      mimeType,
+      fileSize: fileSize || buffer?.length || 0,
+      mediaData: buffer || null,
+      status: 'saved_to_mysql',
+      driveFileId: null,
+      driveViewLink: null,
+      driveDownloadLink: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.recordings.set(attemptId, rec);
+    return rec;
+  },
+  async getRecordingFromDb(attemptId) {
+    return this.recordings.get(attemptId) || null;
+  },
+  async deleteRecordingMediaFromDb(attemptId, driveMeta = {}) {
+    const rec = this.recordings.get(attemptId);
+    if (rec) {
+      rec.mediaData = null;
+      rec.status = 'uploaded_to_drive';
+      if (driveMeta.driveFileId) rec.driveFileId = driveMeta.driveFileId;
+      if (driveMeta.driveViewLink) rec.driveViewLink = driveMeta.driveViewLink;
+      if (driveMeta.driveDownloadLink) rec.driveDownloadLink = driveMeta.driveDownloadLink;
+      rec.updatedAt = new Date().toISOString();
+      return rec;
+    }
+    return null;
+  },
+  async deleteRecording(attemptId) {
+    return this.recordings.delete(attemptId);
+  },
+  async listPendingDriveRecordings() {
+    const list = [];
+    for (const rec of this.recordings.values()) {
+      if (rec.status === 'saved_to_mysql' && rec.mediaData) list.push(rec);
+    }
+    return list;
   }
 };
 let repository = memoryRepository;
@@ -357,6 +406,92 @@ function getClientIp(request) {
   return request.socket?.remoteAddress || '127.0.0.1';
 }
 
+// =========================================================================
+// Assessify Live Real-Time Event Hub & Presence Engine
+// =========================================================================
+const realtimeHub = new EventEmitter();
+realtimeHub.setMaxListeners(1000);
+
+// Active SSE Connections: Map<clientId, { id, res, user, role, attemptId, ip, connectedAt }>
+const realtimeClients = new Map();
+
+// Active Candidate Presence & Live Monitor State: Map<attemptId, presenceObj>
+const activeCandidatePresence = new Map();
+
+function broadcastRealtime(target, eventType, data = {}) {
+  const payload = `event: ${eventType}\ndata: ${JSON.stringify({ type: eventType, data, timestamp: new Date().toISOString() })}\n\n`;
+  for (const [clientId, client] of realtimeClients.entries()) {
+    try {
+      if (target === 'all') {
+        client.res.write(payload);
+      } else if (target === 'admin' && client.role === 'admin') {
+        client.res.write(payload);
+      } else if (target === 'candidates' && (client.role === 'teacher' || client.role === 'student' || client.role === 'candidate')) {
+        client.res.write(payload);
+      } else if (typeof target === 'string') {
+        if (client.attemptId === target || client.user?.email?.toLowerCase() === target.toLowerCase()) {
+          client.res.write(payload);
+        }
+      }
+    } catch (err) {
+      realtimeClients.delete(clientId);
+    }
+  }
+}
+
+function getActiveCandidatesSnapshot() {
+  const now = Date.now();
+  const list = [];
+  for (const [attemptId, presence] of activeCandidatePresence.entries()) {
+    if (presence.status === 'completed' && (now - (presence.completedAt || 0) > 300_000)) {
+      activeCandidatePresence.delete(attemptId);
+      continue;
+    }
+    const diff = now - (presence.lastHeartbeat || 0);
+    if (presence.status !== 'completed') {
+      if (diff > 45_000) {
+        presence.status = 'offline';
+      } else if (diff > 15_000) {
+        presence.status = 'idle';
+      } else {
+        presence.status = 'active';
+      }
+    }
+    list.push({ ...presence });
+  }
+  return list;
+}
+
+// Keep-alive heartbeat & presence status evaluator every 10 seconds
+setInterval(() => {
+  const pingPayload = `: ping ${Date.now()}\n\n`;
+  for (const [clientId, client] of realtimeClients.entries()) {
+    try {
+      client.res.write(pingPayload);
+    } catch (err) {
+      realtimeClients.delete(clientId);
+    }
+  }
+
+  const now = Date.now();
+  let presenceChanged = false;
+  for (const [attemptId, presence] of activeCandidatePresence.entries()) {
+    if (presence.status === 'completed') continue;
+    const diff = now - (presence.lastHeartbeat || 0);
+    const oldStatus = presence.status;
+    if (diff > 45_000 && oldStatus !== 'offline') {
+      presence.status = 'offline';
+      presenceChanged = true;
+    } else if (diff > 15_000 && diff <= 45_000 && oldStatus !== 'idle') {
+      presence.status = 'idle';
+      presenceChanged = true;
+    }
+  }
+  if (presenceChanged) {
+    broadcastRealtime('admin', 'CANDIDATE_PRESENCE_SYNC', { candidates: getActiveCandidatesSnapshot() });
+  }
+}, 10_000).unref();
+
 async function recordAuditLog({
   actorType = 'system',
   actorId = '',
@@ -369,7 +504,7 @@ async function recordAuditLog({
   status = 'SUCCESS'
 }) {
   try {
-    await repository.createAuditLog({
+    const entry = {
       timestamp: new Date().toISOString(),
       actorType,
       actorId,
@@ -380,7 +515,9 @@ async function recordAuditLog({
       details,
       ipAddress: ip,
       status
-    });
+    };
+    await repository.createAuditLog(entry);
+    broadcastRealtime('admin', 'AUDIT_LOG_ENTRY', entry);
   } catch (err) {
     console.error('Failed to record audit log:', err.message);
   }
@@ -586,7 +723,87 @@ async function connectMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS attempt_recordings (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          attempt_id VARCHAR(64) NOT NULL UNIQUE,
+          filename VARCHAR(255) NOT NULL,
+          mime_type VARCHAR(128) NOT NULL,
+          file_size BIGINT NOT NULL DEFAULT 0,
+          media_data LONGBLOB NULL,
+          status VARCHAR(64) NOT NULL DEFAULT 'saved_to_mysql',
+          drive_file_id VARCHAR(255) NULL,
+          drive_view_link TEXT NULL,
+          drive_download_link TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_rec_attempt (attempt_id),
+          INDEX idx_rec_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
       repository = {
+        async saveRecordingToDb({ attemptId, filename, mimeType, fileSize, buffer }) {
+          await pool.query(
+            `INSERT INTO attempt_recordings (attempt_id, filename, mime_type, file_size, media_data, status)
+             VALUES (?, ?, ?, ?, ?, 'saved_to_mysql')
+             ON DUPLICATE KEY UPDATE filename = VALUES(filename), mime_type = VALUES(mime_type), file_size = VALUES(file_size), media_data = VALUES(media_data), status = 'saved_to_mysql', updated_at = CURRENT_TIMESTAMP`,
+            [attemptId, filename, mimeType, fileSize || buffer?.length || 0, buffer]
+          );
+          return { attemptId, filename, mimeType, fileSize, status: 'saved_to_mysql' };
+        },
+        async getRecordingFromDb(attemptId) {
+          const [rows] = await pool.query(
+            'SELECT attempt_id, filename, mime_type, file_size, media_data, status, drive_file_id, drive_view_link, drive_download_link, created_at, updated_at FROM attempt_recordings WHERE attempt_id = ? LIMIT 1',
+            [attemptId]
+          );
+          if (!rows.length) return null;
+          const r = rows[0];
+          return {
+            attemptId: r.attempt_id,
+            filename: r.filename,
+            mimeType: r.mime_type,
+            fileSize: Number(r.file_size),
+            mediaData: r.media_data,
+            status: r.status,
+            driveFileId: r.drive_file_id,
+            driveViewLink: r.drive_view_link,
+            driveDownloadLink: r.drive_download_link,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at
+          };
+        },
+        async deleteRecordingMediaFromDb(attemptId, driveMeta = {}) {
+          await pool.query(
+            `UPDATE attempt_recordings
+             SET media_data = NULL,
+                 status = 'uploaded_to_drive',
+                 drive_file_id = COALESCE(?, drive_file_id),
+                 drive_view_link = COALESCE(?, drive_view_link),
+                 drive_download_link = COALESCE(?, drive_download_link),
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE attempt_id = ?`,
+            [driveMeta.driveFileId || null, driveMeta.driveViewLink || null, driveMeta.driveDownloadLink || null, attemptId]
+          );
+          return true;
+        },
+        async deleteRecording(attemptId) {
+          const [res] = await pool.query('DELETE FROM attempt_recordings WHERE attempt_id = ?', [attemptId]);
+          return res.affectedRows > 0;
+        },
+        async listPendingDriveRecordings() {
+          const [rows] = await pool.query(
+            'SELECT attempt_id, filename, mime_type, file_size, media_data, status FROM attempt_recordings WHERE status = "saved_to_mysql" AND media_data IS NOT NULL'
+          );
+          return rows.map((r) => ({
+            attemptId: r.attempt_id,
+            filename: r.filename,
+            mimeType: r.mime_type,
+            fileSize: Number(r.file_size),
+            mediaData: r.media_data,
+            status: r.status
+          }));
+        },
         async listAttempts() {
           const [rows] = await pool.query('SELECT raw_data FROM attempts ORDER BY started_at DESC');
           return rows.map((r) => (typeof r.raw_data === 'string' ? JSON.parse(r.raw_data) : r.raw_data));
@@ -1113,24 +1330,140 @@ const googleClient = async () => {
   const { google } = await import('googleapis');
   return new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, googleRedirectUri);
 };
-const createSpeakingMeet = async (attempt) => {
-  if (attempt.speakingMeetUrl) return attempt.speakingMeetUrl;
-  const refreshToken = await repository.getSetting('googleRefreshToken') || process.env.GOOGLE_REFRESH_TOKEN;
-  if (!refreshToken) throw new Error('Google Workspace authorization is required');
+const createSpeakingMeet = async () => null;
+
+const getGoogleDriveClient = async () => {
   const { google } = await import('googleapis');
-  const auth = await googleClient();
-  auth.setCredentials({ refresh_token: refreshToken });
-  const calendar = google.calendar({ version: 'v3', auth });
-  const start = new Date();
-  const event = await calendar.events.insert({ calendarId: 'primary', conferenceDataVersion: 1, requestBody: { summary: `Assessify Speaking Assessment — ${attempt.teacher}`, description: `Speaking assessment for ${attempt.teacher} (${attempt.email}).`, start: { dateTime: start.toISOString() }, end: { dateTime: new Date(start.getTime() + 30 * 60 * 1000).toISOString() }, conferenceData: { createRequest: { requestId: crypto.randomUUID() } } } });
-  const meetUrl = event.data.hangoutLink || event.data.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri;
-  if (!meetUrl) throw new Error('Google Calendar did not return a Meet link');
-  return meetUrl;
+
+  const refreshToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+  if (refreshToken) {
+    const auth = await googleClient();
+    auth.setCredentials({ refresh_token: refreshToken });
+    return google.drive({ version: 'v3', auth });
+  }
+
+  const serviceAccountFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || join(root, 'service-account.json');
+  if (existsSync(serviceAccountFile)) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: serviceAccountFile,
+      scopes: ['https://www.googleapis.com/auth/drive.file']
+    });
+    return google.drive({ version: 'v3', auth });
+  }
+
+  throw new Error('Google Drive authorization required (connect via Admin portal)');
+};
+
+const isGoogleDriveConfigured = async () => {
+  const serviceAccountFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || join(root, 'service-account.json');
+  if (existsSync(serviceAccountFile)) return true;
+  const refreshToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+  return Boolean(refreshToken);
+};
+
+const uploadMediaBufferToGoogleDrive = async ({ buffer, filename, mimeType, folderId }) => {
+  const drive = await getGoogleDriveClient();
+
+  const driveFolderId = folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || null;
+  const fileMetadata = {
+    name: filename,
+    ...(driveFolderId ? { parents: [driveFolderId] } : {})
+  };
+  const media = {
+    mimeType: mimeType || 'video/webm',
+    body: Readable.from(buffer)
+  };
+
+  const res = await drive.files.create({
+    supportsAllDrives: true,
+    requestBody: fileMetadata,
+    media,
+    fields: 'id, name, mimeType, webViewLink, webContentLink'
+  });
+
+  const fileId = res.data.id;
+  const webViewLink = res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
+  const webContentLink = res.data.webContentLink || `https://drive.google.com/uc?id=${fileId}&export=download`;
+
+  try {
+    await drive.permissions.create({
+      fileId,
+      supportsAllDrives: true,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone'
+      }
+    });
+  } catch (permErr) {
+    console.warn('Could not set public permission on Google Drive file:', permErr.message);
+  }
+
+  return { fileId, webViewLink, webContentLink };
+};
+
+const uploadRecordingToDriveAndCleanup = async (attemptId) => {
+  try {
+    const rec = await repository.getRecordingFromDb(attemptId);
+    if (!rec || !rec.mediaData) {
+      console.warn(`No binary media data found in database for attempt ${attemptId}`);
+      return null;
+    }
+
+    const driveReady = await isGoogleDriveConfigured();
+    if (!driveReady) {
+      console.log(`Google Workspace not connected yet. Recording for ${attemptId} remains safely stored in MySQL.`);
+      return null;
+    }
+
+    const driveMeta = await uploadMediaBufferToGoogleDrive({
+      buffer: rec.mediaData,
+      filename: rec.filename,
+      mimeType: rec.mimeType
+    });
+
+    // Successfully uploaded to Google Drive -> Delete/purge binary media data from MySQL!
+    await repository.deleteRecordingMediaFromDb(attemptId, driveMeta);
+
+    // Update attempt record
+    const attempt = await repository.getAttempt(attemptId);
+    if (attempt) {
+      const existing = attempt.speakingRecording || {};
+      const updated = {
+        ...existing,
+        driveFileId: driveMeta.fileId,
+        driveViewLink: driveMeta.webViewLink,
+        driveDownloadLink: driveMeta.webContentLink,
+        driveStatus: 'uploaded_to_drive'
+      };
+      await repository.updateAttempt(attemptId, { speakingRecording: updated });
+    }
+
+    console.log(`Successfully uploaded recording for attempt ${attemptId} to Google Drive and purged media from MySQL.`);
+    return driveMeta;
+  } catch (err) {
+    console.error(`Failed to upload recording for ${attemptId} to Google Drive:`, err.message);
+    return null;
+  }
 };
 const createSession = (user) => { const payload = Buffer.from(JSON.stringify(user)).toString('base64url'); const signature = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url'); return `${payload}.${signature}`; };
 const currentUser = (request) => { const token = readCookies(request).assessify_session; if (!token) return null; const [payload, signature] = token.split('.'); if (!payload || !signature) return null; const expected = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url'); if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null; try { return JSON.parse(Buffer.from(payload, 'base64url').toString()); } catch { return null; } };
 const isAdmin = (request) => currentUser(request)?.role === 'admin';
-const requestBody = async (request) => { let body = ''; for await (const chunk of request) body += chunk; return body ? JSON.parse(body) : {}; };
+const requestBody = async (request) => {
+  let body = '';
+  for await (const chunk of request) body += chunk;
+  if (!body || !body.trim()) return {};
+  try {
+    return JSON.parse(body);
+  } catch (err) {
+    try {
+      const params = new URLSearchParams(body);
+      const obj = {};
+      for (const [k, v] of params.entries()) obj[k] = v;
+      if (Object.keys(obj).length > 0) return obj;
+    } catch {}
+    return {};
+  }
+};
 
 // ── CEFR helpers ────────────────────────────────────────────────
 const cefrFromCorrect = (correct, total, activeRubrics = rubrics) => {
@@ -2630,6 +2963,333 @@ const server = createServer(async (request, response) => {
   try {
   const url = new URL(request.url, `http://${request.headers.host}`);
   if (url.pathname === '/api/health') return json(response, 200, { ok: true, service: 'assessify-api', storage: storageMode });
+
+  // --- REAL-TIME LIVE STREAMING & PROCTORING API ---
+  if (url.pathname === '/api/realtime/events' && request.method === 'GET') {
+    const user = currentUser(request);
+    if (!user) {
+      return json(response, 401, { error: 'Authentication required for real-time live events' });
+    }
+
+    const clientId = `client_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const role = user.role || (isAdmin(request) ? 'admin' : 'candidate');
+
+    response.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': '*'
+    });
+    if (typeof response.flushHeaders === 'function') response.flushHeaders();
+
+    const clientInfo = {
+      id: clientId,
+      res: response,
+      user,
+      role,
+      attemptId: url.searchParams.get('attemptId') || null,
+      ip: getClientIp(request),
+      connectedAt: Date.now()
+    };
+    realtimeClients.set(clientId, clientInfo);
+
+    // Initial connection handshake
+    response.write(`event: CONNECTED\ndata: ${JSON.stringify({
+      clientId,
+      role,
+      user: { email: user.email, name: user.name, role: user.role, unit: user.unit },
+      serverTime: Date.now()
+    })}\n\n`);
+
+    // If admin, send active candidate presence snapshot immediately
+    if (role === 'admin') {
+      response.write(`event: CANDIDATE_PRESENCE_SYNC\ndata: ${JSON.stringify({
+        candidates: getActiveCandidatesSnapshot(),
+        connectedAdmins: Array.from(realtimeClients.values()).filter(c => c.role === 'admin').length
+      })}\n\n`);
+    }
+
+    request.on('close', () => {
+      realtimeClients.delete(clientId);
+      if (clientInfo.attemptId && activeCandidatePresence.has(clientInfo.attemptId)) {
+        const p = activeCandidatePresence.get(clientInfo.attemptId);
+        const stillConnected = Array.from(realtimeClients.values()).some(c => c.attemptId === clientInfo.attemptId);
+        if (!stillConnected && p.status !== 'completed') {
+          p.status = 'offline';
+          p.lastHeartbeat = Date.now();
+          broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+        }
+      }
+    });
+
+    return;
+  }
+
+  if (url.pathname === '/api/realtime/heartbeat' && request.method === 'POST') {
+    const user = currentUser(request);
+    if (!user) return json(response, 401, { error: 'Sign-in required' });
+    const body = await requestBody(request);
+    const attemptId = body.attemptId;
+    if (!attemptId) return json(response, 400, { error: 'attemptId required' });
+
+    const existing = activeCandidatePresence.get(attemptId) || {};
+    let attemptRecord = null;
+    if (!existing.name || !existing.antiCheat?.violations?.length) {
+      try { attemptRecord = await repository.getAttempt(attemptId); } catch {}
+    }
+    const existingAc = existing.antiCheat || attemptRecord?.antiCheat || {};
+    const bodyAc = body.antiCheat || {};
+    const mergedAntiCheat = {
+      ...existingAc,
+      ...bodyAc,
+      violations: (existingAc.violations && Array.isArray(existingAc.violations) && existingAc.violations.length)
+        ? existingAc.violations
+        : (Array.isArray(bodyAc.violations) ? bodyAc.violations : [])
+    };
+    const presence = {
+      attemptId,
+      email: user.email,
+      name: user.name || existing.name || attemptRecord?.teacher || user.email,
+      unit: user.unit || existing.unit || attemptRecord?.unit || 'School Unit',
+      sectionIndex: Number(body.sectionIndex ?? existing.sectionIndex ?? 0),
+      sectionName: body.sectionName || existing.sectionName || 'Grammar & Vocabulary',
+      answeredCount: Number(body.answeredCount ?? existing.answeredCount ?? 0),
+      totalQuestions: Number(body.totalQuestions ?? existing.totalQuestions ?? 25),
+      remainingMs: Number(body.remainingMs ?? existing.remainingMs ?? 0),
+      antiCheat: mergedAntiCheat,
+      lastHeartbeat: Date.now(),
+      status: 'active'
+    };
+
+    activeCandidatePresence.set(attemptId, presence);
+
+    for (const client of realtimeClients.values()) {
+      if (client.user?.email?.toLowerCase() === user.email?.toLowerCase()) {
+        client.attemptId = attemptId;
+      }
+    }
+
+    broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', presence);
+    return json(response, 200, { ok: true, serverTime: Date.now() });
+  }
+
+  if (url.pathname === '/api/admin/proctor/candidates' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const candidates = getActiveCandidatesSnapshot();
+    for (const cand of candidates) {
+      if (!cand.antiCheat?.violations || cand.antiCheat.violations.length === 0) {
+        try {
+          const att = await repository.getAttempt(cand.attemptId);
+          if (att?.antiCheat?.violations && att.antiCheat.violations.length) {
+            cand.antiCheat = {
+              ...(cand.antiCheat || {}),
+              ...att.antiCheat,
+              violations: att.antiCheat.violations
+            };
+            if (activeCandidatePresence.has(cand.attemptId)) {
+              activeCandidatePresence.get(cand.attemptId).antiCheat = cand.antiCheat;
+            }
+          }
+        } catch {}
+      }
+    }
+    return json(response, 200, {
+      candidates,
+      connectedAdmins: Array.from(realtimeClients.values()).filter(c => c.role === 'admin').length
+    });
+  }
+
+  if (url.pathname === '/api/admin/proctor/message' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const { attemptId, message, urgency = 'high' } = await requestBody(request);
+    if (!attemptId || !message) return json(response, 400, { error: 'attemptId and message required' });
+    const admin = currentUser(request);
+
+    broadcastRealtime(attemptId, 'PROCTOR_MESSAGE', {
+      attemptId,
+      message: message.trim(),
+      urgency,
+      sender: admin?.name || 'Exam Proctor',
+      sentAt: new Date().toISOString()
+    });
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: admin?.username || 'admin',
+      actorName: admin?.name || 'Administrator',
+      action: 'PROCTOR_SEND_WARNING',
+      category: 'MONITORING',
+      target: attemptId,
+      details: { message, urgency },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    return json(response, 200, { success: true, attemptId, sentAt: new Date().toISOString() });
+  }
+
+  if (url.pathname === '/api/admin/proctor/extend-time' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const attemptId = body?.attemptId;
+      const additionalMinutes = Number(body?.additionalMinutes || body?.minutes || 5);
+      const reason = body?.reason || 'Proctor extension';
+      if (!attemptId) return json(response, 400, { error: 'attemptId required' });
+      const admin = currentUser(request);
+      const attempt = await repository.getAttempt(attemptId);
+      if (!attempt) return json(response, 404, { error: 'Attempt not found' });
+
+      const extraMs = Number(additionalMinutes) * 60 * 1000;
+      const sectionIndex = attempt.sectionIndex || 0;
+      const sectionEndTimes = { ...(attempt.sectionEndTimes || {}) };
+      if (sectionEndTimes[sectionIndex]) {
+        sectionEndTimes[sectionIndex] = Number(sectionEndTimes[sectionIndex]) + extraMs;
+      }
+      const sectionRemainingMs = { ...(attempt.sectionRemainingMs || {}) };
+      if (sectionRemainingMs[sectionIndex] !== undefined) {
+        sectionRemainingMs[sectionIndex] = Number(sectionRemainingMs[sectionIndex]) + extraMs;
+      }
+
+      await repository.updateAttempt(attemptId, {
+        sectionEndTimes,
+        sectionRemainingMs,
+        timeExtendedBy: (attempt.timeExtendedBy || 0) + Number(additionalMinutes)
+      });
+
+      broadcastRealtime(attemptId, 'TIME_EXTENDED', {
+        attemptId,
+        additionalMinutes: Number(additionalMinutes),
+        reason,
+        sectionEndTimes,
+        sectionRemainingMs,
+        extraMs
+      });
+
+      if (activeCandidatePresence.has(attemptId)) {
+        const p = activeCandidatePresence.get(attemptId);
+        p.remainingMs = (p.remainingMs || 0) + extraMs;
+        broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+      }
+
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: admin?.username || 'admin',
+        actorName: admin?.name || 'Administrator',
+        action: 'PROCTOR_EXTEND_TIME',
+        category: 'MONITORING',
+        target: attemptId,
+        details: { additionalMinutes, reason },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, { success: true, attemptId, additionalMinutes });
+    } catch (e) {
+      console.error('Error in extend-time:', e);
+      return json(response, 400, { error: e.message || 'Failed to extend time' });
+    }
+  }
+
+  if (url.pathname === '/api/admin/proctor/force-submit' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const body = await requestBody(request);
+      const attemptId = body?.attemptId;
+      const reason = body?.reason || 'Force submitted by exam proctor';
+      if (!attemptId) return json(response, 400, { error: 'attemptId required' });
+      const admin = currentUser(request);
+
+      try {
+        const attempt = await repository.getAttempt(attemptId);
+        if (attempt && attempt.status !== 'Completed') {
+          const responses = attempt.responses || {};
+          const gvScore = scoreGrammarVocabulary(responses, attempt.grammarVocabularyOrder);
+          const writingScore = attempt.scoring?.writing || { band: 'Pending' };
+          const speakingScore = attempt.scoring?.speaking || { band: 'Pending' };
+          const scored = {
+            ...attempt,
+            status: 'Completed',
+            review: attempt.review || 'Pending',
+            scoring: {
+              grammarVocabulary: gvScore,
+              writing: writingScore,
+              speaking: speakingScore
+            },
+            overall: gvScore?.level || 'Pending',
+            earlyTermination: true,
+            forceSubmittedByProctor: true,
+            proctorNotes: reason,
+            submittedAt: new Date().toISOString()
+          };
+          await repository.updateAttempt(attemptId, scored);
+          broadcastRealtime('admin', 'ATTEMPT_SUBMITTED', { attempt: scored });
+        }
+      } catch (err) {
+        console.warn('DB update on force-submit failed:', err);
+      }
+
+      if (activeCandidatePresence.has(attemptId)) {
+        const p = activeCandidatePresence.get(attemptId);
+        p.status = 'completed';
+        p.completedAt = Date.now();
+        broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+      }
+
+      broadcastRealtime(attemptId, 'FORCE_SUBMIT', {
+        attemptId,
+        reason,
+        proctor: admin?.name || 'Administrator',
+        timestamp: new Date().toISOString()
+      });
+
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: admin?.username || 'admin',
+        actorName: admin?.name || 'Administrator',
+        action: 'PROCTOR_FORCE_SUBMIT',
+        category: 'SECURITY',
+        target: attemptId,
+        details: { reason },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+
+      return json(response, 200, { success: true, attemptId });
+    } catch (e) {
+      console.error('Error in force-submit:', e);
+      return json(response, 400, { error: e.message || 'Failed to force submit' });
+    }
+  }
+
+  if (url.pathname === '/api/admin/proctor/broadcast' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const { message, level = 'info' } = await requestBody(request);
+    if (!message) return json(response, 400, { error: 'message required' });
+    const admin = currentUser(request);
+
+    broadcastRealtime('candidates', 'BROADCAST_ANNOUNCEMENT', {
+      message: message.trim(),
+      level,
+      sender: admin?.name || 'Exam Supervisor',
+      timestamp: new Date().toISOString()
+    });
+
+    await recordAuditLog({
+      actorType: 'admin',
+      actorId: admin?.username || 'admin',
+      actorName: admin?.name || 'Administrator',
+      action: 'PROCTOR_BROADCAST',
+      category: 'MONITORING',
+      target: 'ALL_CANDIDATES',
+      details: { message, level },
+      ip: getClientIp(request),
+      status: 'SUCCESS'
+    });
+
+    return json(response, 200, { success: true });
+  }
   if (url.pathname === '/api/test') {
     const user = currentUser(request);
     let inProgressAttempt = null;
@@ -3000,7 +3660,13 @@ const server = createServer(async (request, response) => {
     const actorType = url.searchParams.get('actorType') || 'all';
     const search = url.searchParams.get('search') || '';
 
-    const { logs } = await repository.listAuditLogs({ category, status, actorType, search, limit: 1000, offset: 0 });
+    const rawIds = url.searchParams.get('ids');
+    const filterIds = rawIds ? rawIds.split(',').map((s) => s.trim()).filter(Boolean) : null;
+
+    let { logs } = await repository.listAuditLogs({ category, status, actorType, search, limit: 1000, offset: 0 });
+    if (filterIds && filterIds.length > 0) {
+      logs = logs.filter((l) => filterIds.includes(String(l.id)));
+    }
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Assessify Administration Engine';
@@ -3154,8 +3820,8 @@ const server = createServer(async (request, response) => {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
     try {
       googleOAuthState = crypto.randomUUID();
-      const auth = googleClient();
-      const authorizationUrl = auth.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: ['https://www.googleapis.com/auth/calendar'], state: googleOAuthState });
+      const auth = await googleClient();
+      const authorizationUrl = auth.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: ['https://www.googleapis.com/auth/drive.file'], state: googleOAuthState });
       response.writeHead(302, { Location: authorizationUrl });
       return response.end();
     } catch (error) { return json(response, 503, { error: error.message }); }
@@ -3163,7 +3829,7 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/api/admin/google-workspace/callback' && request.method === 'GET') {
     if (!isAdmin(request) || !url.searchParams.get('code') || url.searchParams.get('state') !== googleOAuthState) return json(response, 400, { error: 'Google Workspace authorization could not be verified' });
     try {
-      const auth = googleClient();
+      const auth = await googleClient();
       const { tokens } = await auth.getToken(url.searchParams.get('code'));
       if (!tokens.refresh_token) throw new Error('Google did not return a refresh token. Remove Assessify access in Google and connect again.');
       await repository.setSetting('googleRefreshToken', tokens.refresh_token);
@@ -3171,6 +3837,36 @@ const server = createServer(async (request, response) => {
       response.writeHead(302, { Location: '/?google_workspace=connected' });
       return response.end();
     } catch (error) { return json(response, 503, { error: error.message }); }
+  }
+  if (url.pathname === '/api/admin/recordings/sync-drive' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const pendingList = await repository.listPendingDriveRecordings();
+      let syncedCount = 0;
+      const errors = [];
+      for (const rec of pendingList) {
+        try {
+          const res = await uploadRecordingToDriveAndCleanup(rec.attemptId);
+          if (res) syncedCount++;
+        } catch (e) {
+          errors.push({ attemptId: rec.attemptId, error: e.message });
+        }
+      }
+      await recordAuditLog({
+        actorType: 'admin',
+        actorId: currentUser(request)?.username || 'admin',
+        actorName: currentUser(request)?.name || 'Admin',
+        action: 'SYNC_RECORDINGS_TO_DRIVE',
+        category: 'STORAGE',
+        target: `${syncedCount} recordings`,
+        details: { syncedCount, totalPending: pendingList.length, errors },
+        ip: getClientIp(request),
+        status: errors.length > 0 ? 'WARNING' : 'SUCCESS'
+      });
+      return json(response, 200, { success: true, syncedCount, totalPending: pendingList.length, errors });
+    } catch (error) {
+      return json(response, 500, { error: error.message });
+    }
   }
   if (url.pathname === '/api/speaking-meeting' && request.method === 'GET') {
     const user = currentUser(request);
@@ -4314,6 +5010,9 @@ const server = createServer(async (request, response) => {
     const deleted = await repository.deleteAttempt(attemptId);
     if (deleted) {
       await deleteAttemptFiles(attemptId);
+      broadcastRealtime('admin', 'ATTEMPT_DELETED', { attemptId });
+      activeCandidatePresence.delete(attemptId);
+      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_SYNC', { candidates: getActiveCandidatesSnapshot() });
       await recordAuditLog({
         actorType: 'admin',
         actorId: currentUser(request)?.username || 'admin',
@@ -4350,6 +5049,8 @@ const server = createServer(async (request, response) => {
         ...(finalPlacement ? { overall: finalPlacement } : {}),
         review: isComplete ? 'Teacher reviewed' : 'Review in progress'
       });
+      const updatedAttempt = await repository.getAttempt(attemptId);
+      broadcastRealtime('admin', 'ATTEMPT_GRADED', { attemptId, attempt: updatedAttempt });
       await recordAuditLog({
         actorType: 'admin',
         actorId: currentUser(request)?.username || 'admin',
@@ -4456,6 +5157,9 @@ const server = createServer(async (request, response) => {
         status: 'SUCCESS'
       });
 
+      const latestAttempt = await repository.getAttempt(attemptId);
+      broadcastRealtime('admin', 'ATTEMPT_GRADED', { attemptId, attempt: latestAttempt });
+
       return json(response, 200, {
         success: true,
         writing: {
@@ -4531,15 +5235,49 @@ const server = createServer(async (request, response) => {
     const filePath = join(uploadsDir, filename);
 
     try {
-      const fileStream = createWriteStream(filePath);
-      await pipeline(request, fileStream);
+      const chunks = [];
+      for await (const chunk of request) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      // Step 1: Save buffer to MySQL database first
+      await repository.saveRecordingToDb({
+        attemptId,
+        filename,
+        mimeType: contentType,
+        fileSize: buffer.length,
+        buffer
+      });
+
+      // Step 2: Cache to local uploadsDir for immediate Gemini AI evaluation
+      try {
+        await writeFile(filePath, buffer);
+      } catch (cacheErr) {
+        console.warn('Could not cache recording to local uploadsDir:', cacheErr.message);
+      }
+
       const fileUrl = `/api/attempts/${attemptId}/recording`;
-      const recordingMeta = {
+      let recordingMeta = {
         mimeType: contentType,
         durationSeconds,
         fileUrl,
-        filename
+        filename,
+        driveStatus: 'saved_to_mysql_pending_drive'
       };
+
+      // Step 3: Upload from MySQL to Google Drive, then purge binary payload from MySQL
+      const driveResult = await uploadRecordingToDriveAndCleanup(attemptId);
+      if (driveResult) {
+        recordingMeta = {
+          ...recordingMeta,
+          driveFileId: driveResult.fileId,
+          driveViewLink: driveResult.webViewLink,
+          driveDownloadLink: driveResult.webContentLink,
+          driveStatus: 'uploaded_to_drive'
+        };
+      }
+
       await repository.updateAttempt(attemptId, { speakingRecording: recordingMeta });
       return json(response, 200, { success: true, recording: recordingMeta });
     } catch (error) {
@@ -4569,6 +5307,25 @@ const server = createServer(async (request, response) => {
     }
 
     if (!foundFile) {
+      // Check if media is buffered in MySQL database
+      const dbRec = await repository.getRecordingFromDb(attemptId);
+      if (dbRec?.mediaData) {
+        const mimeType = dbRec.mimeType || 'video/webm';
+        const buf = dbRec.mediaData;
+        response.writeHead(200, {
+          'Content-Length': buf.length,
+          'Content-Type': mimeType,
+          'Accept-Ranges': 'bytes'
+        });
+        return response.end(buf);
+      }
+
+      // Check if uploaded to Google Drive
+      if (attempt.speakingRecording?.driveViewLink) {
+        response.writeHead(302, { Location: attempt.speakingRecording.driveViewLink });
+        return response.end();
+      }
+
       return json(response, 404, { error: 'Recording file not found' });
     }
 
@@ -4647,6 +5404,10 @@ const server = createServer(async (request, response) => {
         transcriptSource: speakingRecording.transcriptSource,
         fileUrl: speakingRecording.fileUrl || null,
         dataUrl: speakingRecording.dataUrl || null,
+        driveFileId: speakingRecording.driveFileId || null,
+        driveViewLink: speakingRecording.driveViewLink || null,
+        driveDownloadLink: speakingRecording.driveDownloadLink || null,
+        driveStatus: speakingRecording.driveStatus || null,
         earlyTermination: Boolean(earlyTermination)
       };
     }
@@ -4667,6 +5428,22 @@ const server = createServer(async (request, response) => {
       submittedAt: new Date().toISOString()
     };
     await repository.updateAttempt(attemptId, scored);
+
+    // Live real-time broadcast of submission
+    broadcastRealtime('admin', 'ATTEMPT_SUBMITTED', { attempt: scored });
+    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 1, totalStages: 5, label: 'Exam responses and media buffer secured in database', status: 'completed' });
+    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 2, totalStages: 5, label: 'Securing cloud archive in Google Drive...', status: 'completed' });
+    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 3, totalStages: 5, label: 'Calculating Grammar & Vocabulary CEFR benchmark...', status: 'completed' });
+    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 4, totalStages: 5, label: 'Evaluating Writing Task Response, Coherence & Lexical Resource...', status: 'completed' });
+    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 5, totalStages: 5, label: 'Provisional CEFR & IELTS placement assessment completed', status: 'completed' });
+
+    if (activeCandidatePresence.has(attemptId)) {
+      const p = activeCandidatePresence.get(attemptId);
+      p.status = 'completed';
+      p.completedAt = Date.now();
+      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+    }
+
     await recordAuditLog({
       actorType: 'teacher',
       actorId: attempt.email,
@@ -4682,13 +5459,7 @@ const server = createServer(async (request, response) => {
       ip: getClientIp(request),
       status: 'SUCCESS'
     });
-    let speakingMeetUrl = null;
-    try {
-      speakingMeetUrl = await createSpeakingMeet(scored);
-      scored.speakingMeetUrl = speakingMeetUrl;
-      await repository.updateAttempt(attemptId, { speakingMeetUrl });
-    } catch { }
-    return json(response, 200, { attempt: scored, speakingMeetUrl });
+    return json(response, 200, { attempt: scored });
   }
 
   // Auto-Save Draft Progress Endpoint (resilient to power cuts and connection loss)
@@ -4728,6 +5499,24 @@ const server = createServer(async (request, response) => {
       update.lastSavedAt = new Date().toISOString();
 
       await repository.updateAttempt(attemptId, update);
+
+      broadcastRealtime('admin', 'ATTEMPT_AUTOSAVED', {
+        attemptId,
+        email: attempt.email,
+        sectionIndex: update.sectionIndex ?? attempt.sectionIndex,
+        answeredCount: Object.keys(update.responses || attempt.responses || {}).length,
+        lastSavedAt: update.lastSavedAt
+      });
+      if (activeCandidatePresence.has(attemptId)) {
+        const p = activeCandidatePresence.get(attemptId);
+        if (update.sectionIndex !== undefined) p.sectionIndex = update.sectionIndex;
+        if (update.responses) p.answeredCount = Object.keys(update.responses).length;
+        if (update.antiCheat) p.antiCheat = update.antiCheat;
+        p.lastHeartbeat = Date.now();
+        p.status = 'active';
+        broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+      }
+
       return json(response, 200, { success: true, lastSavedAt: update.lastSavedAt, attemptId });
     } catch (e) {
       return json(response, 400, { error: e.message });
@@ -4754,13 +5543,26 @@ const server = createServer(async (request, response) => {
       violations: []
     };
 
+    existingAc.violations = Array.isArray(existingAc.violations) ? existingAc.violations : [];
+
+    // SERVER DEBOUNCE: discard burst duplicate events of the same violation type within 1500ms
+    const lastV = existingAc.violations[existingAc.violations.length - 1];
+    const now = Date.now();
+    if (lastV && lastV.type === type && (now - new Date(lastV.timestamp).getTime()) < 1500) {
+      return json(response, 200, {
+        ok: true,
+        debounced: true,
+        antiCheat: existingAc,
+        totalCount: existingAc.totalCount || 0
+      });
+    }
+
     if (type === 'TAB_SWITCH') existingAc.tabSwitches = (existingAc.tabSwitches || 0) + 1;
     else if (type === 'FULLSCREEN_EXIT') existingAc.fullscreenExits = (existingAc.fullscreenExits || 0) + 1;
     else if (type === 'SPLIT_SCREEN') existingAc.splitScreenDetections = (existingAc.splitScreenDetections || 0) + 1;
     else if (type === 'DEVTOOLS_ATTEMPT') existingAc.devToolsAttempts = (existingAc.devToolsAttempts || 0) + 1;
     else if (type === 'COPY_PASTE_ATTEMPT') existingAc.copyPasteAttempts = (existingAc.copyPasteAttempts || 0) + 1;
 
-    existingAc.violations = Array.isArray(existingAc.violations) ? existingAc.violations : [];
     existingAc.violations.push({
       timestamp: new Date().toISOString(),
       type,
@@ -4777,6 +5579,22 @@ const server = createServer(async (request, response) => {
     existingAc.totalCount = totalCount;
 
     await repository.updateAttempt(attemptId, { antiCheat: existingAc });
+
+    broadcastRealtime('admin', 'ANTI_CHEAT_VIOLATION', {
+      attemptId,
+      teacher: attempt.teacher,
+      email: attempt.email,
+      unit: attempt.unit,
+      type,
+      message,
+      totalCount,
+      timestamp: new Date().toISOString()
+    });
+    if (activeCandidatePresence.has(attemptId)) {
+      const p = activeCandidatePresence.get(attemptId);
+      p.antiCheat = existingAc;
+      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+    }
 
     await recordAuditLog({
       actorType: 'teacher',
@@ -4915,6 +5733,22 @@ const server = createServer(async (request, response) => {
         expiresAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
       }
 
+      activeCandidatePresence.set(existingInProgress.id, {
+        attemptId: existingInProgress.id,
+        email: user.email,
+        name: user.name || user.email,
+        unit: existingInProgress.unit || user.unit || 'School',
+        sectionIndex: existingInProgress.sectionIndex || 0,
+        sectionName: 'Grammar & Vocabulary',
+        answeredCount: Object.keys(existingInProgress.responses || {}).length,
+        totalQuestions: gvQuestions.length || 25,
+        remainingMs: existingInProgress.sectionRemainingMs?.[existingInProgress.sectionIndex || 0] || durationMins * 60 * 1000,
+        antiCheat: existingInProgress.antiCheat,
+        lastHeartbeat: Date.now(),
+        status: 'active'
+      });
+      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', activeCandidatePresence.get(existingInProgress.id));
+
       await recordAuditLog({
         actorType: 'teacher',
         actorId: user.email,
@@ -4977,6 +5811,29 @@ const server = createServer(async (request, response) => {
     };
     await repository.createAttempt(attempt);
 
+    broadcastRealtime('admin', 'ATTEMPT_STARTED', {
+      attempt,
+      teacher: user.name || user.email,
+      email: user.email,
+      unit: attempt.unit,
+      startedAt
+    });
+    activeCandidatePresence.set(attempt.id, {
+      attemptId: attempt.id,
+      email: user.email,
+      name: user.name || user.email,
+      unit: attempt.unit,
+      sectionIndex: 0,
+      sectionName: 'Grammar & Vocabulary',
+      answeredCount: 0,
+      totalQuestions: gvQuestions.length || 25,
+      remainingMs: durationMins * 60 * 1000,
+      antiCheat: attempt.antiCheat,
+      lastHeartbeat: Date.now(),
+      status: 'active'
+    });
+    broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', activeCandidatePresence.get(attempt.id));
+
     await recordAuditLog({
       actorType: 'teacher',
       actorId: user.email,
@@ -5028,7 +5885,7 @@ const server = createServer(async (request, response) => {
 
 const PORT = Number(process.env.PORT) || 3000;
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`Assessify running at http://localhost:${PORT}`);
   connectMySQL();
 });

@@ -41,7 +41,15 @@ function showToast(message, type = 'success', duration = 4500) {
 
 const request = async (path, options = {}) => {
   try {
-    const response = await fetch(path, options);
+    const fetchOptions = { ...options };
+    if (fetchOptions.body && typeof fetchOptions.body === 'object' && !(fetchOptions.body instanceof FormData) && !(fetchOptions.body instanceof Blob)) {
+      fetchOptions.body = JSON.stringify(fetchOptions.body);
+      fetchOptions.headers = {
+        'Content-Type': 'application/json',
+        ...(fetchOptions.headers || {})
+      };
+    }
+    const response = await fetch(path, fetchOptions);
     if (response.status === 204) return {};
     const data = await response.json();
     if (!response.ok) return { error: data.error || 'Request failed' };
@@ -171,6 +179,367 @@ const renderQuestion = (question, section) => {
   if (question.options) return `${audio}<p><strong>${question.prompt}</strong></p>${question.options.map((option) => `<label class="option"><input type="radio" name="${question.id}"> ${option}</label>`).join('')}`;
   return `<p><strong>${question.prompt}</strong></p>${section.id === 'speaking' ? `<video id="camera-preview" autoplay muted playsinline style="width:100%;max-width:480px;background:#17263d;border-radius:8px;display:block;margin:14px 0"></video><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="status" id="recording-status">Preparing camera…</span><button class="ghost" id="stop-recording" type="button">Stop recording</button></div>` : `<textarea id="writing-response" rows="8" placeholder="Write your response here" style="width:100%;border:1px solid var(--line);padding:12px;font:14px 'DM Sans';border-radius:7px"></textarea>`}`;
 };
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+class RealtimeClient {
+  constructor() {
+    this.eventSource = null;
+    this.listeners = new Map();
+    this.status = 'disconnected';
+    this.attemptId = null;
+  }
+
+  on(eventType, callback) {
+    if (!this.listeners.has(eventType)) {
+      this.listeners.set(eventType, new Set());
+    }
+    this.listeners.get(eventType).add(callback);
+    return () => this.off(eventType, callback);
+  }
+
+  off(eventType, callback) {
+    if (this.listeners.has(eventType)) {
+      this.listeners.get(eventType).delete(callback);
+    }
+  }
+
+  emit(eventType, data) {
+    if (this.listeners.has(eventType)) {
+      for (const cb of this.listeners.get(eventType)) {
+        try { cb(data); } catch (e) { console.error(`Realtime handler error for ${eventType}:`, e); }
+      }
+    }
+  }
+
+  updateIndicator(status) {
+    this.status = status;
+    let container = document.querySelector('#live-sync-indicator');
+    if (!container) {
+      const topActions = document.querySelector('.top-actions');
+      if (topActions) {
+        container = document.createElement('div');
+        container.id = 'live-sync-indicator';
+        topActions.insertBefore(container, topActions.firstChild);
+      }
+    }
+    if (!container) return;
+
+    if (status === 'connected') {
+      container.innerHTML = `<div class="live-sync-pill" title="Connected to Assessify live real-time event bus"><span class="live-sync-dot"></span><span>Live Sync</span></div>`;
+    } else if (status === 'reconnecting') {
+      container.innerHTML = `<div class="live-sync-pill is-reconnecting" title="Reconnecting to real-time event stream..."><span class="live-sync-dot"></span><span>Reconnecting…</span></div>`;
+    } else {
+      container.innerHTML = `<div class="live-sync-pill is-offline" title="Live real-time sync is offline"><span class="live-sync-dot"></span><span>Offline</span></div>`;
+    }
+  }
+
+  connect(attemptId = null) {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    if (attemptId) this.attemptId = attemptId;
+
+    const url = `/api/realtime/events${this.attemptId ? `?attemptId=${encodeURIComponent(this.attemptId)}` : ''}`;
+    this.updateIndicator('reconnecting');
+
+    try {
+      this.eventSource = new EventSource(url);
+
+      this.eventSource.onopen = () => {
+        this.updateIndicator('connected');
+      };
+
+      this.eventSource.onerror = () => {
+        this.updateIndicator('reconnecting');
+      };
+
+      const eventTypes = [
+        'CONNECTED',
+        'CANDIDATE_PRESENCE_SYNC',
+        'CANDIDATE_PRESENCE_UPDATE',
+        'PROCTOR_MESSAGE',
+        'TIME_EXTENDED',
+        'FORCE_SUBMIT',
+        'BROADCAST_ANNOUNCEMENT',
+        'ATTEMPT_STARTED',
+        'ATTEMPT_AUTOSAVED',
+        'ANTI_CHEAT_VIOLATION',
+        'ATTEMPT_SUBMITTED',
+        'GRADING_PROGRESS',
+        'ATTEMPT_GRADED',
+        'ATTEMPT_DELETED',
+        'AUDIT_LOG_ENTRY'
+      ];
+
+      for (const evType of eventTypes) {
+        this.eventSource.addEventListener(evType, (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            this.emit(evType, parsed.data || parsed);
+          } catch (e) {
+            console.warn(`Could not parse event ${evType}:`, e);
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('EventSource connection error:', err);
+      this.updateIndicator('offline');
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.updateIndicator('offline');
+  }
+}
+
+const realtime = new RealtimeClient();
+
+// Global Proctor Listeners
+realtime.on('PROCTOR_MESSAGE', (data) => {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'proctor-alert-backdrop';
+  overlay.innerHTML = `
+    <div class="proctor-alert-box">
+      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+      <h3 style="margin:0 0 10px 0;font-size:18px;font-weight:800;color:#991b1b">PROCTOR WARNING</h3>
+      <p style="font-size:14px;color:#1e293b;line-height:1.5;margin-bottom:16px">${escapeHtml(data.message)}</p>
+      <div style="font-size:12px;color:#64748b;margin-bottom:20px">Issued by <strong>${escapeHtml(data.sender || 'Exam Proctor')}</strong> at ${new Date(data.sentAt || Date.now()).toLocaleTimeString()}</div>
+      <button class="button" id="btn-ack-proctor-alert" style="width:100%;padding:10px 18px;font-weight:700;background:#dc2626;color:#fff">Acknowledge & Return to Test</button>
+    </div>
+  `;
+  modalRoot.appendChild(overlay);
+  overlay.querySelector('#btn-ack-proctor-alert').onclick = () => overlay.remove();
+});
+
+realtime.on('BROADCAST_ANNOUNCEMENT', (data) => {
+  const existing = document.querySelector('#proctor-broadcast-banner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'proctor-broadcast-banner';
+  banner.className = 'proctor-broadcast-banner';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">📢</span>
+      <div>
+        <div style="font-weight:700;font-size:13.5px">${escapeHtml(data.sender || 'Exam Announcement')}</div>
+        <div style="font-size:13px;opacity:0.95">${escapeHtml(data.message)}</div>
+      </div>
+    </div>
+    <button type="button" style="background:none;border:none;color:#fff;font-size:16px;cursor:pointer;opacity:0.8" aria-label="Close">✕</button>
+  `;
+  document.body.appendChild(banner);
+  banner.querySelector('button').onclick = () => banner.remove();
+  setTimeout(() => { if (banner.parentElement) banner.remove(); }, 12000);
+});
+
+function openProctorWarningModal(attemptId, candidateName) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'proctor-alert-backdrop';
+  overlay.innerHTML = `
+    <div class="proctor-alert-box" style="border-top-color:#2563eb;text-align:left">
+      <h3 style="margin:0 0 6px 0;font-size:17px;font-weight:800;color:var(--navy)">Send Live Proctor Warning</h3>
+      <p style="margin:0 0 16px 0;font-size:13px;color:var(--muted)">Target: <strong>${escapeHtml(candidateName)}</strong> (<code>${attemptId}</code>)</p>
+      
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--navy)">Preset Quick Notice:</label>
+        <select id="preset-warning" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px">
+          <option value="">-- Choose template or type below --</option>
+          <option value="Tab switching is strictly forbidden. Please stay focused on the assessment.">Tab switching forbidden</option>
+          <option value="Please return to full-screen mode immediately to continue your assessment.">Return to full-screen mode</option>
+          <option value="Ensure your microphone and camera remain unmuted and unobstructed.">Check camera & microphone</option>
+          <option value="Multiple display or split-screen usage has been flagged by the proctoring engine.">Split screen detected</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--navy)">Custom Warning Message:</label>
+        <textarea id="proctor-warn-text" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:inherit" placeholder="Enter instructions for candidate…"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="ghost" id="btn-cancel-warn" type="button" style="padding:8px 14px">Cancel</button>
+        <button class="button" id="btn-send-warn" type="button" style="padding:8px 18px;background:#dc2626;color:#fff;font-weight:600">Send Warning</button>
+      </div>
+    </div>
+  `;
+  modalRoot.appendChild(overlay);
+
+  const preset = overlay.querySelector('#preset-warning');
+  const txt = overlay.querySelector('#proctor-warn-text');
+  preset.onchange = () => { if (preset.value) txt.value = preset.value; };
+  overlay.querySelector('#btn-cancel-warn').onclick = () => overlay.remove();
+
+  overlay.querySelector('#btn-send-warn').onclick = async () => {
+    const msg = txt.value.trim();
+    if (!msg) return showToast('Please enter a warning message', 'error');
+    overlay.querySelector('#btn-send-warn').disabled = true;
+    overlay.querySelector('#btn-send-warn').textContent = 'Sending…';
+
+    const res = await request('/api/admin/proctor/message', {
+      method: 'POST',
+      body: { attemptId, message: msg }
+    });
+    overlay.remove();
+    if (res.success) {
+      showToast(`Warning sent to ${candidateName}`, 'success');
+    } else {
+      showToast(res.error || 'Failed to send warning', 'error');
+    }
+  };
+}
+
+function openProctorBroadcastModal() {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'proctor-alert-backdrop';
+  overlay.innerHTML = `
+    <div class="proctor-alert-box" style="border-top-color:#1e3a8a;text-align:left">
+      <h3 style="margin:0 0 6px 0;font-size:17px;font-weight:800;color:var(--navy)">Broadcast Live Announcement</h3>
+      <p style="margin:0 0 16px 0;font-size:13px;color:var(--muted)">This notice will display instantly across all candidates currently taking an assessment.</p>
+
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--navy)">Quick Announcement Presets:</label>
+        <select id="preset-broadcast" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px">
+          <option value="">-- Choose preset or type custom below --</option>
+          <option value="15 minutes remaining in today's testing window. Please pace your remaining tasks.">15 minutes remaining</option>
+          <option value="5 minutes remaining! All unsubmitted answers will automatically finalize at deadline.">5 minutes remaining</option>
+          <option value="System announcement: Please review your written essays before proceeding to Speaking.">Review essays notice</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--navy)">Broadcast Message:</label>
+        <textarea id="proctor-broadcast-text" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:inherit" placeholder="Type announcement for all candidates…"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="ghost" id="btn-cancel-broadcast" type="button" style="padding:8px 14px">Cancel</button>
+        <button class="button" id="btn-send-broadcast" type="button" style="padding:8px 18px;background:#2563eb;color:#fff;font-weight:600">Broadcast Now</button>
+      </div>
+    </div>
+  `;
+  modalRoot.appendChild(overlay);
+
+  const preset = overlay.querySelector('#preset-broadcast');
+  const txt = overlay.querySelector('#proctor-broadcast-text');
+  preset.onchange = () => { if (preset.value) txt.value = preset.value; };
+  overlay.querySelector('#btn-cancel-broadcast').onclick = () => overlay.remove();
+
+  overlay.querySelector('#btn-send-broadcast').onclick = async () => {
+    const msg = txt.value.trim();
+    if (!msg) return showToast('Please enter an announcement message', 'error');
+    overlay.querySelector('#btn-send-broadcast').disabled = true;
+    overlay.querySelector('#btn-send-broadcast').textContent = 'Broadcasting…';
+
+    const res = await request('/api/admin/proctor/broadcast', {
+      method: 'POST',
+      body: { message: msg }
+    });
+    overlay.remove();
+    if (res.success) {
+      showToast('Broadcast sent to all candidates', 'success');
+    } else {
+      showToast(res.error || 'Failed to broadcast', 'error');
+    }
+  };
+}
+
+function openProctorForceSubmitModal(attemptId, candidateName) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+
+  const submitIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="force-submit-modal-backdrop">
+      <div class="modal-card" style="max-width:480px" role="dialog" aria-modal="true" aria-labelledby="force-submit-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon" style="background:rgba(220,38,38,0.1);color:#dc2626">${submitIcon}</div>
+            <div>
+              <h2 id="force-submit-title" style="margin:0;color:#dc2626">Force Submit Assessment</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Session proctoring override</p>
+            </div>
+          </div>
+          <button class="modal-close" id="close-force-submit-btn" type="button" aria-label="Close modal">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+          <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:var(--ink)">
+            Are you sure you want to <strong>FORCE SUBMIT</strong> the assessment for <strong>${escapeHtml(candidateName)}</strong> (<code>${escapeHtml(attemptId)}</code>)?
+          </p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;padding:12px 14px;border-radius:8px;font-size:13px;color:#991b1b;margin-bottom:20px">
+            ⚠️ <strong>Warning:</strong> This will immediately lock the candidate's active test session, finalize all recorded responses, and generate their provisional CEFR placement band. This action cannot be undone.
+          </div>
+          <div id="force-submit-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-bottom:12px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="button ghost" id="btn-cancel-force-submit" style="padding:10px 18px">Cancel</button>
+            <button type="button" class="button" id="btn-confirm-force-submit" style="padding:10px 20px;background:#dc2626;border-color:#dc2626;color:#ffffff;display:flex;align-items:center;gap:6px">
+              ${submitIcon} <span>Confirm Force Submit</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const onKey = (e) => {
+    if (e.key === 'Escape') closeModal();
+  };
+  const closeModal = () => {
+    modalRoot.innerHTML = '';
+    window.removeEventListener('keydown', onKey);
+  };
+  window.addEventListener('keydown', onKey);
+
+  modalRoot.querySelector('#close-force-submit-btn').onclick = closeModal;
+  modalRoot.querySelector('#btn-cancel-force-submit').onclick = closeModal;
+  modalRoot.querySelector('#force-submit-modal-backdrop').onclick = (e) => {
+    if (e.target.id === 'force-submit-modal-backdrop') closeModal();
+  };
+
+  const confirmBtn = modalRoot.querySelector('#btn-confirm-force-submit');
+  const errEl = modalRoot.querySelector('#force-submit-error');
+
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Submitting…';
+
+    const subRes = await request('/api/admin/proctor/force-submit', {
+      method: 'POST',
+      body: { attemptId, reason: 'Force submitted by exam proctor' }
+    });
+
+    if (subRes.error || !subRes.success) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `${submitIcon} <span>Confirm Force Submit</span>`;
+      errEl.textContent = subRes.error || 'Failed to force submit';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    closeModal();
+    showToast(`Successfully force-submitted assessment for ${candidateName}`, 'success');
+  };
+}
 
 function renderLogin(initialRole) {
   document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
@@ -344,6 +713,7 @@ function renderLogin(initialRole) {
 function boot(user) {
   document.querySelector('#logout').hidden = false;
   document.querySelector('#role-label').textContent = user.role === 'admin' ? 'Admin workspace' : (user.role === 'student' ? 'Student workspace' : 'Placement Candidate workspace');
+  realtime.connect();
   user.role === 'admin' ? renderAdmin() : request('/api/test').then((test) => renderTeacher(test, user));
 }
 
@@ -1129,6 +1499,37 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   let saveDebounceTimer = null;
   let hasRestoredToastShown = false;
 
+  // Connect candidate to real-time telemetry channel
+  realtime.connect(attemptId);
+
+  const handleTimeExtended = (ev) => {
+    const addedMinutes = Number(ev.minutes) || 5;
+    const addedMs = Number(ev.addedMs) || (addedMinutes * 60 * 1000);
+    if (sectionEndTimes[sectionIndex]) {
+      sectionEndTimes[sectionIndex] = Number(sectionEndTimes[sectionIndex]) + addedMs;
+    }
+    if (sectionRemainingMs[sectionIndex] !== undefined) {
+      sectionRemainingMs[sectionIndex] = Number(sectionRemainingMs[sectionIndex]) + addedMs;
+    }
+    persistProgress(true);
+    showToast(`⏱️ Proctor Intervention: +${addedMinutes} minutes granted! ${ev.reason ? '(' + ev.reason + ')' : ''}`, 'success', 8000);
+  };
+
+  const handleForceSubmit = (ev) => {
+    showToast(`⚠️ Proctor Intervention: Assessment submitted by proctor (${ev.reason || 'Proctor administrative action'})`, 'error', 10000);
+    submitAssessment(true);
+  };
+
+  const handleCandidateAttemptDeleted = (ev) => {
+    if (ev.attemptId === attemptId) {
+      handleAttemptDeleted();
+    }
+  };
+
+  realtime.on('TIME_EXTENDED', handleTimeExtended);
+  realtime.on('FORCE_SUBMIT', handleForceSubmit);
+  realtime.on('ATTEMPT_DELETED', handleCandidateAttemptDeleted);
+
   // ==========================================
   // ANTI-CHEAT CONTROLS ENGINE
   // ==========================================
@@ -1434,6 +1835,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     if (splitScreenBannerEl) { splitScreenBannerEl.remove(); splitScreenBannerEl = null; }
     const warningDiv = document.querySelector('#tab-warning-overlay');
     if (warningDiv) warningDiv.remove();
+    realtime.off('TIME_EXTENDED', handleTimeExtended);
+    realtime.off('FORCE_SUBMIT', handleForceSubmit);
+    realtime.off('ATTEMPT_DELETED', handleCandidateAttemptDeleted);
   };
 
   const handleAttemptDeleted = () => {
@@ -1662,14 +2066,56 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     } catch { }
 
     app.innerHTML = `
-      <div class="teacher-shell" style="max-width:680px;margin:80px auto;text-align:center">
-        <div class="panel" style="padding:48px 36px">
-          <div style="width:56px;height:56px;border-radius:50%;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-size:28px;margin:0 auto 20px">⏳</div>
-          <h2 style="font:700 24px 'Space Grotesk';margin:0 0 10px;color:var(--ink)">Submitting Assessment Responses…</h2>
-          <p style="color:var(--muted);font-size:14px">Saving video/audio recording and submitting test responses. Please wait a moment.</p>
+      <div class="teacher-shell submission-shell" style="max-width:620px;margin:60px auto">
+        <div class="grading-pipeline-container">
+          <div style="text-align:center">
+            <div style="width:52px;height:52px;border-radius:50%;background:#eff6ff;color:#2563eb;display:grid;place-items:center;font-size:26px;margin:0 auto 16px">⚡</div>
+            <h2 style="font:700 22px 'Space Grotesk';margin:0 0 8px;color:var(--ink)">Submitting Assessment Responses</h2>
+            <p style="color:var(--muted);font-size:13.5px;margin:0">Live real-time grading and media upload pipeline</p>
+          </div>
+          <div class="grading-pipeline-steps" id="grading-pipeline-steps">
+            <div class="grading-step-row active" id="g-step-1">
+              <div class="grading-step-icon">⏳</div>
+              <div style="flex:1;font-size:13.5px;font-weight:600">Securing exam responses and media buffer in database...</div>
+            </div>
+            <div class="grading-step-row" id="g-step-2">
+              <div class="grading-step-icon">○</div>
+              <div style="flex:1;font-size:13.5px;font-weight:600">Securing cloud archive in Google Drive...</div>
+            </div>
+            <div class="grading-step-row" id="g-step-3">
+              <div class="grading-step-icon">○</div>
+              <div style="flex:1;font-size:13.5px;font-weight:600">Calculating Grammar & Vocabulary CEFR benchmark...</div>
+            </div>
+            <div class="grading-step-row" id="g-step-4">
+              <div class="grading-step-icon">○</div>
+              <div style="flex:1;font-size:13.5px;font-weight:600">Evaluating Writing Task Response, Coherence & Lexical Resource...</div>
+            </div>
+            <div class="grading-step-row" id="g-step-5">
+              <div class="grading-step-icon">○</div>
+              <div style="flex:1;font-size:13.5px;font-weight:600">Finalizing CEFR & IELTS placement assessment...</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+
+    const onGradingProgress = (ev) => {
+      const stageNum = ev.stage;
+      for (let s = 1; s <= 5; s++) {
+        const row = document.querySelector(`#g-step-${s}`);
+        if (!row) continue;
+        if (s < stageNum || (s === stageNum && ev.status === 'completed')) {
+          row.className = 'grading-step-row completed';
+          const icon = row.querySelector('.grading-step-icon');
+          if (icon) icon.textContent = '✓';
+        } else if (s === stageNum) {
+          row.className = 'grading-step-row active';
+          const icon = row.querySelector('.grading-step-icon');
+          if (icon) icon.textContent = '⏳';
+        }
+      }
+    };
+    realtime.on('GRADING_PROGRESS', onGradingProgress);
 
     await stopMedia();
     speakingRecordingState = 'stopped';
@@ -1708,6 +2154,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     });
 
     cleanupAntiCheat();
+    realtime.off('GRADING_PROGRESS', onGradingProgress);
 
     if (result?.error) {
       if (result.error === 'Attempt not found' || result.attemptDeleted) {
@@ -1722,6 +2169,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       }
       return;
     }
+
+    // Brief pause to allow candidate to see completed pipeline status
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
     app.innerHTML = `
       <div class="teacher-shell submission-shell" style="max-width:680px;margin:50px auto;text-align:center">
@@ -2674,13 +3124,33 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
   draw();
 
-  // Background heartbeat verifying attempt has not been deleted by administrator
+  // Live real-time heartbeat and candidate presence telemetry
   heartbeatInterval = setInterval(async () => {
     if (isTerminated || !document.querySelector('.test-screen')) {
       clearInterval(heartbeatInterval);
       return;
     }
     try {
+      const curSection = section();
+      const currentRemainingMs = sectionEndTimes[sectionIndex]
+        ? Math.max(0, Number(sectionEndTimes[sectionIndex]) - Date.now())
+        : (sectionRemainingMs[sectionIndex] || 0);
+
+      // Send telemetry to real-time proctoring presence
+      fetch('/api/realtime/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attemptId,
+          sectionIndex,
+          sectionName: curSection?.title || curSection?.label || `Section ${sectionIndex + 1}`,
+          answeredCount: Object.keys(answers || {}).length,
+          totalQuestions: curSection?.questions?.length || (sectionIndex === 0 ? 25 : (sectionIndex === 1 ? 2 : 1)),
+          remainingMs: currentRemainingMs,
+          antiCheat: antiCheatTracker
+        })
+      }).catch(() => {});
+
       const res = await fetch(`/api/attempts/${attemptId}/status`);
       if (res.status === 401 || res.status === 403 || res.status === 404) {
         clearInterval(heartbeatInterval);
@@ -2699,7 +3169,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         }
       }
     } catch {}
-  }, 8000);
+  }, 4000);
 }
 
 const getStoredAdminTab = () => {
@@ -2718,13 +3188,13 @@ const adminState = {
 
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash) && adminState.activeTab !== hash) {
+  if (['live', 'results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash) && adminState.activeTab !== hash) {
     renderAdmin(hash);
   }
 });
 
 async function renderAdmin(tab) {
-  if (!tab || !['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(tab)) {
+  if (!tab || !['live', 'results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(tab)) {
     tab = getStoredAdminTab();
   }
   adminState.activeTab = tab;
@@ -2758,6 +3228,14 @@ async function renderAdmin(tab) {
           <div class="sidebar-section">
             <div class="sidebar-title">Main Menu</div>
             <nav class="sidebar-nav">
+              <button class="sidebar-btn ${tab === 'live' ? 'active' : ''}" id="nav-live" type="button">
+                <span class="sidebar-icon">${ICONS.eye}</span>
+                <span>Live Proctoring</span>
+                <span class="sidebar-badge" style="background:#10b981;color:#fff;display:inline-flex;align-items:center;gap:4px">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#fff;animation:pulseLiveDot 1.5s infinite"></span>
+                  Live
+                </span>
+              </button>
               <button class="sidebar-btn ${tab === 'results' ? 'active' : ''}" id="nav-results" type="button">
                 <span class="sidebar-icon">${ICONS.results}</span>
                 <span>Candidate Results</span>
@@ -2846,6 +3324,8 @@ async function renderAdmin(tab) {
     renderAdmin(tabKey);
   };
 
+  const navLiveBtn = document.querySelector('#nav-live');
+  if (navLiveBtn) navLiveBtn.onclick = () => navTabClick('live');
   document.querySelector('#nav-results').onclick = () => navTabClick('results');
   document.querySelector('#nav-questions').onclick = () => navTabClick('questions');
   document.querySelector('#nav-rubrics').onclick = () => navTabClick('rubrics');
@@ -2860,7 +3340,14 @@ async function renderAdmin(tab) {
   const backdrop = document.querySelector('#sidebar-backdrop');
   if (backdrop) backdrop.onclick = closeMobileSidebar;
 
-  // Clear active background live polling timers from previous tabs
+  // Clear active background live polling timers and realtime listeners from previous tabs
+  if (window._adminTabUnsubs && Array.isArray(window._adminTabUnsubs)) {
+    window._adminTabUnsubs.forEach(unsub => {
+      try { unsub(); } catch {}
+    });
+  }
+  window._adminTabUnsubs = [];
+
   if (window.adminAuditLiveTimer) {
     clearInterval(window.adminAuditLiveTimer);
     window.adminAuditLiveTimer = null;
@@ -2869,10 +3356,16 @@ async function renderAdmin(tab) {
     clearInterval(window.adminResultsLiveTimer);
     window.adminResultsLiveTimer = null;
   }
+  if (window.proctorTickInterval) {
+    clearInterval(window.proctorTickInterval);
+    window.proctorTickInterval = null;
+  }
 
   const mainContainer = document.querySelector('#admin-content');
 
-  if (tab === 'results') {
+  if (tab === 'live') {
+    await renderAdminLiveTab(mainContainer);
+  } else if (tab === 'results') {
     await renderAdminResultsTab(mainContainer);
   } else if (tab === 'users') {
     await renderAdminUsersTab(mainContainer);
@@ -2887,6 +3380,369 @@ async function renderAdmin(tab) {
   } else if (tab === 'settings') {
     await renderAdminSettingsTab(mainContainer);
   }
+}
+
+async function renderAdminLiveTab(container) {
+  // Clean up any existing listeners and timer for live proctoring tab
+  if (window._adminTabUnsubs && Array.isArray(window._adminTabUnsubs)) {
+    window._adminTabUnsubs.forEach(unsub => {
+      try { unsub(); } catch {}
+    });
+  }
+  window._adminTabUnsubs = [];
+  if (window.proctorTickInterval) {
+    clearInterval(window.proctorTickInterval);
+    window.proctorTickInterval = null;
+  }
+
+  container.innerHTML = `
+    <div class="proctor-header">
+      <div>
+        <div class="eyebrow" style="display:inline-flex;align-items:center;gap:6px">
+          <span style="width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulseLiveDot 1.6s infinite"></span>
+          Live Session Telemetry
+        </div>
+        <h1 style="font:700 28px 'Space Grotesk';margin:6px 0 4px;color:var(--navy)">Exam Proctoring & Telemetry Center</h1>
+        <p style="margin:0;font-size:13.5px;color:var(--muted)">Active candidate telemetry, real-time anti-cheat detection, time extensions, and session proctoring controls.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn-icon" id="btn-broadcast-open" type="button" style="padding:9px 16px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:10px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.25)">
+          <span>📢</span> <span>Broadcast to Candidates</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Overview Metrics -->
+    <div class="proctor-metrics-grid">
+      <div class="proctor-stat-card">
+        <div class="proctor-stat-icon" style="background:#eff6ff;color:#2563eb">${ICONS.users}</div>
+        <div>
+          <div class="proctor-stat-num" id="stat-active-candidates">0</div>
+          <div class="proctor-stat-label">Active Test-Takers Now</div>
+        </div>
+      </div>
+      <div class="proctor-stat-card">
+        <div class="proctor-stat-icon" style="background:#fef2f2;color:#dc2626">${ICONS.alertTriangle}</div>
+        <div>
+          <div class="proctor-stat-num" id="stat-security-alerts">0</div>
+          <div class="proctor-stat-label">Security Incidents Today</div>
+        </div>
+      </div>
+      <div class="proctor-stat-card">
+        <div class="proctor-stat-icon" style="background:#f0fdf4;color:#16a34a">${ICONS.checkCircle}</div>
+        <div>
+          <div class="proctor-stat-num" id="stat-completed-today">0</div>
+          <div class="proctor-stat-label">Completed Tests Today</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Candidates Grid Section -->
+    <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px">
+        <span>👨‍💻</span> <span>Live Test-Takers Cockpit</span>
+      </h3>
+      <div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">
+        <span class="live-sync-dot"></span> <span>Reactive stream active</span>
+      </div>
+    </div>
+    <div class="proctor-candidates-grid" id="proctor-candidates-container">
+      <div style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border-radius:12px;border:1px dashed var(--line);color:var(--muted)">
+        Connecting to active test sessions…
+      </div>
+    </div>
+
+    <!-- Real-Time Proctoring Feed -->
+    <div class="proctor-live-feed">
+      <div class="proctor-feed-header">
+        <h4 style="margin:0;font-size:14.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px">
+          <span>⚡</span> Real-Time Proctor & Security Feed
+        </h4>
+        <span style="font-size:11.5px;color:var(--muted)">Live telemetry stream</span>
+      </div>
+      <div class="proctor-feed-list" id="proctor-live-feed-list">
+        <div class="proctor-feed-empty" style="text-align:center;padding:16px;font-size:12px;color:var(--muted)">Proctor event feed initialized. Monitoring candidate activity…</div>
+      </div>
+    </div>
+  `;
+
+  // Fetch initial candidates snapshot
+  const res = await request('/api/admin/proctor/candidates');
+  let candidates = res.candidates || [];
+  const resultsData = await request('/api/admin/results');
+  const allResults = resultsData.results || [];
+  const completedToday = allResults.filter(r => r.status === 'Completed').length;
+  const compEl = document.querySelector('#stat-completed-today');
+  if (compEl) compEl.textContent = completedToday;
+
+  const updateSecurityAlertsStat = () => {
+    const sum = candidates.reduce((total, c) => total + (c.antiCheat?.totalCount || 0), 0);
+    const alertsEl = document.querySelector('#stat-security-alerts');
+    if (alertsEl) alertsEl.textContent = sum;
+  };
+  updateSecurityAlertsStat();
+
+  // Populate initial feed entries from candidates' violation history
+  const feedList = document.querySelector('#proctor-live-feed-list');
+  const initialEntries = [];
+  for (const c of candidates) {
+    const candName = c.name || c.teacher || c.email;
+    if (Array.isArray(c.antiCheat?.violations) && c.antiCheat.violations.length > 0) {
+      c.antiCheat.violations.forEach(v => {
+        initialEntries.push({
+          candidateName: candName,
+          type: v.type,
+          message: v.message || 'Candidate switched browser tab or minimized window',
+          timestamp: v.timestamp || new Date().toISOString()
+        });
+      });
+    }
+  }
+
+  if (feedList) {
+    if (initialEntries.length === 0) {
+      feedList.innerHTML = `<div class="proctor-feed-empty" style="text-align:center;padding:24px 16px;font-size:12.5px;color:var(--muted)">No security violations detected. Telemetry monitoring active.</div>`;
+    } else {
+      initialEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      feedList.innerHTML = initialEntries.slice(0, 30).map(entry => {
+        const timeStr = new Date(entry.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+        return `
+          <div class="proctor-feed-entry security-alert">
+            <div>⚠️ <strong>SECURITY ALERT:</strong> ${escapeHtml(entry.candidateName)} triggered <code>${entry.type}</code> - ${escapeHtml(entry.message)}</div>
+            <span style="font-size:11px;opacity:0.75;white-space:nowrap">${timeStr}</span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  function renderCandidatesGrid() {
+    const grid = document.querySelector('#proctor-candidates-container');
+    if (!grid) return;
+
+    const activeList = candidates.filter(c => c.status !== 'completed');
+    const actEl = document.querySelector('#stat-active-candidates');
+    if (actEl) actEl.textContent = activeList.length;
+
+    if (activeList.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:48px 24px;background:#fff;border-radius:14px;border:1px dashed var(--line)">
+          <div style="font-size:32px;margin-bottom:8px">👨‍🏫</div>
+          <h4 style="margin:0 0 6px 0;font-size:15px;color:var(--navy);font-weight:700">No Active Test-Takers At This Moment</h4>
+          <p style="margin:0;font-size:13px;color:var(--muted)">When a candidate starts an assessment, their real-time screen telemetry, countdown timer, question progress, and anti-cheat events will populate here live.</p>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = activeList.map(cand => {
+      const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
+      const violations = cand.antiCheat?.totalCount || 0;
+      const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
+      const remMins = Math.floor(remSecs / 60);
+      const remSecRemainder = remSecs % 60;
+      const timeDisplay = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+
+      return `
+        <div class="proctor-candidate-card ${violations > 0 ? 'has-alert' : ''}" data-attempt-id="${cand.attemptId}">
+          <div>
+            <div class="proctor-candidate-header">
+              <div class="proctor-candidate-info">
+                <h4>${escapeHtml(cand.name || cand.email)}</h4>
+                <div class="proctor-candidate-meta">${escapeHtml(cand.unit || 'School')} • <span style="font-family:monospace">${cand.attemptId}</span></div>
+              </div>
+              <span class="proctor-status-chip ${cand.status}">
+                <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
+                ${cand.status.toUpperCase()}
+              </span>
+            </div>
+
+            <div class="proctor-progress-wrapper">
+              <div class="proctor-progress-label">
+                <span>${escapeHtml(cand.sectionName || 'Grammar & Vocabulary')}</span>
+                <span>${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)</span>
+              </div>
+              <div class="proctor-progress-bar">
+                <div class="proctor-progress-fill" style="width:${pct}%"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px">
+              <div class="proctor-time-tag">
+                ${ICONS.clock} <span class="cand-timer">${timeDisplay}</span>
+              </div>
+              <div class="anti-cheat-pill-badge ${violations > 0 ? 'warning' : 'active'}" title="Tab switches: ${cand.antiCheat?.tabSwitches || 0}, Fullscreen exits: ${cand.antiCheat?.fullscreenExits || 0}">
+                ${ICONS.shield} <span>${violations} Violation${violations === 1 ? '' : 's'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="proctor-card-footer">
+            <span style="font-size:11px;color:var(--muted)">Proctor Control</span>
+            <div class="proctor-action-buttons">
+              <button class="btn-proctor-action btn-proctor-warn" data-id="${cand.attemptId}" data-name="${escapeHtml(cand.name || cand.email)}" type="button" title="Send Proctor Warning">
+                ⚠️ Warn
+              </button>
+              <button class="btn-proctor-action btn-proctor-extend" data-id="${cand.attemptId}" type="button" title="Extend Time by 5 minutes">
+                +5m
+              </button>
+              <button class="btn-proctor-action danger btn-proctor-submit" data-id="${cand.attemptId}" data-name="${escapeHtml(cand.name || cand.email)}" type="button" title="Force Submit Assessment">
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.btn-proctor-warn').forEach(btn => {
+      btn.onclick = () => openProctorWarningModal(btn.dataset.id, btn.dataset.name);
+    });
+    grid.querySelectorAll('.btn-proctor-extend').forEach(btn => {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        btn.textContent = '…';
+        const extRes = await request('/api/admin/proctor/extend-time', {
+          method: 'POST',
+          body: { attemptId: btn.dataset.id, additionalMinutes: 5 }
+        });
+        btn.disabled = false;
+        btn.textContent = '+5m';
+        if (extRes.success) {
+          showToast(`Extended time by 5 minutes for candidate ${btn.dataset.id}`, 'success');
+        } else {
+          showToast(extRes.error || 'Failed to extend time', 'error');
+        }
+      };
+    });
+    grid.querySelectorAll('.btn-proctor-submit').forEach(btn => {
+      btn.onclick = () => {
+        openProctorForceSubmitModal(btn.dataset.id, btn.dataset.name);
+      };
+    });
+  }
+
+  renderCandidatesGrid();
+
+  const recentFeedKeys = new Map();
+  function appendProctorFeed(text, type = 'info', timestamp = null) {
+    const list = document.querySelector('#proctor-live-feed-list');
+    if (!list) return;
+
+    // Deduplicate identical alerts within 2500ms
+    const alertKey = `${type}_${text}`;
+    const now = Date.now();
+    if (recentFeedKeys.has(alertKey) && (now - recentFeedKeys.get(alertKey) < 2500)) {
+      return;
+    }
+    recentFeedKeys.set(alertKey, now);
+
+    const emptyEl = list.querySelector('.proctor-feed-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const timeStr = timestamp
+      ? new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+      : new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+
+    const item = document.createElement('div');
+    item.className = `proctor-feed-entry ${type === 'alert' ? 'security-alert' : (type === 'submission' ? 'submission' : '')}`;
+    item.innerHTML = `
+      <div>${text}</div>
+      <span style="font-size:11px;opacity:0.75;white-space:nowrap">${timeStr}</span>
+    `;
+    list.insertBefore(item, list.firstChild);
+    while (list.children.length > 30) list.removeChild(list.lastChild);
+  }
+
+  // Ticking interval for candidate remaining times
+  window.proctorTickInterval = setInterval(() => {
+    if (localStorage.getItem('assessify_admin_tab') !== 'live') {
+      clearInterval(window.proctorTickInterval);
+      window.proctorTickInterval = null;
+      return;
+    }
+    let anyChanged = false;
+    for (const c of candidates) {
+      if (c.status === 'active' && c.remainingMs > 1000) {
+        c.remainingMs -= 1000;
+        anyChanged = true;
+      }
+    }
+    if (anyChanged) {
+      candidates.forEach(c => {
+        const card = document.querySelector(`.proctor-candidate-card[data-attempt-id="${c.attemptId}"]`);
+        if (card) {
+          const remSecs = Math.max(0, Math.floor((c.remainingMs || 0) / 1000));
+          const remMins = Math.floor(remSecs / 60);
+          const remSecRemainder = remSecs % 60;
+          const timerEl = card.querySelector('.cand-timer');
+          if (timerEl) timerEl.textContent = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+        }
+      });
+    }
+  }, 1000);
+
+  // Subscribe to real-time events and register unsubs
+  window._adminTabUnsubs.push(
+    realtime.on('CANDIDATE_PRESENCE_SYNC', (syncData) => {
+      if (Array.isArray(syncData.candidates)) {
+        candidates = syncData.candidates;
+        renderCandidatesGrid();
+        updateSecurityAlertsStat();
+      }
+    }),
+    realtime.on('CANDIDATE_PRESENCE_UPDATE', (presence) => {
+      const idx = candidates.findIndex(c => c.attemptId === presence.attemptId);
+      if (idx !== -1) {
+        candidates[idx] = presence;
+      } else {
+        candidates.push(presence);
+      }
+      renderCandidatesGrid();
+      updateSecurityAlertsStat();
+    }),
+    realtime.on('ATTEMPT_STARTED', (evData) => {
+      appendProctorFeed(`Candidate <strong>${escapeHtml(evData.teacher || evData.email)}</strong> (${evData.unit || 'School'}) started assessment.`, 'info', evData.startedAt);
+      showToast(`Candidate started assessment: ${evData.teacher || evData.email}`, 'info', 3000);
+    }),
+    realtime.on('ANTI_CHEAT_VIOLATION', (evData) => {
+      // 1. Update candidate violation count in memory
+      const cand = candidates.find(c => c.attemptId === evData.attemptId);
+      if (cand) {
+        if (!cand.antiCheat) cand.antiCheat = { totalCount: 0, violations: [] };
+        cand.antiCheat.totalCount = evData.totalCount || ((cand.antiCheat.totalCount || 0) + 1);
+        cand.antiCheat.violations = Array.isArray(cand.antiCheat.violations) ? cand.antiCheat.violations : [];
+        cand.antiCheat.violations.push({
+          type: evData.type,
+          message: evData.message,
+          timestamp: evData.timestamp || new Date().toISOString()
+        });
+        renderCandidatesGrid();
+      }
+
+      // 2. Security Incidents Today is strictly synchronized to total violation count
+      updateSecurityAlertsStat();
+
+      // 3. Append to proctor feed with deduplication
+      appendProctorFeed(`⚠️ <strong>SECURITY ALERT:</strong> ${escapeHtml(evData.teacher || evData.email)} triggered <code>${evData.type}</code> - ${escapeHtml(evData.message)}`, 'alert', evData.timestamp);
+      showToast(`Proctor Alert: ${evData.teacher || evData.email} (${evData.type})`, 'error', 5000);
+    }),
+    realtime.on('ATTEMPT_SUBMITTED', (evData) => {
+      const att = evData.attempt || {};
+      appendProctorFeed(`✓ Assessment submitted by <strong>${escapeHtml(att.teacher || att.email)}</strong>. Provisional Band: ${att.overall || 'Pending'}`, 'submission');
+      showToast(`Assessment submitted: ${att.teacher || att.email}`, 'success', 4000);
+      const completedEl = document.querySelector('#stat-completed-today');
+      if (completedEl) completedEl.textContent = Number(completedEl.textContent || 0) + 1;
+    }),
+    realtime.on('ATTEMPT_DELETED', (evData) => {
+      candidates = candidates.filter(c => c.attemptId !== evData.attemptId);
+      renderCandidatesGrid();
+      updateSecurityAlertsStat();
+    })
+  );
+
+  const bBtn = document.querySelector('#btn-broadcast-open');
+  if (bBtn) bBtn.onclick = () => openProctorBroadcastModal();
 }
 
 async function renderAdminResultsTab(container) {
@@ -3215,6 +4071,49 @@ async function renderAdminResultsTab(container) {
   document.querySelector('#status').onchange = filter;
   document.querySelector('#review-filter').onchange = filter;
   bindDetails();
+
+  // Reactive real-time event listeners for live candidate results
+  const updateResultsLive = async () => {
+    if (localStorage.getItem('assessify_admin_tab') !== 'results') return;
+    const isSearching = document.activeElement && document.activeElement.id === 'search';
+    const isModalOpen = Boolean(modalRoot && modalRoot.innerHTML !== '');
+    const hasChecked = document.querySelectorAll('.attempt-checkbox:checked').length > 0;
+    if (isSearching || isModalOpen || hasChecked) return;
+
+    const fresh = await request('/api/admin/results');
+    if (!fresh || !fresh.results) return;
+    data.results = fresh.results;
+    data.total = fresh.total;
+
+    const compCount = data.results.filter((item) => item.status === 'Completed').length;
+    const pendCount = data.results.filter((item) => item.review === 'Pending' || item.review?.includes('required')).length;
+
+    const kpiTotal = container.querySelector('.kpi-indigo strong');
+    const kpiComp = container.querySelector('.kpi-green strong');
+    const kpiPend = container.querySelector('.kpi-amber strong');
+    if (kpiTotal) kpiTotal.textContent = data.total;
+    if (kpiComp) kpiComp.textContent = compCount;
+    if (kpiPend) kpiPend.textContent = pendCount;
+
+    filter();
+  };
+
+  window._adminTabUnsubs = window._adminTabUnsubs || [];
+  window._adminTabUnsubs.push(
+    realtime.on('ATTEMPT_STARTED', updateResultsLive),
+    realtime.on('ATTEMPT_SUBMITTED', updateResultsLive),
+    realtime.on('ATTEMPT_GRADED', updateResultsLive),
+    realtime.on('ATTEMPT_DELETED', updateResultsLive),
+    realtime.on('ANTI_CHEAT_VIOLATION', (ev) => {
+      const rowEl = container.querySelector(`tr[data-attempt-id="${ev.attemptId}"]`);
+      if (rowEl) {
+        const cell = rowEl.querySelector('td:nth-child(8)');
+        if (cell) {
+          cell.innerHTML = `<span class="pill" style="font-size:11.5px;background:#fef2f2;color:#dc2626;border-color:#fecaca;white-space:nowrap;box-shadow:0 0 0 2px rgba(239,68,68,0.2)" title="${ev.totalCount} incident(s)">⚠️ ${ev.totalCount} Violations</span>`;
+        }
+      }
+    })
+  );
 }
 
 async function renderAdminUsersTab(container) {
@@ -3535,7 +4434,7 @@ async function renderAdminUsersTab(container) {
       tbody.querySelectorAll('.btn-suspend-user').forEach((btn) => {
         btn.onclick = () => {
           const target = findUser(btn.dataset.id, btn.dataset.role);
-          if (target) changeUserStatus(target, 'suspended');
+          if (target) openSuspendUserModal(target, () => updateTable());
         };
       });
 
@@ -3549,7 +4448,7 @@ async function renderAdminUsersTab(container) {
       tbody.querySelectorAll('.btn-archive-user').forEach((btn) => {
         btn.onclick = () => {
           const target = findUser(btn.dataset.id, btn.dataset.role);
-          if (target) changeUserStatus(target, 'archived');
+          if (target) openArchiveUserModal(target, () => updateTable());
         };
       });
 
@@ -3674,8 +4573,16 @@ async function renderAdminUsersTab(container) {
     };
 
     container.querySelector('#btn-bulk-activate').onclick = () => applyBulkStatus('active');
-    container.querySelector('#btn-bulk-suspend').onclick = () => applyBulkStatus('suspended');
-    container.querySelector('#btn-bulk-archive').onclick = () => applyBulkStatus('archived');
+    container.querySelector('#btn-bulk-suspend').onclick = () => {
+      const targets = getSelectedTargets();
+      if (!targets.length) return;
+      openBulkStatusUsersModal(targets, findUser, 'suspended', () => applyBulkStatus('suspended'));
+    };
+    container.querySelector('#btn-bulk-archive').onclick = () => {
+      const targets = getSelectedTargets();
+      if (!targets.length) return;
+      openBulkStatusUsersModal(targets, findUser, 'archived', () => applyBulkStatus('archived'));
+    };
     container.querySelector('#btn-bulk-delete').onclick = () => {
       const targets = getSelectedTargets();
       if (!targets.length) return;
@@ -4823,6 +5730,196 @@ function openDeleteUserModal(user) {
   };
 }
 
+function openSuspendUserModal(user, onStatusChanged) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+
+  const isAdminUser = user.role === 'admin' || user.role === 'admin_user';
+  const isStudent = user.role === 'students' || user.role === 'student';
+
+  let roleLabel = 'Teacher Candidate';
+  let statusUrl = `/api/admin/teachers/${user.id}/status`;
+  let warningText = 'This candidate will no longer be authorized to take placement assessments.';
+
+  if (isAdminUser) {
+    roleLabel = 'Administrator';
+    statusUrl = `/api/admin/admins/${user.id}/status`;
+    warningText = 'This administrator will temporarily lose access to the administration portal until reactivated.';
+  } else if (isStudent) {
+    roleLabel = 'Student Account';
+    statusUrl = `/api/admin/students/${user.id}/status`;
+    warningText = 'This student account will temporarily be unable to take placement assessments.';
+  }
+
+  const pauseIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line></svg>`;
+  const pauseBtnIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line></svg>`;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="suspend-user-modal-backdrop">
+      <div class="modal-card" style="max-width:480px" role="dialog" aria-modal="true" aria-labelledby="suspend-um-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon" style="background:rgba(217,119,6,0.12);color:#d97706">${pauseIcon}</div>
+            <div>
+              <h2 id="suspend-um-title" style="margin:0;color:#d97706">Suspend ${roleLabel}</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Temporarily restrict user access</p>
+            </div>
+          </div>
+          <button class="modal-close" id="close-suspend-um" type="button" aria-label="Close modal">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+          <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:var(--ink)">
+            Are you sure you want to suspend ${roleLabel.toLowerCase()} <strong>${user.name}</strong> (${isAdminUser ? `@${user.username}` : user.email})?
+          </p>
+          <div style="background:#fffbeb;border:1px solid #fde68a;padding:12px 14px;border-radius:8px;font-size:13px;color:#92400e;margin-bottom:20px">
+            ⚠️ <strong>Warning:</strong> ${warningText}
+          </div>
+          <div id="suspend-um-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-bottom:12px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="button ghost" id="btn-cancel-suspend-um" style="padding:10px 18px">Cancel</button>
+            <button type="button" class="button" id="btn-confirm-suspend-um" style="padding:10px 20px;background:#d97706;border-color:#d97706;color:#ffffff;display:flex;align-items:center;gap:6px">
+              ${pauseBtnIcon} <span>Confirm Suspend</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#close-suspend-um').onclick = closeModal;
+  modalRoot.querySelector('#btn-cancel-suspend-um').onclick = closeModal;
+  modalRoot.querySelector('#suspend-user-modal-backdrop').onclick = (e) => {
+    if (e.target.id === 'suspend-user-modal-backdrop') closeModal();
+  };
+
+  const confirmBtn = modalRoot.querySelector('#btn-confirm-suspend-um');
+  const errEl = modalRoot.querySelector('#suspend-um-error');
+
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Suspending…';
+
+    const res = await request(statusUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'suspended' })
+    });
+
+    if (res.error) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `${pauseBtnIcon} <span>Confirm Suspend</span>`;
+      errEl.textContent = res.error;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    closeModal();
+    user.status = 'suspended';
+    showToast(`✓ Account "${user.name}" marked as suspended.`, 'success');
+    if (typeof onStatusChanged === 'function') {
+      onStatusChanged();
+    } else {
+      renderAdmin('users');
+    }
+  };
+}
+
+function openArchiveUserModal(user, onStatusChanged) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+
+  const isAdminUser = user.role === 'admin' || user.role === 'admin_user';
+  const isStudent = user.role === 'students' || user.role === 'student';
+
+  let roleLabel = 'Teacher Candidate';
+  let statusUrl = `/api/admin/teachers/${user.id}/status`;
+  let warningText = 'This candidate account will be archived and deactivated from active testing rosters. Historical assessment records will remain preserved.';
+
+  if (isAdminUser) {
+    roleLabel = 'Administrator';
+    statusUrl = `/api/admin/admins/${user.id}/status`;
+    warningText = 'This administrator account will be moved to archives and access permissions will be revoked.';
+  } else if (isStudent) {
+    roleLabel = 'Student Account';
+    statusUrl = `/api/admin/students/${user.id}/status`;
+    warningText = 'This student account will be archived and removed from active rosters. Assessment history will remain preserved.';
+  }
+
+  const archiveIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`;
+  const archiveBtnIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="archive-user-modal-backdrop">
+      <div class="modal-card" style="max-width:480px" role="dialog" aria-modal="true" aria-labelledby="archive-um-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon" style="background:rgba(71,85,105,0.12);color:#475569">${archiveIcon}</div>
+            <div>
+              <h2 id="archive-um-title" style="margin:0;color:#334155">Archive ${roleLabel}</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:var(--muted)">Move user account to archived records</p>
+            </div>
+          </div>
+          <button class="modal-close" id="close-archive-um" type="button" aria-label="Close modal">✕</button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+          <p style="font-size:14px;line-height:1.6;margin:0 0 16px;color:var(--ink)">
+            Are you sure you want to archive ${roleLabel.toLowerCase()} <strong>${user.name}</strong> (${isAdminUser ? `@${user.username}` : user.email})?
+          </p>
+          <div style="background:#f8fafc;border:1px solid #cbd5e1;padding:12px 14px;border-radius:8px;font-size:13px;color:#334155;margin-bottom:20px">
+            📦 <strong>Notice:</strong> ${warningText}
+          </div>
+          <div id="archive-um-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-bottom:12px"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" class="button ghost" id="btn-cancel-archive-um" style="padding:10px 18px">Cancel</button>
+            <button type="button" class="button" id="btn-confirm-archive-um" style="padding:10px 20px;background:#475569;border-color:#475569;color:#ffffff;display:flex;align-items:center;gap:6px">
+              ${archiveBtnIcon} <span>Confirm Archive</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#close-archive-um').onclick = closeModal;
+  modalRoot.querySelector('#btn-cancel-archive-um').onclick = closeModal;
+  modalRoot.querySelector('#archive-user-modal-backdrop').onclick = (e) => {
+    if (e.target.id === 'archive-user-modal-backdrop') closeModal();
+  };
+
+  const confirmBtn = modalRoot.querySelector('#btn-confirm-archive-um');
+  const errEl = modalRoot.querySelector('#archive-um-error');
+
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Archiving…';
+
+    const res = await request(statusUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' })
+    });
+
+    if (res.error) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `${archiveBtnIcon} <span>Confirm Archive</span>`;
+      errEl.textContent = res.error;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    closeModal();
+    user.status = 'archived';
+    showToast(`✓ Account "${user.name}" marked as archived.`, 'success');
+    if (typeof onStatusChanged === 'function') {
+      onStatusChanged();
+    } else {
+      renderAdmin('users');
+    }
+  };
+}
+
 function openBulkDeleteUsersModal(targets, findUser) {
   const modalRoot = document.querySelector('#modal-root');
   if (!modalRoot) return;
@@ -4892,6 +5989,106 @@ function openBulkDeleteUsersModal(targets, findUser) {
     closeModal();
     showToast(`✓ Deleted ${res.deletedCount || targets.length} accounts.`, 'success');
     renderAdmin('users');
+  };
+}
+
+function openBulkStatusUsersModal(targets, findUser, newStatus, onCompleted) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+
+  const isSuspend = newStatus === 'suspended';
+  const actionTitle = isSuspend ? 'Suspend' : 'Archive';
+  const actionColor = isSuspend ? '#d97706' : '#475569';
+  const actionBg = isSuspend ? '#fffbeb' : '#f8fafc';
+  const actionBorder = isSuspend ? '#fde68a' : '#cbd5e1';
+  const actionText = isSuspend ? '#92400e' : '#334155';
+  const iconColor = isSuspend ? '#d97706' : '#475569';
+  const iconBg = isSuspend ? 'rgba(217,119,6,0.12)' : 'rgba(71,85,105,0.12)';
+
+  const iconSvg = isSuspend
+    ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line></svg>`
+    : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`;
+
+  const btnIconSvg = isSuspend
+    ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="10" y1="15" x2="10" y2="9"></line><line x1="14" y1="15" x2="14" y2="9"></line></svg>`
+    : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>`;
+
+  const noticeMessage = isSuspend
+    ? '⚠️ <strong>Warning:</strong> Selected accounts will be suspended and will temporarily lose access to the portal or assessments.'
+    : '📦 <strong>Notice:</strong> Selected accounts will be archived and removed from active testing rosters.';
+
+  const names = targets.map((t) => {
+    const u = typeof findUser === 'function' ? findUser(t.id, t.role) : null;
+    return u ? `${u.name} (${u.role === 'admin' ? `@${u.username}` : u.email || u.unit || 'Candidate'})` : `${t.role} #${t.id}`;
+  });
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" id="bulk-status-users-backdrop" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;backdrop-filter:blur(4px)">
+      <div class="modal-card" style="max-width:480px;background:#ffffff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,0.2);overflow:hidden;padding:0" role="dialog" aria-modal="true">
+        <div style="padding:28px 24px 20px;text-align:center">
+          <div style="width:56px;height:56px;border-radius:50%;background:${iconBg};color:${iconColor};display:grid;place-items:center;margin:0 auto 16px">
+            ${iconSvg}
+          </div>
+          <h3 style="font:700 20px 'Space Grotesk';color:var(--ink);margin:0 0 8px">${actionTitle} ${targets.length} User Accounts?</h3>
+          <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5">
+            Are you sure you want to ${actionTitle.toLowerCase()} <strong>${targets.length} selected account${targets.length > 1 ? 's' : ''}</strong>?
+          </p>
+          <div style="max-height:120px;overflow-y:auto;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:12px 0 0;font-size:12px;text-align:left;color:var(--ink)">
+            ${names.map((n) => `<div>• <strong>${n}</strong></div>`).join('')}
+          </div>
+          <div style="background:${actionBg};border:1px solid ${actionBorder};color:${actionText};font-size:12px;padding:10px 12px;border-radius:8px;margin-top:14px;text-align:left">
+            ${noticeMessage}
+          </div>
+          <div id="bulk-status-users-error" style="color:#dc2626;font-size:13px;font-weight:600;display:none;margin-top:12px"></div>
+        </div>
+        <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+          <button class="ghost" id="btn-cancel-bulk-status-users" type="button" style="padding:8px 16px;font-size:13px">Cancel</button>
+          <button class="button" id="btn-confirm-bulk-status-users" type="button" style="background:${actionColor};border-color:${actionColor};color:#ffffff;padding:8px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px">
+            ${btnIconSvg} <span>Yes, ${actionTitle} ${targets.length} Accounts</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const closeModal = () => { modalRoot.innerHTML = ''; };
+  modalRoot.querySelector('#btn-cancel-bulk-status-users').onclick = closeModal;
+  modalRoot.querySelector('#bulk-status-users-backdrop').onclick = (e) => {
+    if (e.target.id === 'bulk-status-users-backdrop') closeModal();
+  };
+
+  const confirmBtn = modalRoot.querySelector('#btn-confirm-bulk-status-users');
+  const errEl = modalRoot.querySelector('#bulk-status-users-error');
+
+  confirmBtn.onclick = async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = `${actionTitle}ing…`;
+
+    const res = await request('/api/admin/users/bulk-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets, status: newStatus })
+    });
+
+    if (res.error) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `${btnIconSvg} <span>Yes, ${actionTitle} ${targets.length} Accounts</span>`;
+      errEl.textContent = res.error;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    closeModal();
+    if (typeof onCompleted === 'function') {
+      onCompleted();
+    } else {
+      targets.forEach((t) => {
+        const u = typeof findUser === 'function' ? findUser(t.id, t.role) : null;
+        if (u) u.status = newStatus;
+      });
+      showToast(`✓ Updated ${res.updatedCount || targets.length} accounts to ${newStatus}.`, 'success');
+      renderAdmin('users');
+    }
   };
 }
 
@@ -6471,7 +7668,9 @@ async function openGradingModal(attemptInput) {
   const totalWords = isSingleEssay ? countWords(singleEssayCandidateText) : (task1Words + task2Words);
   const totalLetters = isSingleEssay ? singleEssayCandidateText.length : (task1Text.length + task2Text.length);
 
-  const recordingInfo = attempt.speakingRecording ? `${attempt.speakingRecording.mimeType || 'audio/video'}, ${attempt.speakingRecording.durationSeconds || 0}s (${attempt.speakingRecording.transcriptSource || 'recorded'})` : 'No media record file attached';
+  const recordingInfo = attempt.speakingRecording
+    ? `${attempt.speakingRecording.mimeType || 'audio/video'}, ${attempt.speakingRecording.durationSeconds || 0}s${attempt.speakingRecording.driveViewLink ? ' · Google Drive' : ''} (${attempt.speakingRecording.transcriptSource || 'recorded'})`
+    : 'No media record file attached';
   const gvBand = attempt.sectionScores?.['Grammar & Vocabulary'] || attempt.scoring?.grammarVocabulary?.level || '—';
 
   const computeTotals = () => {
@@ -6719,11 +7918,25 @@ async function openGradingModal(attemptInput) {
                 </div>
                 <span style="font-size:12px;color:var(--muted)">${recordingInfo}</span>
               </div>
-              ${(attempt.speakingRecording?.fileUrl || attempt.speakingRecording?.dataUrl) ? `
-                <div class="recording-meta"><span class="rec-dot"></span> Spoken audio/video recording — ${attempt.speakingRecording.durationSeconds || 0}s · ${attempt.speakingRecording.mimeType || 'video/webm'}</div>
-                <video class="speaking-playback" id="review-speaking-video" controls playsinline preload="auto" src="${attempt.speakingRecording.fileUrl || attempt.speakingRecording.dataUrl}"></video>
-                <div style="display:flex;align-items:center;gap:10px;margin:6px 0 8px">
+              ${(attempt.speakingRecording?.fileUrl || attempt.speakingRecording?.dataUrl || attempt.speakingRecording?.driveViewLink) ? `
+                <div class="recording-meta" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <div><span class="rec-dot"></span> Spoken audio/video recording — ${attempt.speakingRecording.durationSeconds || 0}s · ${attempt.speakingRecording.mimeType || 'video/webm'}</div>
+                  ${attempt.speakingRecording?.driveViewLink ? `
+                    <a href="${attempt.speakingRecording.driveViewLink}" target="_blank" rel="noopener noreferrer" class="pill success" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:12px;font-weight:700">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      Open in Google Drive
+                    </a>
+                  ` : ''}
+                </div>
+                <video class="speaking-playback" id="review-speaking-video" controls playsinline preload="auto" src="${attempt.speakingRecording.fileUrl || attempt.speakingRecording.dataUrl || attempt.speakingRecording.driveViewLink}"></video>
+                <div style="display:flex;align-items:center;gap:10px;margin:6px 0 8px;flex-wrap:wrap">
                   <button type="button" class="button button-sm" id="btn-force-play-video" style="padding:6px 14px;font-size:12px">▶ Play Recording with Audio</button>
+                  ${attempt.speakingRecording?.driveViewLink ? `
+                    <a href="${attempt.speakingRecording.driveViewLink}" target="_blank" rel="noopener noreferrer" class="ghost" style="padding:4px 10px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      View in Google Drive
+                    </a>
+                  ` : ''}
                   <span style="font-size:12px;color:var(--muted)">Ensure device output speaker is unmuted</span>
                 </div>
               ` : `<div class="recording-meta" style="background:#fef3c7;color:#92400e">⚠ No video recording stored for this attempt</div>`}
@@ -7217,6 +8430,8 @@ async function renderAdminAuditTab(container) {
     activeActorsCount: 0
   };
 
+
+
   const hasActiveFilters = () =>
     auditFilterState.category !== 'all' ||
     auditFilterState.status !== 'all' ||
@@ -7270,71 +8485,161 @@ async function renderAdminAuditTab(container) {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const formatCleanIp = (ip) => {
+    if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') return '127.0.0.1 (Local)';
+    return ip.replace(/^::ffff:/, '');
+  };
+
+  const getCategoryLabel = (cat) => {
+    const c = (cat || 'SYSTEM').toUpperCase();
+    switch (c) {
+      case 'AUTH': return 'Authentication';
+      case 'ASSESSMENT': return 'Assessment Taking';
+      case 'MONITORING': return 'Live Proctoring';
+      case 'EVALUATION': return 'Rubrics & Scoring';
+      case 'USER_MGMT': return 'User Management';
+      case 'CONTENT': return 'Question Bank';
+      case 'SECURITY': return 'Security & Access';
+      case 'SYSTEM': return 'System Engine';
+      default: return c;
+    }
+  };
+
+  const getActorRoleLabel = (role, id) => {
+    const r = (role || 'system').toLowerCase();
+    if (r === 'admin') return id ? `Admin · @${id}` : 'Administrator';
+    if (r === 'teacher') return id ? `Teacher · ${id}` : 'Teacher Candidate';
+    if (r === 'candidate' || r === 'student') return id ? `Student · #${id}` : 'Student';
+    return 'System Engine';
+  };
+
   const renderRowHtml = (log) => {
     const dt = formatDateTimeParts(log.timestamp);
+    const actorRole = (log.actorType || 'system').toLowerCase();
+    const isAdminUser = actorRole === 'admin';
+    const isTeacher = actorRole === 'teacher';
+    const isCandidate = actorRole === 'candidate' || actorRole === 'student';
+
+    // 1. Avatar Style & Initials (exact match to User Manager table in Image 1)
+    let avatarStyle = 'background:#f1f5f9;color:#475569;border:1.5px solid #cbd5e1;';
+    if (isAdminUser) {
+      avatarStyle = 'background:#f3e8ff;color:#7e22ce;border:1.5px solid #e9d5ff;';
+    } else if (isTeacher) {
+      avatarStyle = 'background:#eff6ff;color:#1d4ed8;border:1.5px solid #dbeafe;';
+    } else if (isCandidate) {
+      avatarStyle = 'background:#ecfdf5;color:#047857;border:1.5px solid #a7f3d0;';
+    }
+
+    const initials = getInitials(log.actorName || log.actorId);
+    const roleSub = getActorRoleLabel(log.actorType, log.actorId);
+
+    // 2. Action Badge & Category
+    const cat = (log.category || 'SYSTEM').toUpperCase();
+    let actionStyle = 'background:#f8fafc;color:#334155;border:1px solid #cbd5e1;';
+    if (cat === 'SECURITY') {
+      actionStyle = 'background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;';
+    } else if (cat === 'AUTH') {
+      actionStyle = 'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;';
+    } else if (cat === 'ASSESSMENT') {
+      actionStyle = 'background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;';
+    } else if (cat === 'MONITORING') {
+      actionStyle = 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;';
+    } else if (cat === 'EVALUATION') {
+      actionStyle = 'background:#faf5ff;color:#7e22ce;border:1px solid #e9d5ff;';
+    } else if (cat === 'USER_MGMT') {
+      actionStyle = 'background:#fff7ed;color:#c2410c;border:1px solid #ffedd5;';
+    } else if (cat === 'CONTENT') {
+      actionStyle = 'background:#fdf4ff;color:#a21caf;border:1px solid #fae8ff;';
+    }
+    const catLabel = getCategoryLabel(log.category);
+
+    // 3. Target Scope & IP
+    const scopeVal = log.target && log.target !== '-' ? log.target : (log.category || 'System');
+    const isAttempt = scopeVal.startsWith('ATT-');
+    const unitBadge = isAttempt
+      ? `<span class="attempt-pill" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${escapeHtml(scopeVal)}</span>`
+      : `<span class="unit-pill" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${escapeHtml(scopeVal)}</span>`;
+    const cleanIp = formatCleanIp(log.ipAddress);
+
+    // 4. Status Pill
+    const st = (log.status || 'SUCCESS').toUpperCase();
+    let statusPill = `<span class="pill success"><span class="pill-dot"></span> Success</span>`;
+    if (st === 'WARNING') {
+      statusPill = `<span class="pill" style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-weight:600"><span class="pill-dot" style="background:#f59e0b"></span> Warning</span>`;
+    } else if (st === 'FAILURE' || st === 'FAILED') {
+      statusPill = `<span class="pill" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:600"><span class="pill-dot" style="background:#ef4444"></span> Failed</span>`;
+    }
+
     return `
       <tr data-log-id="${log.id}">
-        <td style="padding:12px 16px">
-          <div class="audit-time-cell">
-            <span class="audit-time-date">${dt.date}</span>
-            <span class="audit-time-clock">${dt.time}</span>
-          </div>
-        </td>
-        <td style="padding:12px 16px">
-          <div class="audit-actor-cell">
-            <div class="audit-actor-avatar ${getActorAvatarClass(log.actorType)}">
-              ${getInitials(log.actorName || log.actorId)}
-            </div>
-            <div class="audit-actor-info">
-              <span class="audit-actor-name" title="${log.actorName || 'System'}">${log.actorName || 'System'}</span>
-              <span class="audit-actor-meta" title="${log.actorId || 'system'}">${log.actorId || 'system'}</span>
-              <span class="audit-role-badge ${log.actorType || 'system'}">${log.actorType || 'system'}</span>
+        <!-- Col 1: User / Actor -->
+        <td class="audit-cell-actor" style="overflow:hidden">
+          <div class="teacher-cell" style="overflow:hidden;gap:12px">
+            <div class="teacher-avatar-sm" style="${avatarStyle};width:36px;height:36px;min-width:36px;font-size:13px">${initials}</div>
+            <div style="min-width:0;overflow:hidden">
+              <div class="teacher-meta-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;font-weight:600;color:var(--ink)" title="${escapeHtml(log.actorName || log.actorId || 'System')}">
+                ${escapeHtml(log.actorName || log.actorId || 'System')}
+              </div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHtml(roleSub)}">
+                ${escapeHtml(roleSub)}
+              </div>
             </div>
           </div>
         </td>
-        <td style="padding:12px 16px">
-          <span class="audit-action-chip ${getActionClass(log.category)}">
-            ${log.action}
-          </span>
+
+        <!-- Col 2: Action / Event -->
+        <td class="audit-cell-action" style="overflow:hidden">
+          <div class="audit-action-meta-wrap">
+            <div style="max-width:100%;overflow:hidden;text-overflow:ellipsis">
+              <span class="audit-action-chip" style="${actionStyle}" title="${escapeHtml(log.action)}">
+                ${escapeHtml(log.action)}
+              </span>
+            </div>
+            <div class="audit-cat-sub" title="${escapeHtml(catLabel)}">
+              ${escapeHtml(catLabel)}
+            </div>
+          </div>
         </td>
-        <td style="padding:12px 16px">
-          <span class="audit-cat-tag">${log.category}</span>
+
+        <!-- Col 3: Target / Scope -->
+        <td class="audit-cell-target" style="overflow:hidden">
+          <div class="audit-target-wrap">
+            <div style="max-width:100%;overflow:hidden;text-overflow:ellipsis">
+              ${unitBadge}
+            </div>
+            <div class="audit-ip-sub" title="${escapeHtml(cleanIp)}">
+              ${escapeHtml(cleanIp)}
+            </div>
+          </div>
         </td>
-        <td style="padding:12px 16px">
-          <span class="audit-target-text" title="${log.target || '-'}">${log.target || '-'}</span>
+
+        <!-- Col 4: Timestamp -->
+        <td class="audit-cell-time" style="overflow:hidden">
+          <div class="audit-time-wrap">
+            <div class="audit-time-date">${dt.date}</div>
+            <div class="audit-time-clock">${dt.time}</div>
+          </div>
         </td>
-        <td style="padding:12px 16px">
-          <span class="audit-ip-pill">${log.ipAddress || '127.0.0.1'}</span>
-        </td>
-        <td style="padding:12px 16px">
-          ${getStatusBadge(log.status)}
-        </td>
-        <td style="padding:12px 16px;text-align:center">
-          <button class="btn-inspect-audit" data-id="${log.id}" type="button" title="View event details">
-            ${ICONS.eye} Inspect
-          </button>
+
+        <!-- Col 5: Status -->
+        <td class="audit-cell-status" style="text-align:right;white-space:nowrap;padding-right:16px">
+          <div class="audit-status-cell-wrap">
+            ${statusPill}
+            <button type="button" class="btn-action-icon btn-inspect-audit" data-id="${log.id}" title="Inspect full audit details">
+              ${ICONS.eye}
+            </button>
+          </div>
         </td>
       </tr>
     `;
   };
 
   const renderEmptyHtml = () => `
-    <tr>
-      <td colspan="8" style="padding:0">
-        ${hasActiveFilters() ? `
-          <div class="audit-empty-card">
-            <div class="audit-empty-icon-wrap" style="background:#eff6ff;color:#2563eb">${ICONS.search}</div>
-            <h3 style="font:700 18px 'Space Grotesk';color:var(--ink);margin:12px 0 4px">No Matching Audit Events</h3>
-            <p style="color:var(--muted);font-size:13.5px;max-width:420px;margin:0 auto 16px">No logs match your filter criteria. Try adjusting your search keywords or resetting your dropdown filters.</p>
-            <button class="button ghost" id="btn-reset-filters-empty" type="button">Reset All Filters</button>
-          </div>
-        ` : `
-          <div class="audit-empty-card">
-            <div class="audit-empty-icon-wrap" style="background:#f0fdf4;color:#16a34a">${ICONS.shield}</div>
-            <h3 style="font:700 18px 'Space Grotesk';color:var(--ink);margin:12px 0 4px">Audit Log Initialized (Clean State)</h3>
-            <p style="color:var(--muted);font-size:13.5px;max-width:480px;margin:0 auto">All real user and system operations (teacher logins, assessment starts, draft saves, submissions, evaluations, and setting updates) will be automatically recorded here in real-time as they occur.</p>
-          </div>
-        `}
+    <tr class="audit-empty-row">
+      <td colspan="5" class="audit-empty-cell" style="text-align:center;padding:48px 16px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:8px">📋</div>
+        <div style="font-weight:700;font-size:15px;color:var(--ink)">No Audit Events Found</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">Try adjusting your search query, role, status, or category filter.</div>
       </td>
     </tr>
   `;
@@ -7380,7 +8685,7 @@ async function renderAdminAuditTab(container) {
 
     modalRoot.innerHTML = `
       <div class="modal-backdrop" id="audit-detail-modal">
-        <div class="modal-card" style="max-width:520px;padding:24px;border-radius:14px;margin:auto;box-shadow:var(--shadow-lg)">
+        <div class="modal-card audit-detail-modal-card" style="max-width:520px;padding:24px;border-radius:14px;margin:auto;box-shadow:var(--shadow-lg)">
           <!-- Centered Modal Header -->
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:14px">
             <div>
@@ -7394,14 +8699,14 @@ async function renderAdminAuditTab(container) {
           </div>
 
           <!-- Clean Info Grid (NO RAW JSON DISPLAYED) -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f8fafc;padding:16px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px">
+          <div class="audit-modal-info-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f8fafc;padding:16px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px">
             <div>
               <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Timestamp:</span>
               <strong style="color:var(--ink)">${dt.date} <span style="font-family:'SFMono-Regular',Consolas,monospace;color:#64748b">${dt.time}</span></strong>
             </div>
             <div>
               <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Client IP Address:</span>
-              <span style="font-family:'SFMono-Regular',Consolas,monospace;font-weight:600;color:var(--ink)">${entry.ipAddress || '127.0.0.1'}</span>
+              <span style="font-family:'SFMono-Regular',Consolas,monospace;font-weight:600;color:var(--ink)">${formatCleanIp(entry.ipAddress)}</span>
             </div>
             <div>
               <span style="color:var(--muted);font-size:11.5px;display:block;margin-bottom:2px">Actor Identity:</span>
@@ -7427,7 +8732,7 @@ async function renderAdminAuditTab(container) {
     document.querySelector('#modal-ok-audit').onclick = () => { modalRoot.innerHTML = ''; };
   };
 
-  const bindInspectButtons = () => {
+  const bindTableEvents = () => {
     container.querySelectorAll('.btn-inspect-audit').forEach((btn) => {
       btn.onclick = () => {
         const id = btn.dataset.id;
@@ -7453,7 +8758,7 @@ async function renderAdminAuditTab(container) {
         </div>
         <p style="color:var(--muted);font-size:14px;margin:0">Real-time immutable audit trail capturing authentication, candidate tests, evaluations, and system configurations.</p>
       </div>
-      <div class="admin-toolbar">
+      <div class="admin-toolbar audit-action-toolbar">
         <a class="btn-icon audit-btn-export" id="btn-export-audit" href="/api/admin/audit-logs/export?${query.toString()}" download="assessify-audit-logs.xlsx" title="Export audit logs to Excel (.xlsx)">
           ${ICONS.excel} <span>Export Audit (.xlsx)</span>
         </a>
@@ -7498,62 +8803,56 @@ async function renderAdminAuditTab(container) {
       </div>
     </div>
 
-    <!-- Filter & Search Toolbar -->
-    <div class="audit-toolbar">
-      <div class="audit-search-wrap">
-        <span class="search-icon">${ICONS.search}</span>
-        <input class="audit-search-input" id="audit-search" type="search" placeholder="Search by actor name, ID, action, target, or IP address..." value="${auditFilterState.search}">
-        ${auditFilterState.search ? `<button class="audit-search-clear" id="audit-clear-search" type="button" title="Clear search">✕</button>` : ''}
+    <!-- Audit Records Table Card (Responsive: 5-column table on desktop, clean cards on mobile) -->
+    <div class="panel audit-panel-card" style="overflow:hidden">
+      <div class="table-toolbar audit-toolbar-container">
+        <div class="search-wrap audit-search-wrap">
+          <span class="search-icon-prefix">${ICONS.search}</span>
+          <input id="audit-search" placeholder="Search by name, ID, action, target…" value="${escapeHtml(auditFilterState.search)}">
+          ${auditFilterState.search ? `<button id="audit-clear-search" class="audit-search-clear" type="button" title="Clear search">✕</button>` : ''}
+        </div>
+        <div class="audit-filters-group">
+          <select class="select-filter audit-filter-select" id="audit-actor-filter">
+            <option value="all" ${auditFilterState.actorType === 'all' ? 'selected' : ''}>All Roles (${stats.total})</option>
+            <option value="admin" ${auditFilterState.actorType === 'admin' ? 'selected' : ''}>Administrators</option>
+            <option value="teacher" ${auditFilterState.actorType === 'teacher' ? 'selected' : ''}>Teachers / Candidates</option>
+            <option value="system" ${auditFilterState.actorType === 'system' ? 'selected' : ''}>System Engine</option>
+          </select>
+          <select class="select-filter audit-filter-select" id="audit-status-filter">
+            <option value="all" ${auditFilterState.status === 'all' ? 'selected' : ''}>All Statuses</option>
+            <option value="SUCCESS" ${auditFilterState.status === 'SUCCESS' ? 'selected' : ''}>Success Only</option>
+            <option value="WARNING" ${auditFilterState.status === 'WARNING' ? 'selected' : ''}>Warnings Only</option>
+            <option value="FAILURE" ${auditFilterState.status === 'FAILURE' ? 'selected' : ''}>Failures Only</option>
+          </select>
+          <select class="select-filter audit-filter-select audit-filter-category" id="audit-category-filter">
+            <option value="all" ${auditFilterState.category === 'all' ? 'selected' : ''}>All Categories</option>
+            <option value="AUTH" ${auditFilterState.category === 'AUTH' ? 'selected' : ''}>Authentication (AUTH)</option>
+            <option value="ASSESSMENT" ${auditFilterState.category === 'ASSESSMENT' ? 'selected' : ''}>Assessment Taking</option>
+            <option value="MONITORING" ${auditFilterState.category === 'MONITORING' ? 'selected' : ''}>Live Proctoring</option>
+            <option value="EVALUATION" ${auditFilterState.category === 'EVALUATION' ? 'selected' : ''}>Rubrics & Scoring</option>
+            <option value="USER_MGMT" ${auditFilterState.category === 'USER_MGMT' ? 'selected' : ''}>User Management</option>
+            <option value="CONTENT" ${auditFilterState.category === 'CONTENT' ? 'selected' : ''}>Questions & Bank</option>
+            <option value="SECURITY" ${auditFilterState.category === 'SECURITY' ? 'selected' : ''}>Security & Anti-Cheat</option>
+            <option value="SYSTEM" ${auditFilterState.category === 'SYSTEM' ? 'selected' : ''}>System Engine</option>
+          </select>
+          ${hasActiveFilters() ? `
+            <button class="button ghost audit-reset-filter-btn" id="btn-reset-filters" type="button" title="Reset all active filters">
+              ✕ Reset
+            </button>
+          ` : ''}
+        </div>
       </div>
 
-      <div class="audit-filters-group">
-        <select class="audit-select" id="audit-category-filter">
-          <option value="all" ${auditFilterState.category === 'all' ? 'selected' : ''}>All Categories</option>
-          <option value="AUTH" ${auditFilterState.category === 'AUTH' ? 'selected' : ''}>AUTH (Authentication)</option>
-          <option value="ASSESSMENT" ${auditFilterState.category === 'ASSESSMENT' ? 'selected' : ''}>ASSESSMENT (Test Taking)</option>
-          <option value="EVALUATION" ${auditFilterState.category === 'EVALUATION' ? 'selected' : ''}>EVALUATION (Scoring)</option>
-          <option value="USER_MGMT" ${auditFilterState.category === 'USER_MGMT' ? 'selected' : ''}>USER_MGMT (User Accounts)</option>
-          <option value="CONTENT" ${auditFilterState.category === 'CONTENT' ? 'selected' : ''}>CONTENT (Questions/Rubrics)</option>
-          <option value="SYSTEM" ${auditFilterState.category === 'SYSTEM' ? 'selected' : ''}>SYSTEM (Settings)</option>
-          <option value="SECURITY" ${auditFilterState.category === 'SECURITY' ? 'selected' : ''}>SECURITY (Security Events)</option>
-        </select>
-
-        <select class="audit-select" id="audit-status-filter">
-          <option value="all" ${auditFilterState.status === 'all' ? 'selected' : ''}>All Statuses</option>
-          <option value="SUCCESS" ${auditFilterState.status === 'SUCCESS' ? 'selected' : ''}>Success Only</option>
-          <option value="WARNING" ${auditFilterState.status === 'WARNING' ? 'selected' : ''}>Warnings Only</option>
-          <option value="FAILURE" ${auditFilterState.status === 'FAILURE' ? 'selected' : ''}>Failures Only</option>
-        </select>
-
-        <select class="audit-select" id="audit-actor-filter">
-          <option value="all" ${auditFilterState.actorType === 'all' ? 'selected' : ''}>All Roles</option>
-          <option value="teacher" ${auditFilterState.actorType === 'teacher' ? 'selected' : ''}>Teachers / Candidates</option>
-          <option value="admin" ${auditFilterState.actorType === 'admin' ? 'selected' : ''}>Administrators</option>
-          <option value="system" ${auditFilterState.actorType === 'system' ? 'selected' : ''}>System Engine</option>
-        </select>
-
-        ${hasActiveFilters() ? `
-          <button class="btn-reset-filters" id="btn-reset-filters" type="button" title="Reset all active filters">
-            Reset Filters
-          </button>
-        ` : ''}
-      </div>
-    </div>
-
-    <!-- Audit Log Records Table Card -->
-    <div class="audit-table-card">
-      <div class="audit-table-scroll">
-        <table class="audit-table">
+      <!-- Data Table: 5 clean balanced columns matching User Manager style -->
+      <div class="audit-table-responsive">
+        <table class="audit-table-fixed">
           <thead>
             <tr>
-              <th style="width:160px">Timestamp</th>
-              <th style="width:210px">Actor</th>
-              <th style="width:180px">Action</th>
-              <th style="width:110px">Category</th>
-              <th style="width:140px">Target</th>
-              <th style="width:105px">IP Address</th>
-              <th style="width:105px">Status</th>
-              <th style="width:85px;text-align:center">Details</th>
+              <th style="width:23%;min-width:150px">User / Actor</th>
+              <th style="width:23%;min-width:150px">Action / Event</th>
+              <th style="width:19%;min-width:120px">Target / Scope</th>
+              <th style="width:15%;min-width:105px">Timestamp</th>
+              <th style="width:20%;min-width:145px;text-align:right;padding-right:16px">Status</th>
             </tr>
           </thead>
           <tbody id="audit-table-body">
@@ -7564,7 +8863,7 @@ async function renderAdminAuditTab(container) {
     </div>
   `;
 
-  bindInspectButtons();
+  bindTableEvents();
 
   // Filter Listeners
   let searchTimer = null;
@@ -7685,6 +8984,7 @@ async function renderAdminAuditTab(container) {
     };
   }
 
+
   // Real-time Live Update Engine (Auto-sync without page refresh)
   window.adminAuditLiveTimer = setInterval(async () => {
     if (localStorage.getItem('assessify_admin_tab') !== 'audit') {
@@ -7739,10 +9039,60 @@ async function renderAdminAuditTab(container) {
         tableBody.innerHTML = renderEmptyHtml();
       } else {
         tableBody.innerHTML = liveLogs.map(renderRowHtml).join('');
-        bindInspectButtons();
+        bindTableEvents();
       }
     }
   }, 2500);
+
+  // Live real-time audit event stream listener
+  const handleLiveAuditEntry = (entry) => {
+    if (localStorage.getItem('assessify_admin_tab') !== 'audit') return;
+
+    stats.total = (stats.total || 0) + 1;
+    stats.todayCount = (stats.todayCount || 0) + 1;
+    if (entry.status === 'WARNING' || entry.status === 'FAILURE') {
+      stats.securityAlertsCount = (stats.securityAlertsCount || 0) + 1;
+    }
+
+    const elTotal = document.querySelector('#kpi-audit-total');
+    if (elTotal) elTotal.textContent = stats.total;
+    const elToday = document.querySelector('#kpi-audit-today');
+    if (elToday) elToday.textContent = stats.todayCount;
+    const elAlerts = document.querySelector('#kpi-audit-alerts');
+    if (elAlerts) elAlerts.textContent = stats.securityAlertsCount;
+    const elPill = document.querySelector('#audit-total-pill');
+    if (elPill) elPill.textContent = `${stats.total} Total Events`;
+
+    const matchesCategory = auditFilterState.category === 'all' || entry.category === auditFilterState.category;
+    const matchesStatus = auditFilterState.status === 'all' || entry.status === auditFilterState.status;
+    const matchesActor = auditFilterState.actorType === 'all' || entry.actorType === auditFilterState.actorType;
+    const matchesSearch = !auditFilterState.search ||
+      (entry.action && entry.action.toLowerCase().includes(auditFilterState.search.toLowerCase())) ||
+      (entry.actorName && entry.actorName.toLowerCase().includes(auditFilterState.search.toLowerCase())) ||
+      (entry.target && entry.target.toLowerCase().includes(auditFilterState.search.toLowerCase()));
+
+    if (!matchesCategory || !matchesStatus || !matchesActor || !matchesSearch) return;
+
+    const tableBody = document.querySelector('#audit-table-body');
+    if (!tableBody) return;
+
+    if (tableBody.querySelector('.audit-empty-state')) {
+      tableBody.innerHTML = '';
+    }
+
+    currentLogs.unshift(entry);
+    const tempDiv = document.createElement('tbody');
+    tempDiv.innerHTML = renderRowHtml(entry);
+    const newRow = tempDiv.firstElementChild;
+    if (newRow) {
+      newRow.style.animation = 'highlightRow 1.8s ease-out';
+      tableBody.insertBefore(newRow, tableBody.firstChild);
+      bindTableEvents();
+    }
+  };
+
+  window._adminTabUnsubs = window._adminTabUnsubs || [];
+  window._adminTabUnsubs.push(realtime.on('AUDIT_LOG_ENTRY', handleLiveAuditEntry));
 }
 
 // ==========================================================================
@@ -8371,6 +9721,7 @@ document.addEventListener('keydown', (e) => {
 
 // Global Auth & Logout
 document.querySelector('#logout').onclick = async () => {
+  realtime.disconnect();
   await request('/api/auth/logout', { method: 'POST' });
   document.querySelector('#logout').hidden = true;
   document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
