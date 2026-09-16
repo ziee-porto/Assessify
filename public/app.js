@@ -5853,7 +5853,7 @@ function openUserModal(user = null, defaultRole = 'students') {
           <button class="modal-close" id="close-user-modal" type="button" aria-label="Close modal" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b">✕</button>
         </div>
         <div class="modal-body" style="padding:20px 24px;max-height:80vh;overflow-y:auto">
-          <form id="user-modal-form">
+          <form id="user-modal-form" novalidate>
             <!-- Role Selector (Only when creating new user) -->
             ${!isEdit ? `
               <label style="display:block;font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">Account Role</label>
@@ -5886,7 +5886,7 @@ function openUserModal(user = null, defaultRole = 'students') {
             <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">
               Full Name <span id="um-name-hint" style="font-weight:400;color:var(--muted)">(student full name)</span>
             </label>
-            <input type="text" id="um-name" name="name" value="${user?.name || ''}" placeholder="e.g. Siti Aminah, S.Pd." required style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
+            <input type="text" id="um-name" name="name" value="${user?.name || ''}" placeholder="e.g. Siti Aminah, S.Pd." style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif;margin-bottom:16px">
 
             <!-- Student Specific Fields -->
             <div id="um-fields-student" style="display:none">
@@ -5974,8 +5974,8 @@ function openUserModal(user = null, defaultRole = 'students') {
             <div id="um-error" style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:7px;font-size:13px;margin-top:12px;display:none"></div>
 
             <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">
-              <button type="button" class="button ghost" id="btn-cancel-um" style="padding:10px 18px">Cancel</button>
-              <button type="submit" class="button" id="btn-save-um" style="padding:10px 22px;display:flex;align-items:center;gap:6px">
+              <button type="button" class="button ghost" id="btn-cancel-um" style="padding:10px 18px;cursor:pointer">Cancel</button>
+              <button type="submit" class="button" id="btn-save-um" style="padding:10px 22px;display:flex;align-items:center;gap:6px;cursor:pointer">
                 ${ICONS.check} <span id="btn-save-um-text">${roleMeta[selectedRole].btnLabel}</span>
               </button>
             </div>
@@ -6036,6 +6036,10 @@ function openUserModal(user = null, defaultRole = 'students') {
         cardAdmin.style.borderColor = role === 'admin_user' ? '#7e22ce' : 'var(--line)';
         cardAdmin.style.background = role === 'admin_user' ? '#faf5ff' : 'var(--white)';
       }
+
+      // Ensure radio button is checked
+      const radio = modalRoot.querySelector(`input[name="modal-role"][value="${role}"]`);
+      if (radio) radio.checked = true;
     }
 
     // 3. Field sections visibility
@@ -6047,22 +6051,12 @@ function openUserModal(user = null, defaultRole = 'students') {
     if (teacherFields) teacherFields.style.display = role === 'authorized_teacher' ? 'block' : 'none';
     if (adminFields) adminFields.style.display = role === 'admin_user' ? 'block' : 'none';
 
-    // 4. Update input required flags so hidden fields don't prevent form submission
+    // 4. Cross-field value retention
     const studentEmail = modalRoot.querySelector('#um-student-email');
     const studentUnit = modalRoot.querySelector('#um-student-unit');
     const teacherEmail = modalRoot.querySelector('#um-teacher-email');
     const teacherUnit = modalRoot.querySelector('#um-teacher-unit');
-    const adminUsername = modalRoot.querySelector('#um-admin-username');
-    const adminPassword = modalRoot.querySelector('#um-admin-password');
 
-    if (studentEmail) studentEmail.required = (role === 'students');
-    if (studentUnit) studentUnit.required = (role === 'students');
-    if (teacherEmail) teacherEmail.required = (role === 'authorized_teacher');
-    if (teacherUnit) teacherUnit.required = (role === 'authorized_teacher');
-    if (adminUsername) adminUsername.required = (role === 'admin_user');
-    if (adminPassword) adminPassword.required = (role === 'admin_user' && !isEdit);
-
-    // 5. Cross-field value retention
     if (role === 'authorized_teacher' && studentEmail && teacherEmail && !teacherEmail.value && studentEmail.value) {
       teacherEmail.value = studentEmail.value;
     } else if (role === 'students' && teacherEmail && studentEmail && !studentEmail.value && teacherEmail.value) {
@@ -6074,7 +6068,7 @@ function openUserModal(user = null, defaultRole = 'students') {
       studentUnit.value = teacherUnit.value;
     }
 
-    // 6. Clear error alert
+    // 5. Clear error alert
     const errEl = modalRoot.querySelector('#um-error');
     if (errEl) errEl.style.display = 'none';
   };
@@ -6082,8 +6076,17 @@ function openUserModal(user = null, defaultRole = 'students') {
   // Set initial state
   switchRole(selectedRole);
 
-  // Wire radio buttons to switch in-place without page or modal reload
+  // Wire radio buttons and entire role cards to switch in-place without page or modal reload
   if (!isEdit) {
+    modalRoot.querySelectorAll('.role-select-card').forEach((card) => {
+      card.onclick = (e) => {
+        const radio = card.querySelector('input[name="modal-role"]');
+        if (radio) {
+          radio.checked = true;
+          switchRole(radio.value);
+        }
+      };
+    });
     modalRoot.querySelectorAll('input[name="modal-role"]').forEach((radio) => {
       radio.onchange = () => {
         switchRole(radio.value);
@@ -6095,40 +6098,58 @@ function openUserModal(user = null, defaultRole = 'students') {
   const errEl = modalRoot.querySelector('#um-error');
   const saveBtn = modalRoot.querySelector('#btn-save-um');
 
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    errEl.style.display = 'none';
-    errEl.textContent = '';
+  const handleSave = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (errEl) {
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    }
 
-    const name = modalRoot.querySelector('#um-name').value.trim();
+    // Dynamically check the active role from the checked radio or state
+    const checkedRadio = modalRoot.querySelector('input[name="modal-role"]:checked');
+    const activeRole = (!isEdit && checkedRadio) ? checkedRadio.value : selectedRole;
+
+    const name = (modalRoot.querySelector('#um-name')?.value || '').trim();
     const status = modalRoot.querySelector('#um-status')?.value || 'active';
 
     if (!name) {
-      errEl.textContent = 'Please provide full name.';
-      errEl.style.display = 'block';
+      if (errEl) {
+        errEl.textContent = 'Please provide full name.';
+        errEl.style.display = 'block';
+        errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
       return;
     }
 
     // Role 1: Students
-    if (selectedRole === 'students') {
+    if (activeRole === 'students') {
       const email = (modalRoot.querySelector('#um-student-email')?.value || '').trim().toLowerCase();
       const unit = (modalRoot.querySelector('#um-student-unit')?.value || '').trim();
       const student_id = (modalRoot.querySelector('#um-student-id')?.value || '').trim();
       const grade = (modalRoot.querySelector('#um-student-grade')?.value || '').trim();
 
       if (!email || !unit) {
-        errEl.textContent = 'Student email and school unit are required.';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Student email and school unit are required.';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
       if (!email.endsWith('@karyabangsa.sch.id')) {
-        errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
+      saveBtn.innerHTML = `Saving…`;
 
       const url = isEdit ? `/api/admin/students/${user.id}` : '/api/admin/students';
       const method = isEdit ? 'PUT' : 'POST';
@@ -6141,8 +6162,11 @@ function openUserModal(user = null, defaultRole = 'students') {
       if (res.error) {
         saveBtn.disabled = false;
         saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Add Student'}</span>`;
-        errEl.textContent = res.error;
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = res.error;
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
@@ -6151,23 +6175,29 @@ function openUserModal(user = null, defaultRole = 'students') {
       renderAdmin('users');
     }
     // Role 2: Teacher Candidate
-    else if (selectedRole === 'authorized_teacher') {
+    else if (activeRole === 'authorized_teacher') {
       const email = (modalRoot.querySelector('#um-teacher-email')?.value || '').trim().toLowerCase();
       const unit = (modalRoot.querySelector('#um-teacher-unit')?.value || '').trim();
 
       if (!email || !unit) {
-        errEl.textContent = 'Official teacher email and school unit are required.';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Official teacher email and school unit are required.';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
       if (!email.endsWith('@karyabangsa.sch.id')) {
-        errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Email must belong to the school domain (@karyabangsa.sch.id).';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
+      saveBtn.innerHTML = `Saving…`;
 
       const url = isEdit ? `/api/admin/teachers/${user.id}` : '/api/admin/teachers';
       const method = isEdit ? 'PUT' : 'POST';
@@ -6180,8 +6210,11 @@ function openUserModal(user = null, defaultRole = 'students') {
       if (res.error) {
         saveBtn.disabled = false;
         saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Add Candidate'}</span>`;
-        errEl.textContent = res.error;
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = res.error;
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
@@ -6196,18 +6229,24 @@ function openUserModal(user = null, defaultRole = 'students') {
       const email = (modalRoot.querySelector('#um-admin-email')?.value || '').trim().toLowerCase();
 
       if (!username) {
-        errEl.textContent = 'Admin username is required.';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Admin username is required.';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
       if (!isEdit && (!password || password.length < 4)) {
-        errEl.textContent = 'Password must be at least 4 characters.';
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = 'Password must be at least 4 characters.';
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
+      saveBtn.innerHTML = `Saving…`;
 
       const url = isEdit ? `/api/admin/admins/${user.id}` : '/api/admin/admins';
       const method = isEdit ? 'PUT' : 'POST';
@@ -6223,8 +6262,11 @@ function openUserModal(user = null, defaultRole = 'students') {
       if (res.error) {
         saveBtn.disabled = false;
         saveBtn.innerHTML = `${ICONS.check} <span id="btn-save-um-text">${isEdit ? 'Save Changes' : 'Create Administrator'}</span>`;
-        errEl.textContent = res.error;
-        errEl.style.display = 'block';
+        if (errEl) {
+          errEl.textContent = res.error;
+          errEl.style.display = 'block';
+          errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return;
       }
 
@@ -6233,6 +6275,9 @@ function openUserModal(user = null, defaultRole = 'students') {
       renderAdmin('users');
     }
   };
+
+  form.onsubmit = handleSave;
+  saveBtn.onclick = handleSave;
 }
 
 function openBulkUserModal(onSuccess) {
