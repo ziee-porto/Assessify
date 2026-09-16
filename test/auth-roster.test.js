@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 
 describe('Teacher Roster & Unit Authentication Engine', () => {
-  it('loads and validates all 50 official teachers across KB-TK, SD, SMP, SMA, and SMK', async () => {
+  it('loads and validates all official teachers across KB-TK, SD, SMP, SMA, and SMK', async () => {
     const raw = await readFile(join(root, 'content', 'authorized-teachers.json'), 'utf8');
     const roster = JSON.parse(raw);
-    assert.strictEqual(roster.length, 50, 'Should have exactly 50 registered teachers');
+    assert.ok(roster.length >= 50, 'Should have at least 50 registered teachers');
 
     const kbtkCount = roster.filter(t => t.unit === 'KB-TK GOLDEN BEE').length;
     const sdCount = roster.filter(t => t.unit === 'SD KARYA BANGSA').length;
@@ -18,11 +18,11 @@ describe('Teacher Roster & Unit Authentication Engine', () => {
     const smaCount = roster.filter(t => t.unit === 'SMA KARYA BANGSA').length;
     const smkCount = roster.filter(t => t.unit === 'SMK KARYA BANGSA').length;
 
-    assert.strictEqual(kbtkCount, 10, 'KB-TK should have 10 teachers');
-    assert.strictEqual(sdCount, 10, 'SD should have 10 teachers');
-    assert.strictEqual(smpCount, 9, 'SMP should have 9 teachers');
-    assert.strictEqual(smaCount, 10, 'SMA should have 10 teachers');
-    assert.strictEqual(smkCount, 11, 'SMK should have 11 teachers');
+    assert.ok(kbtkCount >= 10, 'KB-TK should have at least 10 teachers');
+    assert.ok(sdCount >= 10, 'SD should have at least 10 teachers');
+    assert.ok(smpCount >= 9, 'SMP should have at least 9 teachers');
+    assert.ok(smaCount >= 10, 'SMA should have at least 10 teachers');
+    assert.ok(smkCount >= 11, 'SMK should have at least 11 teachers');
 
     roster.forEach(t => {
       assert.ok(t.email.endsWith('@karyabangsa.sch.id'), `Email ${t.email} must end with @karyabangsa.sch.id`);

@@ -25,6 +25,10 @@
 }
 
 * { box-sizing: border-box; }
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
 body {
   margin: 0;
   background: var(--paper);
@@ -32,6 +36,7 @@ body {
   font-family: 'Plus Jakarta Sans', 'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -2930,28 +2935,44 @@ table tbody tr:hover {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   MULTI-DEVICE RESPONSIVE BREAKPOINTS (PC, TABLET, MOBILE)
+   MULTI-DEVICE RESPONSIVE BREAKPOINTS (PC, LAPTOP, TABLET, MOBILE)
 ───────────────────────────────────────────────────────────── */
 
-/* 1. Large Tablets & Small Laptops (<= 1100px) */
-@media (max-width: 1100px) {
-  .admin-kpis-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+/* 1. Large Desktops, PCs & Ultrawide (> 1440px) */
+@media (min-width: 1441px) {
+  .admin-main {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
   }
+  .teacher-shell {
+    max-width: 1100px;
+    margin: 36px auto;
+  }
+  .result-card-container {
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+  .login-wrapper {
+    padding: 60px 32px 100px;
+  }
+}
+
+/* 2. Laptops & Small Desktops (1025px - 1440px) */
+@media (min-width: 1025px) and (max-width: 1440px) {
   .admin-main {
     padding: 24px 28px 48px;
   }
   .sections {
     grid-template-columns: repeat(3, 1fr);
   }
-  .options-preview-grid {
-    grid-template-columns: 1fr;
+  .candidate-meta-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
-/* 2. Tablets & Mobile Phones (<= 992px) */
-@media (max-width: 992px) {
+/* 3. Tablets (Portrait & Landscape: 641px - 1024px) */
+@media (max-width: 1024px) {
   .topbar {
     height: 62px;
     padding: 0 16px;
@@ -2974,8 +2995,15 @@ table tbody tr:hover {
   .top-actions {
     gap: 8px;
   }
+  #role-label {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+  }
 
-  /* Admin Shell & Mobile Off-Canvas Sidebar */
+  /* Admin Shell & Off-Canvas Sliding Sidebar Drawer for Tablets */
   body.has-admin-sidebar .topbar-burger {
     display: inline-flex;
   }
@@ -3044,7 +3072,6 @@ table tbody tr:hover {
     visibility: visible !important;
   }
 
-  /* Sidebar Mobile Drawer Header */
   .sidebar-mobile-header {
     display: flex !important;
     align-items: center;
@@ -3095,7 +3122,6 @@ table tbody tr:hover {
     color: #dc2626;
   }
 
-  /* Vertical navigation structure inside drawer */
   .sidebar-sections-wrapper {
     display: flex !important;
     flex-direction: column !important;
@@ -3144,168 +3170,590 @@ table tbody tr:hover {
     border-top: 1px solid var(--line) !important;
   }
 
-  /* Main container */
+  /* Admin Main View on Tablets */
   .admin-main {
-    padding: 16px 14px 48px;
-    gap: 16px;
+    padding: 20px 20px 48px;
+    gap: 18px;
+    width: 100%;
+    min-width: 0;
   }
 
-  /* 2-Column or 1-Column KPI cards */
   .admin-kpis-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  .kpi-card {
-    padding: 14px 16px;
-  }
-  .kpi-card-info strong {
-    font-size: 24px;
-  }
-  .kpi-card-info span {
-    font-size: 11.5px;
-  }
-  .kpi-card-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 17px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
   }
 
-  /* Filter toolbar stacks vertically */
+  .sections {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .candidate-meta-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .skills-showcase-grid,
+  .cefr-score-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
   .table-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .search-wrap {
+    flex: 1 1 240px;
+    min-width: 200px;
+  }
+
+  .select-filter {
+    flex: 0 1 auto;
+    min-width: 140px;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+  }
+
+  table {
+    min-width: 700px;
+  }
+
+  /* Centered, ergonomic dialog modals on tablets (never 100vh stretched) */
+  .modal-backdrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal-card {
+    max-width: min(620px, calc(100vw - 32px)) !important;
+    width: 100% !important;
+    max-height: 90vh;
+    height: auto;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.28);
+    margin: auto !important;
+    overflow: hidden;
+  }
+
+  #grading-modal-backdrop .modal-card {
+    max-width: 860px;
+    height: 92vh;
+    max-height: 92vh;
+    border-radius: 14px;
+  }
+
+  .writing-topics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 4. Medium / Small Tablets & Large Phones (<= 768px) */
+@media (max-width: 768px) {
+  .sections {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .hero-note {
+    width: 100%;
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+
+  .proctor-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .result-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .candidate-meta-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .skills-showcase-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .proctor-hero-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .bulk-actions-bar {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
   }
+
+  .bulk-actions-btns {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* 5. Mobile Phones (<= 640px) */
+@media (max-width: 640px) {
+  .topbar {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .brand {
+    font-size: 16px;
+    gap: 6px;
+  }
+
+  .brand-logo-img {
+    width: 30px;
+    height: 30px;
+  }
+
+  #role-label {
+    display: none;
+  }
+
+  .top-actions button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  /* Candidate shell & Login */
+  .login-wrapper {
+    padding: 18px 12px 40px;
+  }
+
+  .login-panel {
+    padding: 22px 16px;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .login-panel h1 {
+    font-size: 24px !important;
+  }
+
+  .teacher-shell {
+    padding: 12px 10px 48px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .hero {
+    padding: 18px 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-size: 22px;
+    margin: 4px 0 8px;
+  }
+
+  .hero p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .sections {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .section-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .resume-assessment-card {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .resume-assessment-card button {
+    width: 100%;
+    justify-content: center;
+    margin-top: 6px;
+  }
+
+  /* Step Progress Stepper (Horizontally Scrollable) */
+  .top-nav-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 8px;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .top-nav-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .section-step-pill {
+    padding: 7px 12px;
+    font-size: 12px;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+
+  .section-step-pill .step-num {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+  }
+
+  /* Question Flow Cards */
+  .panel {
+    padding: 16px 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .panel h2 {
+    font-size: 17px;
+  }
+
+  .question {
+    padding: 16px 0;
+  }
+
+  .question p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .option-tile {
+    padding: 12px 14px;
+    font-size: 13.5px;
+    min-height: 44px;
+    border-radius: 9px;
+    gap: 10px;
+  }
+
+  .option-tile input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  /* Writing section topic choice cards */
+  .writing-topics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .topic-choice-card {
+    padding: 12px !important;
+  }
+
+  .writing-input,
+  #writing-essay {
+    padding: 12px 14px !important;
+    font-size: 14px !important;
+    min-height: 220px !important;
+  }
+
+  /* Speaking section controls */
+  .camera-monitor-card {
+    padding: 14px !important;
+    border-radius: 12px !important;
+  }
+
+  #speaking-rec-controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #speaking-rec-controls button {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px !important;
+  }
+
+  .speaking-stepper {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+
+  .speaking-stepper::-webkit-scrollbar {
+    display: none;
+  }
+
+  .speaking-audio-prompt-card {
+    padding: 16px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  #play-speaking-prompt-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 18px !important;
+    font-size: 13.5px !important;
+  }
+
+  #end-early-btn {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  /* Candidate Result & Certificate page */
+  .result-card-container {
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .result-hero-banner {
+    padding: 22px 16px;
+  }
+
+  .result-hero-banner h1 {
+    font-size: 20px;
+    line-height: 1.25;
+  }
+
+  .result-body {
+    padding: 18px 14px;
+  }
+
+  .candidate-meta-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .meta-item-box {
+    padding: 10px 12px;
+  }
+
+  .cefr-score-cards,
+  .skills-showcase-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .result-action-bar,
+  .result-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .btn-download-cert {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Admin Main View on Mobile */
+  .admin-main {
+    padding: 12px 10px 48px;
+    gap: 12px;
+  }
+
+  .admin-kpis-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+    border-radius: 10px;
+  }
+
+  .kpi-card-info strong {
+    font-size: 22px;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
   .search-wrap {
     width: 100%;
     min-width: 100%;
   }
-  .select-filter {
-    width: 100%;
+
+  .search-wrap input {
+    padding: 10px 14px 10px 38px;
+    font-size: 13px;
   }
 
-  /* Smooth scrollable table with preserved column readability */
+  .select-filter {
+    width: 100%;
+    padding: 10px 32px 10px 12px;
+    font-size: 13px;
+  }
+
   .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 8px;
   }
+
   table {
-    min-width: 720px;
+    min-width: 620px;
+    font-size: 13px;
   }
 
-  /* Panel & cards */
-  .panel {
-    padding: 16px 14px;
-    border-radius: 12px;
-  }
-  .content-header-card {
-    padding: 16px;
-    flex-direction: column;
-    align-items: flex-start;
+  table th, table td {
+    padding: 10px 12px;
   }
 
-  /* Staged draft banner */
-  .staged-review-banner {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 16px;
-    gap: 14px;
-  }
-  .staged-banner-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-  .btn-approve, .btn-discard {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Teacher Test Flow */
-  .teacher-shell {
-    padding: 20px 16px 60px;
-  }
-  .hero {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  .hero h1 {
-    font-size: 28px;
-  }
-  .hero-note {
-    width: 100%;
-    border-radius: 8px;
-    padding: 14px 16px;
-  }
-  .sections {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  /* Fullscreen mobile modal */
+  /* Centered, rounded touch dialogs on mobile (NOT square 100vh) */
   .modal-backdrop {
-    padding: 0;
-    align-items: flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
   }
+
   .modal-card {
-    max-width: 100%;
-    max-height: 100vh;
-    height: 100vh;
-    border-radius: 0;
-    border: none;
+    max-width: calc(100% - 16px) !important;
+    width: 100% !important;
+    max-height: 94vh;
+    height: auto;
+    border-radius: 14px !important;
+    box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.3);
+    margin: auto !important;
+    overflow: hidden;
   }
-  .modal-header, .modal-body, .modal-footer {
-    padding: 16px;
+
+  .modal-header {
+    padding: 14px 16px 12px;
   }
-  .candidate-meta-bar {
+
+  .modal-body {
+    padding: 14px 16px;
+    max-height: calc(94vh - 120px);
+  }
+
+  /* Stacking the 3 role selector cards in Add User modal on mobile */
+  .role-select-card,
+  #user-modal-form div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .bands-strip {
-    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
-  .scale-buttons {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .modal-footer {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-  .modal-actions {
+
+  .modal-actions,
+  .modal-actions button,
+  .modal-footer button {
     width: 100%;
-    flex-direction: column;
   }
-  .modal-actions button {
-    width: 100%;
+
+  #grading-modal-backdrop .modal-card {
+    max-width: calc(100% - 10px);
+    height: 94vh;
+    max-height: 94vh;
+    border-radius: 14px;
+  }
+
+  /* Submission Pipeline Dialog */
+  .grading-pipeline-container {
+    padding: 20px 14px;
+    margin: 20px auto;
+    border-radius: 14px;
+  }
+
+  .submission-shell {
+    margin: 20px auto !important;
+    padding: 12px !important;
+  }
+
+  .submission-panel {
+    padding: 24px 16px !important;
+    border-radius: 14px;
   }
 }
 
-/* 3. Small Mobile Phones (<= 480px) */
+/* 6. Small / Compact Mobile Phones (<= 480px) */
 @media (max-width: 480px) {
-  .sections {
-    grid-template-columns: 1fr;
+  .hero h1 {
+    font-size: 20px;
   }
-  .admin-kpis-grid {
-    grid-template-columns: 1fr;
+
+  .panel h2 {
+    font-size: 16px;
   }
-  .bands-strip {
-    grid-template-columns: 1fr;
+
+  .btn-scroll-top {
+    bottom: 16px;
+    right: 16px;
+    padding: 8px 14px;
+    font-size: 12px;
   }
+
+  .proctor-stat-card {
+    padding: 12px;
+  }
+
+  .proctor-stat-num {
+    font-size: 22px;
+  }
+
   .scale-buttons {
     grid-template-columns: 1fr;
   }
-  .question-item-card {
-    padding: 12px;
+
+  .bands-strip {
+    grid-template-columns: 1fr;
   }
+
+  .question-item-card {
+    padding: 10px;
+  }
+
   .rubric-skill-card {
-    padding: 16px;
+    padding: 12px;
   }
 }
 
