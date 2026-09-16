@@ -4746,6 +4746,62 @@ table tbody tr:hover {
   color: #ffffff !important;
 }
 
+.btn-cert-download.btn-cert-disabled,
+.btn-cert-download:disabled {
+  background: #94a3b8 !important;
+  color: #f1f5f9 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.82;
+  border: 1px solid #cbd5e1 !important;
+  pointer-events: auto !important;
+}
+
+.btn-cert-download.btn-cert-disabled:hover,
+.btn-cert-download:disabled:hover {
+  background: #94a3b8 !important;
+  color: #f1f5f9 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.cert-download-disabled-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.cert-lock-note {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f8fafc;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 640px) {
+  .cert-download-disabled-wrapper {
+    align-items: stretch;
+    width: 100%;
+  }
+  .cert-download-disabled-wrapper .btn-cert-download {
+    width: 100%;
+    justify-content: center;
+  }
+  .cert-lock-note {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+
 /* Skills Cards Grid */
 .skills-showcase-grid {
   display: grid;

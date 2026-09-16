@@ -5537,7 +5537,7 @@ const server = createServer(async (request, response) => {
         review: isComplete ? 'Teacher reviewed' : 'Review in progress'
       });
       const updatedAttempt = await repository.getAttempt(attemptId);
-      broadcastRealtime('admin', 'ATTEMPT_GRADED', { attemptId, attempt: updatedAttempt });
+      broadcastRealtime('all', 'ATTEMPT_GRADED', { attemptId, attempt: updatedAttempt });
       await recordAuditLog({
         actorType: 'admin',
         actorId: currentUser(request)?.username || 'admin',
@@ -5645,7 +5645,7 @@ const server = createServer(async (request, response) => {
       });
 
       const latestAttempt = await repository.getAttempt(attemptId);
-      broadcastRealtime('admin', 'ATTEMPT_GRADED', { attemptId, attempt: latestAttempt });
+      broadcastRealtime('all', 'ATTEMPT_GRADED', { attemptId, attempt: latestAttempt });
 
       return json(response, 200, {
         success: true,
@@ -5703,6 +5703,16 @@ const server = createServer(async (request, response) => {
     if (!attempt) return json(response, 404, { error: 'Attempt not found' });
     if (user.role !== 'admin' && (attempt.email || '').toLowerCase().trim() !== (user.email || '').toLowerCase().trim()) {
       return json(response, 403, { error: 'Access denied' });
+    }
+    const isReviewed = attempt.review === 'Teacher reviewed' || Boolean(
+      attempt.manualReview?.writing?.level &&
+      attempt.manualReview?.speaking?.level &&
+      attempt.review !== 'Writing and Speaking review required' &&
+      attempt.review !== 'Review in progress' &&
+      attempt.review !== 'Pending Review'
+    );
+    if (user.role !== 'admin' && !isReviewed) {
+      return json(response, 403, { error: 'Placement certificate is locked pending Writing and Speaking evaluation.' });
     }
     return sendCenteredPdf(response, [attempt], attempt.unit || 'all');
   }

@@ -945,7 +945,13 @@ function renderCompletedTeacher(attempt, user) {
   const writingLevel = attempt.sectionScores?.Writing || (attempt.manualReview?.writing?.level || 'Evaluation in progress');
   const speakingLevel = attempt.sectionScores?.Speaking || (attempt.manualReview?.speaking?.level || 'Evaluation in progress');
   const overallBand = attempt.overall || 'Under Review';
-  const isReviewed = attempt.review === 'Teacher reviewed';
+  const isReviewed = attempt.review === 'Teacher reviewed' || Boolean(
+    attempt.manualReview?.writing?.level &&
+    attempt.manualReview?.speaking?.level &&
+    attempt.review !== 'Writing and Speaking review required' &&
+    attempt.review !== 'Review in progress' &&
+    attempt.review !== 'Pending Review'
+  );
 
   const cefrColorMap = {
     C2: '#86198f',
@@ -1068,10 +1074,30 @@ function renderCompletedTeacher(attempt, user) {
               </div>
             </div>
             <div class="overall-action-block">
-              <a class="btn-cert-download" href="/api/attempts/${attempt.id}/certificate" target="_blank">
-                ${ICONS.pdf}
-                <span>Download Placement Certificate</span>
-              </a>
+              ${isReviewed ? `
+                <a class="btn-cert-download" href="/api/attempts/${attempt.id}/certificate" target="_blank" id="btn-download-cert" title="Download Official Placement Certificate (PDF)">
+                  ${ICONS.pdf}
+                  <span>Download Placement Certificate</span>
+                </a>
+              ` : `
+                <div class="cert-download-disabled-wrapper">
+                  <button class="btn-cert-download btn-cert-disabled" disabled aria-disabled="true" id="btn-download-cert-disabled" title="Placement certificate is locked pending Writing & Speaking review">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Download Placement Certificate</span>
+                  </button>
+                  <span class="cert-lock-note">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    Locked · Writing &amp; Speaking review required
+                  </span>
+                </div>
+              `}
             </div>
           </div>
 
@@ -1176,7 +1202,20 @@ function renderCompletedTeacher(attempt, user) {
     </div>
   `;
 
+  const onAttemptGraded = (data) => {
+    if (data && (data.attemptId === attempt.id || data.attempt?.id === attempt.id || data.attempt?.email === user.email)) {
+      realtime.off('ATTEMPT_GRADED', onAttemptGraded);
+      const updated = data.attempt || { ...attempt, review: 'Teacher reviewed' };
+      renderCompletedTeacher(updated, user);
+      if (updated.review === 'Teacher reviewed') {
+        showToast('Writing and Speaking evaluation complete! Placement certificate unlocked.', 'success', 6000);
+      }
+    }
+  };
+  realtime.on('ATTEMPT_GRADED', onAttemptGraded);
+
   document.querySelector('#completed-sign-out-btn').onclick = async () => {
+    realtime.off('ATTEMPT_GRADED', onAttemptGraded);
     await request('/api/auth/logout', { method: 'POST' });
     renderLogin();
   };
