@@ -10412,13 +10412,13 @@ async function renderAdminSettingsTab(container) {
   const storageMode = data.storageMode || 'mysql';
 
   container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
+    <div class="settings-header-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
       <div>
         <div class="eyebrow">System Management</div>
-        <h1 style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">System Setting</h1>
-        <p style="color:var(--muted);font-size:14px;margin:0">Configure institutional assessment duration, passing thresholds, access policies, and platform maintenance mode.</p>
+        <h1 class="settings-header-title" style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">System Setting</h1>
+        <p class="settings-header-desc" style="color:var(--muted);font-size:14px;margin:0">Configure institutional assessment duration, passing thresholds, access policies, and platform maintenance mode.</p>
       </div>
-      <div class="admin-toolbar">
+      <div class="admin-toolbar settings-header-actions">
         <button class="button ghost" id="btn-reset-settings" type="button" style="display:flex;align-items:center;gap:6px">
           ${ICONS.refresh} <span>Reset to Defaults</span>
         </button>
@@ -10431,7 +10431,7 @@ async function renderAdminSettingsTab(container) {
     <div class="settings-container">
       <!-- Status Notice Banner -->
       <div class="system-status-banner ${s.maintenanceMode ? 'system-status-warning' : 'system-status-healthy'}">
-        <div style="display:flex;align-items:center;gap:10px">
+        <div class="system-status-main" style="display:flex;align-items:center;gap:10px">
           <span style="font-size:18px">${s.maintenanceMode ? '⚠️' : '✅'}</span>
           <div>
             <strong>${s.maintenanceMode ? 'Maintenance Mode is Active' : 'System Operating Normally'}</strong>
@@ -10440,7 +10440,7 @@ async function renderAdminSettingsTab(container) {
             </span>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div class="system-status-meta" style="display:flex;align-items:center;gap:8px">
           <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,0.06)">Storage: ${storageMode.toUpperCase()}</span>
           <span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,0.06)">v2026.1</span>
         </div>
@@ -10458,17 +10458,17 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Assessment Time Limit (Minutes)</label>
               <span class="setting-desc">Total assessment limit (allocated across Grammar, Writing, and Speaking).</span>
             </div>
-            <div class="setting-control" style="max-width:120px">
+            <div class="setting-control setting-control-num">
               <input class="setting-input-text" id="setting-duration" type="number" min="15" max="180" step="5" value="${s.durationMinutes || 65}">
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Allow In-Progress Assessment Resume</label>
               <span class="setting-desc">Enables disconnected candidates to resume their existing timer without restarting.</span>
@@ -10481,7 +10481,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Draft Autosave Frequency</label>
               <span class="setting-desc">Interval for background responses draft synchronization to server.</span>
@@ -10495,7 +10495,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Require Camera & Microphone</label>
               <span class="setting-desc">Enforces webcam and audio recording capture during Speaking module.</span>
@@ -10508,7 +10508,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Listening Audio Replays</label>
               <span class="setting-desc">Maximum times candidate may play question speech synthesis.</span>
@@ -10533,7 +10533,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Master Anti-Cheat Protection</label>
               <span class="setting-desc" id="sys-anti-cheat-status-desc">${activeCount === 5 ? 'All proctoring rules active across candidate assessments.' : (activeCount === 0 ? 'All proctoring protections disabled.' : `Partially active (${activeCount}/5 rules enabled).`)}</span>
@@ -10546,7 +10546,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Tab Switch Detection</label>
               <span class="setting-desc">Record violations when candidate switches tabs or minimizes the window.</span>
@@ -10559,7 +10559,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Mandatory Fullscreen Mode</label>
               <span class="setting-desc">Enforce fullscreen view throughout assessment with exit lockdown screen.</span>
@@ -10572,7 +10572,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Split Screen Detection</label>
               <span class="setting-desc">Detect and alert when screen viewport is reduced to &lt; 65% of screen size.</span>
@@ -10585,7 +10585,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Block Developer Tools</label>
               <span class="setting-desc">Prevent F12, Ctrl+Shift+I, and shortcut inspection utilities.</span>
@@ -10598,7 +10598,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Block Copy & Paste</label>
               <span class="setting-desc">Disable right-click context menu, clipboard cut, copy, and paste actions.</span>
@@ -10622,7 +10622,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Passing CEFR / Band Threshold</label>
               <span class="setting-desc">Minimum target placement recommended for school certification.</span>
@@ -10638,7 +10638,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Automated Provisional Placement</label>
               <span class="setting-desc">Calculates provisional placement instantly upon candidate test submission.</span>
@@ -10651,12 +10651,12 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Certificate Issuing Body</label>
               <span class="setting-desc">Official institution entity printed on PDF placement records.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:240px">
+            <div class="setting-control setting-control-input">
               <input class="setting-input-text" id="setting-issuer" type="text" value="${s.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa'}">
             </div>
           </div>
@@ -10672,37 +10672,37 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">School Name</label>
               <span class="setting-desc">Primary institution branding displayed in headers and certificates.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:220px">
+            <div class="setting-control setting-control-input">
               <input class="setting-input-text" id="setting-school-name" type="text" value="${s.schoolName || 'Karya Bangsa School'}">
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">School Email Domain</label>
               <span class="setting-desc">Strict domain required for candidate logins.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:220px">
+            <div class="setting-control setting-control-input">
               <input class="setting-input-text" id="setting-school-domain" type="text" value="${s.schoolDomain || 'karyabangsa.sch.id'}">
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Support Email Contact</label>
               <span class="setting-desc">Contact email presented when candidates face issues.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:220px">
+            <div class="setting-control setting-control-input">
               <input class="setting-input-text" id="setting-support-email" type="email" value="${s.supportEmail || 'admin@karyabangsa.sch.id'}">
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Strict Teacher Whitelist</label>
               <span class="setting-desc">Only pre-authorized teachers in User Manager may take the test.</span>
@@ -10715,7 +10715,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Strict School Unit Matching</label>
               <span class="setting-desc">Candidate must select the exact school unit they are registered under.</span>
@@ -10739,7 +10739,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">System Maintenance Mode</label>
               <span class="setting-desc">Immediately pauses test taking. Administrators retain full access.</span>
@@ -10752,7 +10752,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row" style="flex-direction:column;align-items:stretch">
+          <div class="setting-row setting-row-field" style="flex-direction:column;align-items:stretch">
             <div class="setting-info" style="margin-bottom:8px">
               <label class="setting-label">Maintenance Announcement Notice</label>
               <span class="setting-desc">Message displayed to candidates trying to start an assessment.</span>
@@ -10760,7 +10760,7 @@ async function renderAdminSettingsTab(container) {
             <textarea class="setting-textarea" id="setting-maintenance-msg">${s.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.'}</textarea>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Session Timeout</label>
               <span class="setting-desc">Duration of user session authentication cookie validity.</span>
@@ -10786,7 +10786,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Gemini API Status</label>
               <span class="setting-desc">State of institutional Google Gemini AI evaluation engine.</span>
@@ -10796,17 +10796,17 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Gemini API Key</label>
               <span class="setting-desc">Google AI Studio API key. Stored securely and masked.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:240px">
+            <div class="setting-control setting-control-input">
               <input class="setting-input-text" id="setting-gemini-key" type="password" placeholder="${aiData.configured ? aiData.maskedKey : 'Enter Gemini API key…'}" autocomplete="off">
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Gemini Multimodal Model</label>
               <span class="setting-desc">Model used to grade essays and listen to candidate oral speech.</span>
@@ -10820,7 +10820,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row" style="border-top:1px solid var(--line);padding-top:14px;justify-content:flex-end">
+          <div class="setting-row setting-row-actions" style="border-top:1px solid var(--line);padding-top:14px;justify-content:flex-end">
             <button class="button ghost" id="btn-test-ai-key" type="button" style="display:flex;align-items:center;gap:6px">
               <span>⚡ Test Gemini Connection</span>
             </button>
@@ -10839,7 +10839,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Google Drive Status</label>
               <span class="setting-desc">State of cloud storage connection for archiving candidate media recordings.</span>
@@ -10849,12 +10849,12 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-field">
             <div class="setting-info">
               <label class="setting-label">Dedicated Assessify Folder</label>
               <span class="setting-desc">All candidate recordings are permanently organized and saved inside this folder in Google Drive.</span>
             </div>
-            <div class="setting-control" style="width:100%;max-width:320px;display:flex;flex-direction:column;align-items:flex-end">
+            <div class="setting-control setting-folder-control">
               <input class="setting-input-text" type="text" readonly value="${driveData.folderName || 'Assessify Recordings'} (${driveData.folderId || '13s7PXkjZBdv1R3Hf0grh4bkg0lL3cI8O'})" style="background:var(--card);cursor:default;font-size:12px;width:100%">
               ${driveData.folderLink || driveData.folderId ? `
                 <a href="${driveData.folderLink || `https://drive.google.com/drive/folders/${driveData.folderId}`}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--primary);text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-weight:600;margin-top:6px">
@@ -10864,12 +10864,12 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-toggle">
             <div class="setting-info">
               <label class="setting-label">Database Media Buffer</label>
               <span class="setting-desc">Candidate recordings safely buffered in MySQL awaiting Google Drive upload.</span>
             </div>
-            <div class="setting-control" style="display:flex;align-items:center;gap:10px">
+            <div class="setting-control setting-buffer-control" style="display:flex;align-items:center;gap:10px">
               <span class="pill ${driveData.pendingSyncCount > 0 ? 'warning' : 'success'}">${driveData.pendingSyncCount || 0} Pending</span>
               ${driveData.pendingSyncCount > 0 ? `
                 <button class="button button-sm" id="btn-sync-drive-now" type="button">Sync to Drive</button>
@@ -10877,7 +10877,7 @@ async function renderAdminSettingsTab(container) {
             </div>
           </div>
 
-          <div class="setting-row" style="border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div class="setting-row setting-row-actions" style="border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <a href="/api/admin/google-workspace/connect" class="button ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
               <span>🔑 ${driveData.configured ? 'Reconnect Google Account' : 'Connect Google Workspace'}</span>
             </a>
