@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const baseUrl = 'http://localhost:3001';
+const baseUrl = process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 
 test('Placement Certificate Generation & System Settings Dynamic Integration', async (t) => {
   // 1. Authenticate Admin

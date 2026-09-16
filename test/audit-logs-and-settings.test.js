@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-const baseUrl = 'http://localhost:3001';
+const baseUrl = process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 
 describe('Security Audit Log & System Settings Engine', () => {
   let adminCookie = '';

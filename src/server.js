@@ -335,9 +335,12 @@ const memoryRepository = {
     if (rec) {
       rec.mediaData = null;
       rec.status = 'uploaded_to_drive';
-      if (driveMeta.driveFileId) rec.driveFileId = driveMeta.driveFileId;
-      if (driveMeta.driveViewLink) rec.driveViewLink = driveMeta.driveViewLink;
-      if (driveMeta.driveDownloadLink) rec.driveDownloadLink = driveMeta.driveDownloadLink;
+      const fileId = driveMeta.driveFileId || driveMeta.fileId;
+      const viewLink = driveMeta.driveViewLink || driveMeta.webViewLink;
+      const dlLink = driveMeta.driveDownloadLink || driveMeta.webContentLink;
+      if (fileId) rec.driveFileId = fileId;
+      if (viewLink) rec.driveViewLink = viewLink;
+      if (dlLink) rec.driveDownloadLink = dlLink;
       rec.updatedAt = new Date().toISOString();
       return rec;
     }
@@ -587,7 +590,7 @@ async function connectMySQL() {
       idleTimeout: 60000,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,
-      connectTimeout: 5000
+      connectTimeout: 30000
     };
 
     if (rawUri && (rawUri.startsWith('mysql://') || rawUri.startsWith('mysql2://'))) {
@@ -596,8 +599,32 @@ async function connectMySQL() {
       pool = mysql.createPool({ host, port, user, password, database, ...poolConfig });
     }
 
+    const originalQuery = pool.query.bind(pool);
+    pool.query = async function (sql, params) {
+      for (let attempt = 0; attempt <= 2; attempt++) {
+        try {
+          return await originalQuery(sql, params);
+        } catch (err) {
+          const isTransient = err.code === 'ECONNRESET' ||
+            err.code === 'PROTOCOL_CONNECTION_LOST' ||
+            err.code === 'ETIMEDOUT' ||
+            err.syscall === 'read' ||
+            (err.message && err.message.includes('ECONNRESET'));
+          if (isTransient && attempt < 2) {
+            console.warn(`[MySQL] Transient error (${err.code || err.message}), retrying query (${attempt + 1}/2)...`);
+            await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+            continue;
+          }
+          throw err;
+        }
+      }
+    };
+
     pool.on('error', (err) => {
-      console.warn('MySQL pool connection error; falling back to memory repository:', err.message);
+      console.warn('MySQL pool background event:', err.message);
+      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.syscall === 'read') {
+        return;
+      }
       repository = memoryRepository;
       storageMode = 'memory';
     });
@@ -605,6 +632,8 @@ async function connectMySQL() {
     // Verify connection with timeout
     const connectPromise = async () => {
       await pool.query('SELECT 1');
+      await pool.query('SET GLOBAL max_allowed_packet = 67108864').catch(() => {});
+      await pool.query('SET SESSION max_allowed_packet = 67108864').catch(() => {});
 
       // Initialize tables if they do not exist
       await pool.query(`
@@ -774,6 +803,9 @@ async function connectMySQL() {
           };
         },
         async deleteRecordingMediaFromDb(attemptId, driveMeta = {}) {
+          const fileId = driveMeta.driveFileId || driveMeta.fileId || null;
+          const viewLink = driveMeta.driveViewLink || driveMeta.webViewLink || null;
+          const dlLink = driveMeta.driveDownloadLink || driveMeta.webContentLink || null;
           await pool.query(
             `UPDATE attempt_recordings
              SET media_data = NULL,
@@ -783,7 +815,7 @@ async function connectMySQL() {
                  drive_download_link = COALESCE(?, drive_download_link),
                  updated_at = CURRENT_TIMESTAMP
              WHERE attempt_id = ?`,
-            [driveMeta.driveFileId || null, driveMeta.driveViewLink || null, driveMeta.driveDownloadLink || null, attemptId]
+            [fileId, viewLink, dlLink, attemptId]
           );
           return true;
         },
@@ -805,8 +837,28 @@ async function connectMySQL() {
           }));
         },
         async listAttempts() {
-          const [rows] = await pool.query('SELECT raw_data FROM attempts ORDER BY started_at DESC');
-          return rows.map((r) => (typeof r.raw_data === 'string' ? JSON.parse(r.raw_data) : r.raw_data));
+          const [rows] = await pool.query(`
+            SELECT a.raw_data, r.filename, r.mime_type, r.status AS rec_status, r.drive_file_id, r.drive_view_link, r.drive_download_link
+            FROM attempts a
+            LEFT JOIN attempt_recordings r ON a.id = r.attempt_id
+            ORDER BY a.started_at DESC
+          `);
+          return rows.map((r) => {
+            const att = typeof r.raw_data === 'string' ? JSON.parse(r.raw_data) : r.raw_data;
+            if (r.drive_file_id || r.drive_view_link || r.filename) {
+              att.speakingRecording = {
+                ...(att.speakingRecording || {}),
+                filename: r.filename || att.speakingRecording?.filename,
+                mimeType: r.mime_type || att.speakingRecording?.mimeType,
+                fileUrl: `/api/attempts/${att.id}/recording`,
+                driveFileId: r.drive_file_id || att.speakingRecording?.driveFileId,
+                driveViewLink: r.drive_view_link || att.speakingRecording?.driveViewLink,
+                driveDownloadLink: r.drive_download_link || att.speakingRecording?.driveDownloadLink,
+                driveStatus: r.rec_status || att.speakingRecording?.driveStatus
+              };
+            }
+            return att;
+          });
         },
         async createAttempt(attempt) {
           await pool.query(
@@ -829,10 +881,28 @@ async function connectMySQL() {
           return attempt;
         },
         async getAttempt(id) {
-          const [rows] = await pool.query('SELECT raw_data FROM attempts WHERE id = ? LIMIT 1', [id]);
+          const [rows] = await pool.query(`
+            SELECT a.raw_data, r.filename, r.mime_type, r.status AS rec_status, r.drive_file_id, r.drive_view_link, r.drive_download_link
+            FROM attempts a
+            LEFT JOIN attempt_recordings r ON a.id = r.attempt_id
+            WHERE a.id = ? LIMIT 1
+          `, [id]);
           if (!rows.length) return null;
-          const raw = rows[0].raw_data;
-          return typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const r = rows[0];
+          const att = typeof r.raw_data === 'string' ? JSON.parse(r.raw_data) : r.raw_data;
+          if (r.drive_file_id || r.drive_view_link || r.filename) {
+            att.speakingRecording = {
+              ...(att.speakingRecording || {}),
+              filename: r.filename || att.speakingRecording?.filename,
+              mimeType: r.mime_type || att.speakingRecording?.mimeType,
+              fileUrl: `/api/attempts/${att.id}/recording`,
+              driveFileId: r.drive_file_id || att.speakingRecording?.driveFileId,
+              driveViewLink: r.drive_view_link || att.speakingRecording?.driveViewLink,
+              driveDownloadLink: r.drive_download_link || att.speakingRecording?.driveDownloadLink,
+              driveStatus: r.rec_status || att.speakingRecording?.driveStatus
+            };
+          }
+          return att;
         },
         async updateAttempt(id, update) {
           const current = await this.getAttempt(id);
@@ -1243,7 +1313,7 @@ async function connectMySQL() {
       }
     };
 
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 2000));
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 15000));
     await Promise.race([connectPromise(), timeoutPromise]);
   } catch (error) {
     console.warn(`MySQL unavailable; using memory repository (${error.message})`);
@@ -1332,13 +1402,44 @@ const googleClient = async () => {
 };
 const createSpeakingMeet = async () => null;
 
+let appDriveFolderCache = null;
+
+const normalizeRefreshToken = (raw) => {
+  if (!raw) return null;
+  let token = raw;
+  if (typeof token === 'string') {
+    token = token.trim();
+    if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
+      try {
+        const parsed = JSON.parse(token);
+        if (typeof parsed === 'string') token = parsed.trim();
+      } catch {
+        token = token.slice(1, -1).trim();
+      }
+    }
+  } else if (typeof token === 'object' && token.refresh_token) {
+    token = String(token.refresh_token).trim();
+  }
+  return token || null;
+};
+
 const getGoogleDriveClient = async () => {
   const { google } = await import('googleapis');
 
-  const refreshToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+  const rawToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+  const refreshToken = normalizeRefreshToken(rawToken);
   if (refreshToken) {
     const auth = await googleClient();
     auth.setCredentials({ refresh_token: refreshToken });
+    auth.on('tokens', async (newTokens) => {
+      if (newTokens?.refresh_token) {
+        try {
+          await repository.setSetting('googleRefreshToken', newTokens.refresh_token);
+        } catch (e) {
+          console.warn('Could not persist updated refresh token to database:', e.message);
+        }
+      }
+    });
     return google.drive({ version: 'v3', auth });
   }
 
@@ -1357,34 +1458,166 @@ const getGoogleDriveClient = async () => {
 const isGoogleDriveConfigured = async () => {
   const serviceAccountFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || join(root, 'service-account.json');
   if (existsSync(serviceAccountFile)) return true;
-  const refreshToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
-  return Boolean(refreshToken);
+  const rawToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+  return Boolean(normalizeRefreshToken(rawToken));
+};
+
+const getOrCreateAssessifyFolder = async (drive) => {
+  if (appDriveFolderCache) {
+    try {
+      const check = await drive.files.get({ fileId: appDriveFolderCache, fields: 'id, name, trashed', supportsAllDrives: true });
+      if (!check.data.trashed) return appDriveFolderCache;
+    } catch {
+      appDriveFolderCache = null;
+    }
+  }
+
+  // 1. Check persistent setting in database or environment variable
+  let configuredFolderId = null;
+  try {
+    const dbSetting = await repository.getSetting('googleDriveFolderId');
+    configuredFolderId = (typeof dbSetting === 'string' && dbSetting.trim()) ? dbSetting.trim() : null;
+  } catch {}
+  if (!configuredFolderId && process.env.GOOGLE_DRIVE_FOLDER_ID) {
+    configuredFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID.trim();
+  }
+
+  if (configuredFolderId) {
+    try {
+      const check = await drive.files.get({ fileId: configuredFolderId, fields: 'id, name, trashed', supportsAllDrives: true });
+      if (!check.data.trashed) {
+        appDriveFolderCache = configuredFolderId;
+        return appDriveFolderCache;
+      }
+    } catch (fErr) {
+      console.warn(`Configured folder ${configuredFolderId} inaccessible (${fErr.message}). Searching Drive for Assessify folder...`);
+    }
+  }
+
+  // 2. Search user's Google Drive for existing folder named "Assessify Recordings" or "Assessify"
+  try {
+    const q = "mimeType = 'application/vnd.google-apps.folder' and (name = 'Assessify Recordings' or name = 'Assessify') and trashed = false";
+    const res = await drive.files.list({ q, fields: 'files(id, name, webViewLink)', spaces: 'drive', pageSize: 1 });
+    if (res.data.files && res.data.files.length > 0) {
+      appDriveFolderCache = res.data.files[0].id;
+      try { await repository.setSetting('googleDriveFolderId', appDriveFolderCache); } catch {}
+      console.log(`Using existing Assessify folder in Google Drive: ${res.data.files[0].name} (${appDriveFolderCache})`);
+      return appDriveFolderCache;
+    }
+  } catch (err) {
+    console.warn('Could not list folders in Drive:', err.message);
+  }
+
+  // 3. Create dedicated "Assessify Recordings" folder in user's Google Drive
+  try {
+    const res = await drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: 'Assessify Recordings',
+        mimeType: 'application/vnd.google-apps.folder'
+      },
+      fields: 'id, name, webViewLink'
+    });
+    if (res.data?.id) {
+      appDriveFolderCache = res.data.id;
+      try { await repository.setSetting('googleDriveFolderId', appDriveFolderCache); } catch {}
+      console.log(`Created dedicated "Assessify Recordings" folder in Google Drive: ${appDriveFolderCache}`);
+      return appDriveFolderCache;
+    }
+  } catch (err) {
+    console.warn('Could not create dedicated Assessify Recordings folder:', err.message);
+  }
+
+  return null;
 };
 
 const uploadMediaBufferToGoogleDrive = async ({ buffer, filename, mimeType, folderId }) => {
+  if (!buffer || buffer.length === 0) {
+    throw new Error('Cannot upload empty media buffer to Google Drive');
+  }
+
   const drive = await getGoogleDriveClient();
+  const effectiveMimeType = mimeType || 'video/webm';
 
-  const driveFolderId = folderId || process.env.GOOGLE_DRIVE_FOLDER_ID || null;
-  const fileMetadata = {
-    name: filename,
-    ...(driveFolderId ? { parents: [driveFolderId] } : {})
-  };
-  const media = {
-    mimeType: mimeType || 'video/webm',
-    body: Readable.from(buffer)
-  };
+  // Always resolve the dedicated Assessify folder:
+  let targetFolderId = folderId || (await getOrCreateAssessifyFolder(drive));
 
-  const res = await drive.files.create({
-    supportsAllDrives: true,
-    requestBody: fileMetadata,
-    media,
-    fields: 'id, name, mimeType, webViewLink, webContentLink'
-  });
+  let res = null;
 
-  const fileId = res.data.id;
+  // Attempt 1: Upload directly into the Assessify folder
+  if (targetFolderId) {
+    try {
+      res = await drive.files.create({
+        supportsAllDrives: true,
+        requestBody: {
+          name: filename,
+          parents: [targetFolderId]
+        },
+        media: {
+          mimeType: effectiveMimeType,
+          body: Readable.from(buffer)
+        },
+        fields: 'id, name, mimeType, webViewLink, webContentLink, parents'
+      });
+      console.log(`✔ Uploaded ${filename} directly into Assessify folder (${targetFolderId})`);
+    } catch (folderErr) {
+      if (folderErr?.message?.includes('invalid_grant')) {
+        console.warn('[Google Drive] Authorization expired (invalid_grant). Skipping Drive upload, stored in MySQL.');
+        return null;
+      }
+      console.warn(`Could not upload to folder ${targetFolderId} (${folderErr.message}). Re-checking Assessify folder...`);
+      appDriveFolderCache = null;
+    }
+  }
+
+  // Attempt 2: If attempt 1 failed, re-create/re-fetch Assessify folder and upload
+  if (!res) {
+    const fallbackFolderId = await getOrCreateAssessifyFolder(drive);
+    if (fallbackFolderId) {
+      try {
+        res = await drive.files.create({
+          supportsAllDrives: true,
+          requestBody: {
+            name: filename,
+            parents: [fallbackFolderId]
+          },
+          media: {
+            mimeType: effectiveMimeType,
+            body: Readable.from(buffer)
+          },
+          fields: 'id, name, mimeType, webViewLink, webContentLink, parents'
+        });
+        console.log(`✔ Uploaded ${filename} into re-created Assessify folder (${fallbackFolderId})`);
+      } catch (fbErr) {
+        console.warn(`Could not upload to dedicated Assessify folder (${fbErr.message}). Falling back to root Drive...`);
+      }
+    }
+  }
+
+  // Attempt 3: Root upload fallback (emergency last resort)
+  if (!res) {
+    res = await drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: filename
+      },
+      media: {
+        mimeType: effectiveMimeType,
+        body: Readable.from(buffer)
+      },
+      fields: 'id, name, mimeType, webViewLink, webContentLink, parents'
+    });
+  }
+
+  const fileId = res?.data?.id;
+  if (!fileId) {
+    throw new Error('Google Drive did not return a valid file ID');
+  }
+
   const webViewLink = res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`;
   const webContentLink = res.data.webContentLink || `https://drive.google.com/uc?id=${fileId}&export=download`;
 
+  // Best-effort reader permission
   try {
     await drive.permissions.create({
       fileId,
@@ -1395,10 +1628,16 @@ const uploadMediaBufferToGoogleDrive = async ({ buffer, filename, mimeType, fold
       }
     });
   } catch (permErr) {
-    console.warn('Could not set public permission on Google Drive file:', permErr.message);
+    // Ignored if domain policy prevents public sharing
   }
 
-  return { fileId, webViewLink, webContentLink };
+  return {
+    fileId,
+    name: filename,
+    mimeType: effectiveMimeType,
+    webViewLink,
+    webContentLink
+  };
 };
 
 const uploadRecordingToDriveAndCleanup = async (attemptId) => {
@@ -1445,8 +1684,28 @@ const uploadRecordingToDriveAndCleanup = async (attemptId) => {
     return null;
   }
 };
-const createSession = (user) => { const payload = Buffer.from(JSON.stringify(user)).toString('base64url'); const signature = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url'); return `${payload}.${signature}`; };
-const currentUser = (request) => { const token = readCookies(request).assessify_session; if (!token) return null; const [payload, signature] = token.split('.'); if (!payload || !signature) return null; const expected = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url'); if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null; try { return JSON.parse(Buffer.from(payload, 'base64url').toString()); } catch { return null; } };
+const createSession = (user) => {
+  const sessionData = { ...user, iat: Date.now() };
+  const payload = Buffer.from(JSON.stringify(sessionData)).toString('base64url');
+  const signature = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+};
+const currentUser = (request) => {
+  const token = readCookies(request).assessify_session;
+  if (!token) return null;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac('sha256', sessionSecret).update(payload).digest('base64url');
+  if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    const timeoutHours = Number(currentSystemSettings?.sessionTimeoutHours) || 12;
+    if (data.iat && (Date.now() - data.iat > timeoutHours * 3600 * 1000)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+};
 const isAdmin = (request) => currentUser(request)?.role === 'admin';
 const requestBody = async (request) => {
   let body = '';
@@ -2642,36 +2901,9 @@ ${pagesHtml}
 }
 
 async function renderChromiumPdf(html, schoolName, certIssuer) {
-  const browser = findBrowser();
-  if (!browser) return null;
-
-  const id = Math.random().toString(36).slice(2, 8);
-  const htmlPath = join(tmpdir(), `cert_${id}.html`);
-  const pdfPath = join(tmpdir(), `cert_${id}.pdf`);
-
-  await writeFile(htmlPath, html, 'utf8');
-
-  try {
-    await execFileAsync(browser, [
-      '--headless=new',
-      '--disable-gpu',
-      '--no-pdf-header-footer',
-      '--print-to-pdf-no-header',
-      '--run-all-compositor-stages-before-draw',
-      `--print-to-pdf=${pdfPath}`,
-      htmlPath
-    ]);
-
-    const pdfBuffer = await readFile(pdfPath);
-    // Append institutional metadata comment so tests verifying raw latin1 text succeed
-    const metadataComment = Buffer.from(
-      `\n% [Assessify Institutional Metadata]\n% Title: ${schoolName} — Official Placement Assessment Record\n% School: ${schoolName}\n% Issuer: ${certIssuer}\n`
-    );
-    return Buffer.concat([pdfBuffer, metadataComment]);
-  } finally {
-    await unlink(htmlPath).catch(() => {});
-    await unlink(pdfPath).catch(() => {});
-  }
+  // Headless browser CLI on Windows hangs on user profile / IPC locks.
+  // Bypass external browser CLI and use high-performance built-in PDFKit generator.
+  return null;
 }
 
 const sendCenteredPdf = async (response, results, unitFilter) => {
@@ -2680,6 +2912,8 @@ const sendCenteredPdf = async (response, results, unitFilter) => {
   const passingBand = currentSystemSettings?.passingBand || '6.5';
   const rows = exportRows(results);
   const fileSuffix = unitFilter && unitFilter.toLowerCase() !== 'all' ? `-${unitFilter.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+  const singleAttemptId = (rows.length === 1 && rows[0].id) ? rows[0].id : null;
+  const downloadFileName = singleAttemptId ? `certificate-${singleAttemptId}.pdf` : `assessify-results${fileSuffix}.pdf`;
 
   // High-Fidelity Chromium PDF Renderer (Matches web placement result UI 100% pixel-for-pixel)
   if (rows.length > 0) {
@@ -2710,7 +2944,7 @@ const sendCenteredPdf = async (response, results, unitFilter) => {
 
   response.writeHead(200, {
     'Content-Type': 'application/pdf',
-    'Content-Disposition': `attachment; filename="assessify-results${fileSuffix}.pdf"`
+    'Content-Disposition': `attachment; filename="${downloadFileName}"`
   });
   doc.pipe(response);
 
@@ -2732,60 +2966,86 @@ const sendCenteredPdf = async (response, results, unitFilter) => {
 
   const pageWidth = 595.28;
   const pageHeight = 841.89;
-  const contentX = 28;
-  const contentW = 539.28;
 
   rows.forEach((row, index) => {
     if (index > 0) doc.addPage();
 
-    // 1. Page Background (crisp modern #f8fafc canvas)
-    doc.rect(0, 0, pageWidth, pageHeight).fill('#f8fafc');
+    // Outer canvas background (soft clean modern #f1f5f9)
+    doc.rect(0, 0, pageWidth, pageHeight).fill('#f1f5f9');
 
-    // 2. Header Hero Banner with deep sapphire-navy gradient
-    const grad = doc.linearGradient(0, 0, pageWidth, 168);
+    // Main Floating Card Container (Matches Web UI .result-card-container 100%)
+    const containerX = 24;
+    const containerY = 22;
+    const containerW = pageWidth - 48; // 547.28
+    const containerH = 754;
+    const containerRadius = 20;
+
+    // Draw outer white card container with rounded corners and subtle border
+    doc.roundedRect(containerX, containerY, containerW, containerH, containerRadius)
+      .fillAndStroke('#ffffff', '#cbd5e1');
+
+    // 1. Hero Banner with Rounded Top Corners (Clipped cleanly)
+    const bannerH = 152;
+    doc.save();
+    doc.roundedRect(containerX, containerY, containerW, bannerH, containerRadius).clip();
+
+    // Linear gradient: #091a32 0%, #173867 55%, #1e40af 100%
+    const grad = doc.linearGradient(containerX, containerY, containerX + containerW, containerY + bannerH);
     grad.stop(0, '#091a32');
-    grad.stop(0.5, '#173867');
+    grad.stop(0.55, '#173867');
     grad.stop(1, '#1e40af');
-    doc.rect(0, 0, pageWidth, 168).fill(grad);
+    doc.rect(containerX, containerY, containerW, bannerH).fill(grad);
 
-    // Subtle soft radial glow at top-right
-    doc.save().opacity(0.18).circle(pageWidth - 60, 20, 110).fill('#60a5fa').restore();
+    // Ambient soft glow on top-right
+    doc.save().opacity(0.18).circle(containerX + containerW - 40, containerY + 20, 100).fill('#60a5fa').restore();
+    doc.restore();
 
-    // Header Badge Left: School / Board
-    const schoolPillW = Math.min(270, 50 + schoolName.length * 5.8);
-    doc.roundedRect(contentX, 18, schoolPillW, 24, 12).fillAndStroke('#132c4d', '#2c4c79');
-    drawCapIcon(doc, contentX + 8, 23.5, '#93c5fd');
+    // Hero Banner Badges
+    const badgeY = containerY + 18;
+    // Left Institution Badge (Dynamically measured so it never wraps and text is perfectly aligned)
+    const schoolBadgeText = `${schoolName} · Faculty Placement Board`;
+    doc.font('Helvetica-Bold').fontSize(8.5);
+    const schoolTextW = doc.widthOfString(schoolBadgeText);
+    const schoolPillW = Math.round(schoolTextW + 36);
+    const schoolPillH = 24;
+    const schoolPillX = containerX + 24;
+    doc.roundedRect(schoolPillX, badgeY, schoolPillW, schoolPillH, 12).fillAndStroke('#132c4d', '#2c4c79');
+    drawCapIcon(doc, schoolPillX + 8, badgeY + 6, '#93c5fd');
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#e0f2fe')
-      .text(`${schoolName} · Faculty Placement Board`, contentX + 26, 25, { width: schoolPillW - 32, ellipsis: true });
+      .text(schoolBadgeText, schoolPillX + 26, badgeY + 7.5, { lineBreak: false });
 
-    // Header Badge Right: Official Certified Status
+    // Right Status Badge
     const isReviewed = row.review === 'Teacher reviewed';
     const statusText = isReviewed ? 'Official Placement Certified' : 'Official Record Sealed';
-    const statusPillW = 152;
-    const statusPillX = contentX + contentW - statusPillW;
-    doc.roundedRect(statusPillX, 18, statusPillW, 24, 12).fillAndStroke('#064e3b', '#059669');
-    drawCheckCircleIcon(doc, statusPillX + 10, 24, '#6ee7b7');
+    const statusTextW = doc.font('Helvetica-Bold').fontSize(8.5).widthOfString(statusText);
+    const statusPillW = Math.round(statusTextW + 34);
+    const statusPillH = 24;
+    const statusPillX = containerX + containerW - 24 - statusPillW;
+    doc.roundedRect(statusPillX, badgeY, statusPillW, statusPillH, 12).fillAndStroke('#064e3b', '#059669');
+    drawCheckCircleIcon(doc, statusPillX + 9, badgeY + 6, '#6ee7b7');
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#a7f3d0')
-      .text(statusText, statusPillX + 27, 25, { width: statusPillW - 32, align: 'center' });
+      .text(statusText, statusPillX + 25, badgeY + 7.5, { lineBreak: false });
 
-    // Header Title & Subtitle
+    // Hero Banner Title & Subtitle (Exact copy from web UI)
     doc.font('Helvetica-Bold').fontSize(22).fillColor('#ffffff')
-      .text('Official Placement Assessment Record', contentX, 56);
+      .text('Official Placement Assessment Record', containerX + 24, containerY + 54);
     doc.font('Helvetica').fontSize(9.5).fillColor('#cbd5e1')
       .text(
         'Your English language proficiency placement test has been recorded. Each candidate account is authorized for one official test attempt.',
-        contentX, 86, { width: contentW, lineGap: 3 }
+        containerX + 24, containerY + 84, { width: containerW - 48, lineGap: 3.5 }
       );
 
-    // 3. Candidate Credentials Meta Grid Card (Overlaps hero banner by 26pt for executive layered look)
-    const card1Y = 142;
+    // 2. Candidate Credentials Meta Card
+    const card1X = containerX + 24;
+    const card1Y = containerY + 124;
+    const card1W = containerW - 48;
     const card1H = 118;
-    doc.roundedRect(contentX, card1Y, contentW, card1H, 12).fillAndStroke('#ffffff', '#e2e8f0');
+    doc.roundedRect(card1X, card1Y, card1W, card1H, 14).fillAndStroke('#ffffff', '#e2e8f0');
 
-    const col1X = contentX + 18;
-    const col2X = contentX + 195;
-    const col3X = contentX + 372;
-    const row1Y = card1Y + 16;
+    const col1X = card1X + 18;
+    const col2X = card1X + 184;
+    const col3X = card1X + 348;
+    const row1Y = card1Y + 15;
     const row2Y = card1Y + 64;
 
     // Col 1 Row 1: Candidate Name
@@ -2793,28 +3053,40 @@ const sendCenteredPdf = async (response, results, unitFilter) => {
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('CANDIDATE NAME', col1X + 13, row1Y + 1);
     const candidateName = row.teacher || 'Candidate';
     const initials = candidateName.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'CA';
-    doc.circle(col1X + 11, row1Y + 23, 11).fill('#2563eb');
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text(initials, col1X, row1Y + 19, { width: 22, align: 'center' });
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text(candidateName, col1X + 28, row1Y + 18, { width: 145, ellipsis: true });
+    doc.circle(col1X + 11, row1Y + 24, 11).fill('#2563eb');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text(initials, col1X, row1Y + 20, { width: 22, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text(candidateName, col1X + 29, row1Y + 19, { width: 135, ellipsis: true });
 
     // Col 2 Row 1: School Email
     drawMailIcon(doc, col2X, row1Y, '#64748b');
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SCHOOL EMAIL', col2X + 13, row1Y + 1);
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(row.email || '-', col2X, row1Y + 19, { width: 170, ellipsis: true });
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(row.email || '-', col2X, row1Y + 19, { width: 160, ellipsis: true });
 
-    // Col 3 Row 1: School Unit Pill
+    // Col 3 Row 1: School Unit Pill (Tight inline pill with centered text)
     drawCapIcon(doc, col3X, row1Y, '#64748b');
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SCHOOL UNIT', col3X + 15, row1Y + 1);
     const unitText = (row.unit || 'SMK KARYA BANGSA').toUpperCase();
-    doc.roundedRect(col3X, row1Y + 14, 148, 22, 6).fillAndStroke('#f8fafc', '#cbd5e1');
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a').text(unitText, col3X, row1Y + 19.5, { width: 148, align: 'center', ellipsis: true });
+    doc.font('Helvetica-Bold').fontSize(8.5);
+    const unitTextW = doc.widthOfString(unitText);
+    const unitPillW = Math.round(unitTextW + 20);
+    const unitPillH = 22;
+    const unitPillY = row1Y + 14;
+    doc.roundedRect(col3X, unitPillY, unitPillW, unitPillH, 6).fillAndStroke('#f8fafc', '#cbd5e1');
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a')
+      .text(unitText, col3X, unitPillY + 6.5, { width: unitPillW, align: 'center', lineBreak: false });
 
-    // Col 1 Row 2: SERIAL NUMBER
+    // Col 1 Row 2: SERIAL NUMBER (Tight inline pill with centered text)
     drawPinIcon(doc, col1X, row2Y, '#64748b');
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('SERIAL NUMBER', col1X + 13, row2Y + 1);
     const certSerial = certificateNumber(row);
-    doc.roundedRect(col1X, row2Y + 14, 150, 22, 6).fillAndStroke('#f1f5f9', '#cbd5e1');
-    doc.font('Helvetica-Bold').fontSize(8.8).fillColor('#1e40af').text(certSerial, col1X, row2Y + 19.5, { width: 150, align: 'center', ellipsis: true });
+    doc.font('Helvetica-Bold').fontSize(8.8);
+    const serialTextW = doc.widthOfString(certSerial);
+    const serialPillW = Math.round(serialTextW + 20);
+    const serialPillH = 22;
+    const serialPillY = row2Y + 14;
+    doc.roundedRect(col1X, serialPillY, serialPillW, serialPillH, 6).fillAndStroke('#f1f5f9', '#cbd5e1');
+    doc.font('Helvetica-Bold').fontSize(8.8).fillColor('#1e40af')
+      .text(certSerial, col1X, serialPillY + 6.5, { width: serialPillW, align: 'center', lineBreak: false });
 
     // Col 2 Row 2: Submission Date
     drawClockIcon(doc, col2X, row2Y, '#64748b');
@@ -2823,137 +3095,159 @@ const sendCenteredPdf = async (response, results, unitFilter) => {
     const formattedDate = !isNaN(subDate.getTime())
       ? subDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + subDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
       : '05 Sept 2026, 01:15';
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(formattedDate, col2X, row2Y + 19, { width: 170, ellipsis: true });
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0f172a').text(formattedDate, col2X, row2Y + 19, { width: 160, ellipsis: true });
 
-    // Col 3 Row 2: Evaluation Status Pill
+    // Col 3 Row 2: Evaluation Status Pill (Tight rounded pill with centered text)
     drawCheckDocIcon(doc, col3X, row2Y, '#64748b');
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#64748b').text('EVALUATION STATUS', col3X + 13, row2Y + 1);
+    const evalText = isReviewed ? 'Teacher reviewed' : 'Pending Review';
+    doc.font('Helvetica-Bold').fontSize(8.5);
+    const evalTextW = doc.widthOfString(evalText);
+    const evalPillW = Math.round(evalTextW + 24);
+    const evalPillH = 22;
+    const evalPillY = row2Y + 14;
     if (isReviewed) {
-      doc.roundedRect(col3X, row2Y + 14, 134, 22, 11).fillAndStroke('#dcfce7', '#86efac');
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#15803d').text('Teacher reviewed', col3X, row2Y + 19.5, { width: 134, align: 'center' });
+      doc.roundedRect(col3X, evalPillY, evalPillW, evalPillH, 11).fillAndStroke('#dcfce7', '#86efac');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#15803d')
+        .text(evalText, col3X, evalPillY + 6.5, { width: evalPillW, align: 'center', lineBreak: false });
     } else {
-      doc.roundedRect(col3X, row2Y + 14, 134, 22, 11).fillAndStroke('#fef3c7', '#fde68a');
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#b45309').text('Pending Review', col3X, row2Y + 19.5, { width: 134, align: 'center' });
+      doc.roundedRect(col3X, evalPillY, evalPillW, evalPillH, 11).fillAndStroke('#fef3c7', '#fde68a');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#b45309')
+        .text(evalText, col3X, evalPillY + 6.5, { width: evalPillW, align: 'center', lineBreak: false });
     }
 
-    // 4. Official Placement Result Card (Without download button)
-    const card2Y = 276;
-    const card2H = 106;
-    doc.roundedRect(contentX, card2Y, contentW, card2H, 14).fillAndStroke('#f0f7ff', '#bfdbfe');
+    // 3. Official Placement Result Card (Overall Showcase Box)
+    const card2Y = card1Y + card1H + 16;
+    const card2H = 100;
+    doc.roundedRect(card1X, card2Y, card1W, card2H, 14).fillAndStroke('#f0f7ff', '#bfdbfe');
 
     // Left CEFR Badge Disc
     const overallBand = row.overallBand || 'A2';
     const overallDesc = cefrDescriptor(overallBand);
     const badgeColor = cefrColor(overallBand);
-    const badgeX = contentX + 18;
-    const badgeY = card2Y + 14;
-    const badgeW = 78;
-    const badgeH = 78;
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 14).fill(badgeColor);
-    doc.font('Helvetica-Bold').fontSize(30).fillColor('#ffffff').text(overallBand, badgeX, badgeY + 12, { width: badgeW, align: 'center' });
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#ffffff').text(overallDesc.toUpperCase(), badgeX, badgeY + 52, { width: badgeW, align: 'center' });
+    const badgeX = card1X + 16;
+    const cefrBadgeY = card2Y + 12;
+    const badgeW = 76;
+    const badgeH = 76;
+    doc.roundedRect(badgeX, cefrBadgeY, badgeW, badgeH, 14).fill(badgeColor);
+    doc.font('Helvetica-Bold').fontSize(30).fillColor('#ffffff').text(overallBand, badgeX, cefrBadgeY + 11, { width: badgeW, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#ffffff').text(overallDesc.toUpperCase(), badgeX, cefrBadgeY + 51, { width: badgeW, align: 'center' });
 
     // Right Result Text
-    const resultTextX = contentX + 112;
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#0284c7').text('OFFICIAL PLACEMENT RESULT', resultTextX, card2Y + 18);
-    doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(`Overall CEFR Level ${overallBand}`, resultTextX, card2Y + 32);
+    const resultTextX = card1X + 106;
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#0284c7').text('OFFICIAL PLACEMENT RESULT', resultTextX, card2Y + 15);
+    doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(`Overall CEFR Level ${overallBand}`, resultTextX, card2Y + 29);
     const resultDesc = isReviewed
       ? `Evaluated across Grammar & Vocabulary, Writing, and Speaking according to ${schoolName} CEFR Placement Rubrics.`
       : 'Provisional placement benchmark based on Grammar & Vocabulary. Writing & Speaking are queued for faculty review.';
     doc.font('Helvetica').fontSize(9.5).fillColor('#475569').text(
       resultDesc,
-      resultTextX, card2Y + 58, { width: contentW - 130, lineGap: 3.2 }
+      resultTextX, card2Y + 53, { width: card1W - 122, lineGap: 3.2 }
     );
 
-    // 5. Section: Evaluated Skill Components
-    const secTitleY = 398;
-    doc.font('Helvetica-Bold').fontSize(13.5).fillColor('#0f172a').text('Evaluated Skill Components', contentX, secTitleY);
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#64748b').text('3 Verified Competencies', contentX, secTitleY + 2, { width: contentW, align: 'right' });
+    // 4. Section: Evaluated Skill Components
+    const secTitleY = card2Y + card2H + 18;
+    doc.font('Helvetica-Bold').fontSize(13).fillColor('#0f172a').text('Evaluated Skill Components', card1X, secTitleY);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#64748b').text('3 Verified Competencies', card1X, secTitleY + 2, { width: card1W, align: 'right' });
 
-    const skillCardY = 420;
-    const gap = 14;
-    const skillCardW = (contentW - 28) / 3;
-    const skillCardH = 132;
+    const skillCardY = secTitleY + 18;
+    const gap = 12;
+    const skillCardW = (card1W - gap * 2) / 3;
+    const skillCardH = 124;
 
-    // 5a. Grammar & Vocabulary Card
-    const sc1X = contentX;
-    doc.roundedRect(sc1X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
-    doc.roundedRect(sc1X + 14, skillCardY + 14, 36, 36, 9).fill('#eff6ff');
-    drawLayersIcon(doc, sc1X + 27, skillCardY + 26, '#2563eb');
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Grammar & Vocabulary', sc1X + 56, skillCardY + 16, { width: 108, ellipsis: true });
-    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Syntax & Lexical Precision', sc1X + 56, skillCardY + 31);
+    const getSkillBadgeColors = (level) => {
+      const lvl = String(level).toUpperCase().trim();
+      if (lvl.includes('C2') || lvl.includes('C1')) return { bg: '#dcfce7', border: '#86efac', text: '#15803d' };
+      if (lvl.includes('B2') || lvl.includes('B1')) return { bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' };
+      if (lvl.includes('A2')) return { bg: '#fef3c7', border: '#fde68a', text: '#b45309' };
+      return { bg: '#fee2e2', border: '#fecaca', text: '#dc2626' };
+    };
 
-    doc.moveTo(sc1X + 14, skillCardY + 86).lineTo(sc1X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    const renderSkillCard = (x, iconFn, iconBg, iconColor, title, subtitle, metric, band) => {
+      doc.roundedRect(x, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
+
+      // Top header inside card: Icon Bubble + Title + Subtitle
+      doc.roundedRect(x + 12, skillCardY + 12, 30, 30, 8).fill(iconBg);
+      iconFn(doc, x + 21, skillCardY + 21, iconColor);
+
+      const titleFont = doc.font('Helvetica-Bold').fontSize(10).widthOfString(title) > (skillCardW - 52) ? 8.8 : 10;
+      doc.font('Helvetica-Bold').fontSize(titleFont).fillColor('#0f172a')
+        .text(title, x + 46, skillCardY + 13.5, { width: skillCardW - 50, lineBreak: false });
+      doc.font('Helvetica').fontSize(7.8).fillColor('#64748b')
+        .text(subtitle, x + 46, skillCardY + 28, { width: skillCardW - 50, ellipsis: true, lineBreak: false });
+
+      // Divider
+      doc.moveTo(x + 12, skillCardY + 76).lineTo(x + skillCardW - 12, skillCardY + 76).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+
+      // Bottom row: metric tag + badge (aligned on exact center line)
+      const badgeStyle = getSkillBadgeColors(band);
+      const pillW = 38;
+      const pillH = 22;
+      const pillX = x + skillCardW - 12 - pillW;
+      const pillY = skillCardY + 87;
+
+      // Metric text: vertical center matches pill center exactly
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#475569')
+        .text(metric, x + 12, skillCardY + 93.5, { width: skillCardW - 60, ellipsis: true, lineBreak: false });
+
+      // Pill badge: rounded capsule with centered text
+      doc.roundedRect(pillX, pillY, pillW, pillH, 11).fillAndStroke(badgeStyle.bg, badgeStyle.border);
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(badgeStyle.text)
+        .text(band, pillX, pillY + 5.75, { width: pillW, align: 'center', lineBreak: false });
+    };
+
+    // 4a. Grammar & Vocabulary Card
     const gvCorrect = row.scoring?.grammarVocabulary?.correct !== undefined
       ? `${row.scoring.grammarVocabulary.correct}/${row.scoring.grammarVocabulary.total || 50} correct`
       : '0/50 correct';
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(gvCorrect, sc1X + 14, skillCardY + 100, { width: 105, ellipsis: true });
-    const gvBand = row.grammarVocabulary || 'A1';
-    const gvStyle = cefrPillStyle(gvBand);
-    doc.roundedRect(sc1X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(gvStyle.bg, gvStyle.border);
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(gvStyle.text).text(gvBand, sc1X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+    renderSkillCard(card1X, drawLayersIcon, '#eff6ff', '#2563eb', 'Grammar & Vocabulary', 'Syntax & Lexical Precision', gvCorrect, row.grammarVocabulary || 'C1');
 
-    // 5b. Writing Card
-    const sc2X = contentX + skillCardW + gap;
-    doc.roundedRect(sc2X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
-    doc.roundedRect(sc2X + 14, skillCardY + 14, 36, 36, 9).fill('#f5f3ff');
-    drawPenIcon(doc, sc2X + 27, skillCardY + 26, '#7c3aed');
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Writing', sc2X + 56, skillCardY + 16, { width: 108 });
-    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Essay & Task Response', sc2X + 56, skillCardY + 31);
-
-    doc.moveTo(sc2X + 14, skillCardY + 86).lineTo(sc2X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    // 4b. Writing Card
     const writingMetric = row.manualReview?.writing?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(writingMetric, sc2X + 14, skillCardY + 100, { width: 105, ellipsis: true });
-    const writingBand = row.writing || 'B1';
-    const writingStyle = cefrPillStyle(writingBand);
-    doc.roundedRect(sc2X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(writingStyle.bg, writingStyle.border);
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(writingStyle.text).text(writingBand, sc2X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+    renderSkillCard(card1X + skillCardW + gap, drawPenIcon, '#f5f3ff', '#7c3aed', 'Writing', 'Essay & Task Response', writingMetric, row.writing || 'B1');
 
-    // 5c. Speaking Card
-    const sc3X = contentX + (skillCardW + gap) * 2;
-    doc.roundedRect(sc3X, skillCardY, skillCardW, skillCardH, 12).fillAndStroke('#ffffff', '#e2e8f0');
-    doc.roundedRect(sc3X + 14, skillCardY + 14, 36, 36, 9).fill('#ecfdf5');
-    drawMicIcon(doc, sc3X + 27, skillCardY + 26, '#059669');
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Speaking', sc3X + 56, skillCardY + 16, { width: 108 });
-    doc.font('Helvetica').fontSize(8).fillColor('#64748b').text('Oral Fluency & Interaction', sc3X + 56, skillCardY + 31);
-
-    doc.moveTo(sc3X + 14, skillCardY + 86).lineTo(sc3X + skillCardW - 14, skillCardY + 86).lineWidth(0.8).strokeColor('#f1f5f9').stroke();
+    // 4c. Speaking Card
     const speakingMetric = row.manualReview?.speaking?.level ? 'Rubric Evaluated' : 'Rubric Evaluated';
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#475569').text(speakingMetric, sc3X + 14, skillCardY + 100, { width: 105, ellipsis: true });
-    const speakingBand = row.speaking || 'B1';
-    const speakingStyle = cefrPillStyle(speakingBand);
-    doc.roundedRect(sc3X + skillCardW - 46, skillCardY + 95, 32, 22, 6).fillAndStroke(speakingStyle.bg, speakingStyle.border);
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(speakingStyle.text).text(speakingBand, sc3X + skillCardW - 46, skillCardY + 99.5, { width: 32, align: 'center' });
+    renderSkillCard(card1X + (skillCardW + gap) * 2, drawMicIcon, '#ecfdf5', '#059669', 'Speaking', 'Oral Fluency & Interaction', speakingMetric, row.speaking || 'A1');
 
-    // 6. Placement Academic Evaluation Card
-    const card4Y = 568;
-    const card4H = 88;
-    doc.roundedRect(contentX, card4Y, contentW, card4H, 10).fillAndStroke('#f8fafc', '#e2e8f0');
+    // 5. Placement Academic Evaluation Card (.placement-insight-card)
+    const card4Y = skillCardY + skillCardH + 16;
+    const card4H = 78;
+    doc.roundedRect(card1X, card4Y, card1W, card4H, 10).fillAndStroke('#f8fafc', '#e2e8f0');
     // Blue left accent bar
-    doc.roundedRect(contentX, card4Y, 4.5, card4H, 2).fill('#2563eb');
-    doc.circle(contentX + 22, card4Y + 24, 12).fill('#dbeafe');
-    drawBulbIcon(doc, contentX + 17, card4Y + 18, '#1d4ed8');
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Placement Academic Evaluation', contentX + 44, card4Y + 17);
+    doc.roundedRect(card1X, card4Y, 4, card4H, 2).fill('#2563eb');
+    doc.circle(card1X + 22, card4Y + 22, 12).fill('#dbeafe');
+    drawBulbIcon(doc, card1X + 17, card4Y + 16, '#1d4ed8');
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#0f172a').text('Placement Academic Evaluation', card1X + 44, card4Y + 13);
     const analysisText = isReviewed
       ? `Overall CEFR Placement: ${overallBand} — ${overallDesc}. Assessment has been officially graded and archived by ${schoolName} Academic Evaluation Board.`
       : (row.analysis || `Your objective Grammar & Vocabulary placement is securely recorded. Manual evaluation of your essay and oral interview recording is underway.`);
-    doc.font('Helvetica').fontSize(9.4).fillColor('#334155').text(analysisText, contentX + 44, card4Y + 35, { width: contentW - 58, lineGap: 3.5 });
+    doc.font('Helvetica').fontSize(9).fillColor('#334155').text(analysisText, card1X + 44, card4Y + 30, { width: card1W - 56, lineGap: 3.2 });
 
-    // 7. Single Assessment Policy Footer Card (Without sign out button)
-    const card5Y = 672;
-    const card5H = 48;
-    doc.roundedRect(contentX, card5Y, contentW, card5H, 8).fillAndStroke('#ffffff', '#e2e8f0');
+    // 6. Policy Compliance Tag (.policy-compliance-tag)
+    const card5Y = card4Y + card4H + 14;
+    const card5H = 46;
+    doc.roundedRect(card1X, card5Y, card1W, card5H, 8).fillAndStroke('#ffffff', '#e2e8f0');
 
-    drawLockIcon(doc, contentX + 16, card5Y + 17, '#475569');
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text('Single Assessment Policy: ', contentX + 36, card5Y + 18, { continued: true });
-    doc.font('Helvetica').fontSize(8.5).fillColor('#64748b').text(`Record is officially sealed and locked under institutional academic governance. - Issued by: ${certIssuer}`);
+    drawLockIcon(doc, card1X + 16, card5Y + 17, '#475569');
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#0f172a')
+      .text('Single Assessment Policy: ', card1X + 34, card5Y + 13, { continued: true });
+    doc.font('Helvetica').fontSize(8.5).fillColor('#64748b')
+      .text(`Record is officially sealed and locked under institutional academic governance.`);
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b')
+      .text(`Issued by: ${certIssuer}`, card1X + 34, card5Y + 28, { width: card1W - 50, ellipsis: true });
 
-    // 8. Institutional Legal Watermark Footnote
-    const legalY = 744;
-    doc.font('Helvetica').fontSize(7.8).fillColor('#94a3b8')
+    // 7. Legal Footnote outside the card
+    const legalY = containerY + containerH + 14;
+    doc.font('Helvetica').fontSize(7.5).fillColor('#64748b')
       .text(
-        `This official placement record is validated and issued under institutional academic governance by ${schoolName}.\nArchived securely in platform repository. Any unauthorized reproduction, tampering, or alteration voids this certificate.`,
-        contentX, legalY, { width: contentW, align: 'center', lineGap: 3.2 }
+        `This official placement record is validated and issued under institutional academic governance by ${schoolName}.`,
+        containerX, legalY, { width: containerW, align: 'center' }
+      );
+    doc.font('Helvetica').fontSize(7.2).fillColor('#94a3b8')
+      .text(
+        'Archived securely in platform repository. Any unauthorized reproduction, tampering, or alteration voids this certificate.',
+        containerX, legalY + 12, { width: containerW, align: 'center' }
       );
   });
   doc.end();
@@ -3076,6 +3370,37 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname === '/api/admin/proctor/candidates' && request.method === 'GET') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    
+    // Sync any ongoing uncompleted attempts from database into memory presence
+    try {
+      const allAttempts = await repository.listAttempts();
+      const now = Date.now();
+      for (const att of allAttempts) {
+        if (att && att.status !== 'Completed' && !activeCandidatePresence.has(att.id)) {
+          const lastActive = new Date(att.lastSavedAt || att.startedAt || att.started || 0).getTime();
+          const diff = now - lastActive;
+          const status = diff < 25_000 ? 'active' : (diff < 90_000 ? 'idle' : 'offline');
+          const totalQ = att.totalQuestions || 25;
+          const ansCount = Object.keys(att.responses || {}).length;
+          const presence = {
+            attemptId: att.id,
+            email: att.email,
+            name: att.teacher || att.email,
+            unit: att.unit || 'SMK KARYA BANGSA',
+            sectionIndex: att.sectionIndex || 0,
+            sectionName: att.sectionIndex === 1 ? 'Writing' : (att.sectionIndex === 2 ? 'Speaking' : 'Grammar & Vocabulary'),
+            answeredCount: ansCount,
+            totalQuestions: totalQ,
+            remainingMs: att.sectionRemainingMs?.[att.sectionIndex || 0] || 0,
+            antiCheat: att.antiCheat || { violations: [], totalCount: 0 },
+            lastHeartbeat: lastActive || now,
+            status
+          };
+          activeCandidatePresence.set(att.id, presence);
+        }
+      }
+    } catch {}
+
     const candidates = getActiveCandidatesSnapshot();
     for (const cand of candidates) {
       if (!cand.antiCheat?.violations || cand.antiCheat.violations.length === 0) {
@@ -3096,7 +3421,20 @@ const server = createServer(async (request, response) => {
     }
     return json(response, 200, {
       candidates,
-      connectedAdmins: Array.from(realtimeClients.values()).filter(c => c.role === 'admin').length
+      connectedAdmins: Array.from(realtimeClients.values()).filter(c => c.role === 'admin').length,
+      serverTime: Date.now()
+    });
+  }
+
+  if (url.pathname.startsWith('/api/admin/proctor/candidate/') && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    const attemptId = url.pathname.split('/')[5];
+    const attempt = await repository.getAttempt(attemptId);
+    if (!attempt) return json(response, 404, { error: 'Candidate attempt not found' });
+    const presence = activeCandidatePresence.get(attemptId) || null;
+    return json(response, 200, {
+      attempt,
+      presence
     });
   }
 
@@ -3366,7 +3704,9 @@ const server = createServer(async (request, response) => {
         status: 'SUCCESS'
       });
 
-      response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
+      const timeoutHours = Number(currentSystemSettings.sessionTimeoutHours) || 12;
+      const maxAgeSeconds = timeoutHours * 3600;
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax; Path=/` });
       return response.end(JSON.stringify({ user }));
     }
     if (role === 'teacher' || role === 'candidate' || role === 'student') {
@@ -3389,7 +3729,11 @@ const server = createServer(async (request, response) => {
         });
       }
 
-      if (!normalizedEmail || !normalizedEmail.endsWith('@karyabangsa.sch.id')) {
+      const schoolBrand = currentSystemSettings.schoolName || 'Karya Bangsa School';
+      const configuredDomain = (currentSystemSettings.schoolDomain || 'karyabangsa.sch.id').toLowerCase().trim();
+      const supportContact = currentSystemSettings.supportEmail || 'admin@karyabangsa.sch.id';
+
+      if (!normalizedEmail || !normalizedEmail.endsWith('@' + configuredDomain)) {
         await recordAuditLog({
           actorType: 'candidate',
           actorId: normalizedEmail || 'unknown',
@@ -3397,11 +3741,11 @@ const server = createServer(async (request, response) => {
           action: 'CANDIDATE_LOGIN_REJECTED',
           category: 'AUTH',
           target: normalizedEmail,
-          details: { reason: 'Email not matching @karyabangsa.sch.id' },
+          details: { reason: `Email not matching @${configuredDomain}` },
           ip: getClientIp(request),
           status: 'FAILURE'
         });
-        return json(response, 403, { error: 'Please enter your official Karya Bangsa School email (@karyabangsa.sch.id).' });
+        return json(response, 403, { error: `Please enter your official ${schoolBrand} email (@${configuredDomain}).` });
       }
 
       const selectedUnit = (unit || '').trim();
@@ -3413,9 +3757,10 @@ const server = createServer(async (request, response) => {
       const teacherRecord = authorizedTeachers.find((t) => t.email.toLowerCase().trim() === normalizedEmail);
       const studentRecord = !teacherRecord ? await repository.getStudent(normalizedEmail) : null;
       const candidateRecord = teacherRecord || studentRecord;
-      const candidateRole = teacherRecord ? 'teacher' : (studentRecord ? 'student' : null);
+      const candidateRole = candidateRecord ? (teacherRecord ? 'teacher' : 'student') : 'teacher';
 
-      if (!candidateRecord) {
+      const enforceWhitelist = currentSystemSettings.enforceTeacherWhitelist !== false;
+      if (!candidateRecord && enforceWhitelist) {
         await recordAuditLog({
           actorType: 'candidate',
           actorId: normalizedEmail,
@@ -3428,11 +3773,11 @@ const server = createServer(async (request, response) => {
           status: 'WARNING'
         });
         return json(response, 403, {
-          error: `Access Denied: "${normalizedEmail}" is not recognized in the Karya Bangsa roster (Teachers or Students). Please use your official school email or contact administration.`
+          error: `Access Denied: "${normalizedEmail}" is not recognized in the ${schoolBrand} roster. Please use your official school email or contact ${supportContact}.`
         });
       }
 
-      if (candidateRecord.status === 'suspended') {
+      if (candidateRecord && candidateRecord.status === 'suspended') {
         await recordAuditLog({
           actorType: candidateRole,
           actorId: normalizedEmail,
@@ -3444,9 +3789,9 @@ const server = createServer(async (request, response) => {
           ip: getClientIp(request),
           status: 'WARNING'
         });
-        return json(response, 403, { error: 'Your account has been suspended. Please contact administration.' });
+        return json(response, 403, { error: `Your account has been suspended. Please contact ${supportContact}.` });
       }
-      if (candidateRecord.status === 'archived') {
+      if (candidateRecord && candidateRecord.status === 'archived') {
         await recordAuditLog({
           actorType: candidateRole,
           actorId: normalizedEmail,
@@ -3458,11 +3803,12 @@ const server = createServer(async (request, response) => {
           ip: getClientIp(request),
           status: 'WARNING'
         });
-        return json(response, 403, { error: 'Your account has been archived. Please contact administration.' });
+        return json(response, 403, { error: `Your account has been archived. Please contact ${supportContact}.` });
       }
 
-      // Strict Unit Match Check
-      if (candidateRecord.unit.toLowerCase().trim() !== selectedUnit.toLowerCase().trim()) {
+      // Strict Unit Match Check (only enforced if enabled in system settings)
+      const enforceUnit = currentSystemSettings.enforceUnitMatch !== false;
+      if (enforceUnit && candidateRecord && candidateRecord.unit && selectedUnit && candidateRecord.unit.toLowerCase().trim() !== selectedUnit.toLowerCase().trim()) {
         await recordAuditLog({
           actorType: candidateRole,
           actorId: normalizedEmail,
@@ -3475,18 +3821,19 @@ const server = createServer(async (request, response) => {
           status: 'WARNING'
         });
         return json(response, 400, {
-          error: `Unit Mismatch: ${normalizedEmail} is registered under "${candidateRecord.unit}", but you selected "${selectedUnit}". Please select your correct unit.`
+          error: `Unit Mismatch: ${normalizedEmail} is registered under "${candidateRecord.unit}", but you selected "${selectedUnit}". Please select your correct unit or contact ${supportContact}.`
         });
       }
 
-      const candidateName = (fullName || name || '').trim() || candidateRecord.name;
+      const candidateName = (fullName || name || '').trim() || (candidateRecord ? candidateRecord.name : normalizedEmail.split('@')[0]);
+      const effectiveUnit = (selectedUnit || candidateRecord?.unit || 'SMK KARYA BANGSA').trim();
       const user = {
         email: normalizedEmail,
         name: candidateName,
         role: candidateRole,
-        unit: candidateRecord.unit,
-        student_id: candidateRecord.student_id || null,
-        grade: candidateRecord.grade || null
+        unit: effectiveUnit,
+        student_id: candidateRecord?.student_id || null,
+        grade: candidateRecord?.grade || null
       };
       const token = createSession(user);
 
@@ -3496,15 +3843,18 @@ const server = createServer(async (request, response) => {
         actorName: candidateName,
         action: `${candidateRole.toUpperCase()}_LOGIN`,
         category: 'AUTH',
-        target: candidateRecord.unit,
-        details: { unit: candidateRecord.unit, role: candidateRole },
+        target: effectiveUnit,
+        details: { unit: effectiveUnit, role: candidateRole },
         ip: getClientIp(request),
         status: 'SUCCESS'
       });
 
-      response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; HttpOnly; SameSite=Lax; Path=/` });
+      const timeoutHours = Number(currentSystemSettings.sessionTimeoutHours) || 12;
+      const maxAgeSeconds = timeoutHours * 3600;
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': `assessify_session=${token}; Max-Age=${maxAgeSeconds}; HttpOnly; SameSite=Lax; Path=/` });
       return response.end(JSON.stringify({ user }));
     }
+
     return json(response, 400, { error: 'Invalid user role' });
   }
   if ((url.pathname === '/api/auth/teacher-lookup' || url.pathname === '/api/auth/candidate-lookup') && request.method === 'GET') {
@@ -3541,6 +3891,7 @@ const server = createServer(async (request, response) => {
     return json(response, 200, {
       schoolName: currentSystemSettings.schoolName || 'Karya Bangsa School',
       schoolDomain: currentSystemSettings.schoolDomain || 'karyabangsa.sch.id',
+      supportEmail: currentSystemSettings.supportEmail || 'admin@karyabangsa.sch.id',
       certificateIssuer: currentSystemSettings.certificateIssuer || 'Pusat Bahasa & Asesmen Guru Karya Bangsa',
       durationMinutes: Number(currentSystemSettings.durationMinutes) || 65,
       allowResume: currentSystemSettings.allowResume !== false,
@@ -3550,6 +3901,10 @@ const server = createServer(async (request, response) => {
       maintenanceMode: Boolean(currentSystemSettings.maintenanceMode),
       maintenanceMessage: currentSystemSettings.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance.',
       passingBand: currentSystemSettings.passingBand || '6.5',
+      provisionalScoringAuto: currentSystemSettings.provisionalScoringAuto !== false,
+      enforceTeacherWhitelist: currentSystemSettings.enforceTeacherWhitelist !== false,
+      enforceUnitMatch: currentSystemSettings.enforceUnitMatch !== false,
+      sessionTimeoutHours: Number(currentSystemSettings.sessionTimeoutHours) || 12,
       antiCheat: currentSystemSettings.antiCheat || defaultSystemSettings.antiCheat
     });
   }
@@ -3595,6 +3950,9 @@ const server = createServer(async (request, response) => {
       status: 'SUCCESS'
     });
 
+    // Real-time broadcast to all connected examinees and proctor consoles
+    broadcastRealtime('all', 'SYSTEM_SETTINGS_UPDATED', { settings: currentSystemSettings });
+
     return json(response, 200, { ok: true, settings: currentSystemSettings });
   }
   if (url.pathname === '/api/admin/settings/reset' && request.method === 'POST') {
@@ -3619,8 +3977,11 @@ const server = createServer(async (request, response) => {
       status: 'WARNING'
     });
 
+    broadcastRealtime('all', 'SYSTEM_SETTINGS_UPDATED', { settings: currentSystemSettings });
+
     return json(response, 200, { ok: true, settings: currentSystemSettings });
   }
+
   if (url.pathname === '/api/admin/audit-logs' && request.method === 'GET') {
     if (!isAdmin(request)) return json(response, 401, { error: 'Unauthorized' });
     const category = url.searchParams.get('category') || 'all';
@@ -3821,7 +4182,12 @@ const server = createServer(async (request, response) => {
     try {
       googleOAuthState = crypto.randomUUID();
       const auth = await googleClient();
-      const authorizationUrl = auth.generateAuthUrl({ access_type: 'offline', prompt: 'consent', scope: ['https://www.googleapis.com/auth/drive.file'], state: googleOAuthState });
+      const authorizationUrl = auth.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: ['https://www.googleapis.com/auth/drive.file'],
+        state: googleOAuthState
+      });
       response.writeHead(302, { Location: authorizationUrl });
       return response.end();
     } catch (error) { return json(response, 503, { error: error.message }); }
@@ -3831,12 +4197,115 @@ const server = createServer(async (request, response) => {
     try {
       const auth = await googleClient();
       const { tokens } = await auth.getToken(url.searchParams.get('code'));
-      if (!tokens.refresh_token) throw new Error('Google did not return a refresh token. Remove Assessify access in Google and connect again.');
-      await repository.setSetting('googleRefreshToken', tokens.refresh_token);
+      if (tokens.refresh_token) {
+        await repository.setSetting('googleRefreshToken', tokens.refresh_token);
+      } else {
+        const existingToken = await repository.getSetting('googleRefreshToken');
+        if (!existingToken && !process.env.GOOGLE_REFRESH_TOKEN) {
+          throw new Error('Google did not return a refresh token. Remove Assessify access in your Google Account security settings and connect again.');
+        }
+      }
       googleOAuthState = null;
       response.writeHead(302, { Location: '/?google_workspace=connected' });
       return response.end();
     } catch (error) { return json(response, 503, { error: error.message }); }
+  }
+  if (url.pathname === '/api/admin/google-drive/status' && request.method === 'GET') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const configured = await isGoogleDriveConfigured();
+      const rawToken = (await repository.getSetting('googleRefreshToken')) || process.env.GOOGLE_REFRESH_TOKEN;
+      const serviceAccountFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || join(root, 'service-account.json');
+      const authType = normalizeRefreshToken(rawToken) ? 'oauth' : (existsSync(serviceAccountFile) ? 'service_account' : 'none');
+      const pendingRecordings = await repository.listPendingDriveRecordings();
+
+      let folderId = null;
+      let folderName = 'Assessify Recordings';
+      let folderLink = null;
+
+      if (configured) {
+        try {
+          const drive = await getGoogleDriveClient();
+          folderId = await getOrCreateAssessifyFolder(drive);
+          if (folderId) {
+            folderLink = `https://drive.google.com/drive/folders/${folderId}`;
+            try {
+              const fMeta = await drive.files.get({ fileId: folderId, fields: 'id, name, webViewLink', supportsAllDrives: true });
+              folderName = fMeta.data.name || folderName;
+              folderLink = fMeta.data.webViewLink || folderLink;
+            } catch {}
+          }
+        } catch (e) {
+          console.warn('Could not resolve drive folder details:', e.message);
+        }
+      }
+
+      return json(response, 200, {
+        configured,
+        authType,
+        folderId,
+        folderName,
+        folderLink,
+        pendingSyncCount: pendingRecordings.length,
+        hasClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
+        hasClientSecret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+        redirectUri: googleRedirectUri
+      });
+    } catch (err) {
+      return json(response, 500, { error: err.message });
+    }
+  }
+  if (url.pathname === '/api/admin/google-drive/test' && request.method === 'POST') {
+    if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
+    try {
+      const drive = await getGoogleDriveClient();
+      const folderId = await getOrCreateAssessifyFolder(drive);
+      let folderName = 'Assessify Recordings';
+      let folderLink = folderId ? `https://drive.google.com/drive/folders/${folderId}` : null;
+      if (folderId) {
+        try {
+          const folderRes = await drive.files.get({ fileId: folderId, fields: 'id, name, webViewLink', supportsAllDrives: true });
+          folderName = folderRes.data.name || folderName;
+          folderLink = folderRes.data.webViewLink || folderLink;
+        } catch (fErr) {
+          console.warn('Folder get error:', fErr.message);
+        }
+      }
+
+      // Test creating a verification ping file inside the Assessify folder
+      if (folderId) {
+        const ping = await drive.files.create({
+          supportsAllDrives: true,
+          requestBody: {
+            name: `assessify-ping-test-${Date.now()}.txt`,
+            parents: [folderId]
+          },
+          media: {
+            mimeType: 'text/plain',
+            body: 'Assessify Google Drive folder live connection verified!'
+          },
+          fields: 'id'
+        });
+        if (ping.data?.id) {
+          await drive.files.delete({ fileId: ping.data.id }).catch(() => {});
+        }
+      }
+
+      const about = await drive.about.get({ fields: 'user(displayName, emailAddress)' }).catch(() => null);
+      const userEmail = about?.data?.user?.emailAddress || 'Authorized Workspace User';
+
+      return json(response, 200, {
+        success: true,
+        message: `Google Drive connection verified successfully! Logged in as: ${userEmail}. All candidate records are stored in dedicated folder: "${folderName}".`,
+        user: userEmail,
+        target: `Folder: "${folderName}" (${folderId || 'Root'})`,
+        folderId,
+        folderName,
+        folderLink
+      });
+    } catch (err) {
+      return json(response, 500, { error: `Google Drive test failed: ${err.message}` });
+    }
   }
   if (url.pathname === '/api/admin/recordings/sync-drive' && request.method === 'POST') {
     if (!isAdmin(request)) return json(response, 403, { error: 'Admin access required' });
@@ -3944,7 +4413,7 @@ const server = createServer(async (request, response) => {
 
       if (!name) return json(response, 400, { error: 'Teacher full name is required' });
       if (!email) return json(response, 400, { error: 'Official school email is required' });
-      const schoolDomain = process.env.SCHOOL_DOMAIN || 'karyabangsa.sch.id';
+      const schoolDomain = (currentSystemSettings.schoolDomain || process.env.SCHOOL_DOMAIN || 'karyabangsa.sch.id').toLowerCase().trim();
       if (!email.endsWith(`@${schoolDomain}`)) {
         return json(response, 400, { error: `Email must end with official domain @${schoolDomain}` });
       }
@@ -4091,7 +4560,7 @@ const server = createServer(async (request, response) => {
 
       if (!name) return json(response, 400, { error: 'Teacher full name is required' });
       if (!email) return json(response, 400, { error: 'Official school email is required' });
-      const schoolDomain = process.env.SCHOOL_DOMAIN || 'karyabangsa.sch.id';
+      const schoolDomain = (currentSystemSettings.schoolDomain || process.env.SCHOOL_DOMAIN || 'karyabangsa.sch.id').toLowerCase().trim();
       if (!email.endsWith(`@${schoolDomain}`)) {
         return json(response, 400, { error: `Email must end with official domain @${schoolDomain}` });
       }
@@ -5221,13 +5690,14 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/recording') && request.method === 'POST') {
     const user = currentUser(request);
-    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
+    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate' && user.role !== 'admin')) return json(response, 401, { error: 'Candidate sign-in required' });
     const attemptId = url.pathname.split('/')[3];
     const attempt = await repository.getAttempt(attemptId);
-    if (!attempt || attempt.email !== user.email) return json(response, 404, { error: 'Attempt not found' });
+    if (!attempt || (attempt.email !== user.email && user.role !== 'admin')) return json(response, 404, { error: 'Attempt not found' });
     if (attempt.status === 'Completed') return json(response, 409, { error: 'This assessment has already been submitted.' });
 
-    const contentType = request.headers['content-type'] || 'video/webm';
+    const rawContentType = request.headers['content-type'] || 'video/webm';
+    const contentType = rawContentType.split(';')[0].trim() || 'video/webm';
     const durationSeconds = Number(request.headers['x-duration-seconds']) || 0;
 
     const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm';
@@ -5250,13 +5720,6 @@ const server = createServer(async (request, response) => {
         buffer
       });
 
-      // Step 2: Cache to local uploadsDir for immediate Gemini AI evaluation
-      try {
-        await writeFile(filePath, buffer);
-      } catch (cacheErr) {
-        console.warn('Could not cache recording to local uploadsDir:', cacheErr.message);
-      }
-
       const fileUrl = `/api/attempts/${attemptId}/recording`;
       let recordingMeta = {
         mimeType: contentType,
@@ -5266,20 +5729,16 @@ const server = createServer(async (request, response) => {
         driveStatus: 'saved_to_mysql_pending_drive'
       };
 
-      // Step 3: Upload from MySQL to Google Drive, then purge binary payload from MySQL
-      const driveResult = await uploadRecordingToDriveAndCleanup(attemptId);
-      if (driveResult) {
-        recordingMeta = {
-          ...recordingMeta,
-          driveFileId: driveResult.fileId,
-          driveViewLink: driveResult.webViewLink,
-          driveDownloadLink: driveResult.webContentLink,
-          driveStatus: 'uploaded_to_drive'
-        };
-      }
-
       await repository.updateAttempt(attemptId, { speakingRecording: recordingMeta });
-      return json(response, 200, { success: true, recording: recordingMeta });
+
+      // Respond immediately to candidate with success so submission pipeline never hangs!
+      json(response, 200, { success: true, recording: recordingMeta });
+
+      // Google Drive archive & MySQL cleanup runs in background asynchronously (non-blocking)
+      uploadRecordingToDriveAndCleanup(attemptId).catch((driveErr) => {
+        console.warn(`[Background Drive Sync] Recording ${attemptId} sync note:`, driveErr.message);
+      });
+      return;
     } catch (error) {
       return json(response, 500, { error: `Failed to save recording: ${error.message}` });
     }
@@ -5321,8 +5780,27 @@ const server = createServer(async (request, response) => {
       }
 
       // Check if uploaded to Google Drive
-      if (attempt.speakingRecording?.driveViewLink) {
-        response.writeHead(302, { Location: attempt.speakingRecording.driveViewLink });
+      if (attempt.speakingRecording?.driveFileId) {
+        try {
+          const drive = await getGoogleDriveClient();
+          const driveStream = await drive.files.get(
+            { fileId: attempt.speakingRecording.driveFileId, alt: 'media', supportsAllDrives: true },
+            { responseType: 'stream' }
+          );
+          const mimeType = attempt.speakingRecording.mimeType || 'video/webm';
+          response.writeHead(200, {
+            'Content-Type': mimeType,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'public, max-age=3600'
+          });
+          return driveStream.data.pipe(response);
+        } catch (streamErr) {
+          console.warn('Could not stream directly from Google Drive API, falling back to redirect:', streamErr.message);
+        }
+      }
+
+      if (attempt.speakingRecording?.driveViewLink || attempt.speakingRecording?.driveDownloadLink) {
+        response.writeHead(302, { Location: attempt.speakingRecording.driveViewLink || attempt.speakingRecording.driveDownloadLink });
         return response.end();
       }
 
@@ -5371,95 +5849,106 @@ const server = createServer(async (request, response) => {
   }
 
   if (url.pathname.startsWith('/api/attempts/') && url.pathname.endsWith('/submit') && request.method === 'POST') {
-    const user = currentUser(request);
-    if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
-    const attemptId = url.pathname.split('/')[3];
-    const attempt = await repository.getAttempt(attemptId);
-    if (!attempt || attempt.email !== user.email) return json(response, 404, { error: 'Attempt not found' });
-    if (attempt.status === 'Completed') return json(response, 409, { error: 'This assessment has already been submitted.' });
-    const { writing = '', speaking = '', responses = {}, speakingRecording = null, earlyTermination = false, antiCheat = null } = await requestBody(request);
-    if (speakingRecording?.dataUrl && speakingRecording.dataUrl.length > 14_000_000) return json(response, 413, { error: 'Speaking recording is too large. Please record a shorter response.' });
-    const grammarVocabularyScore = scoreObjective('grammar-vocabulary', responses);
-    // All section scores are now CEFR levels (A1/A2/B1/B2/C1)
-    const sectionScores = {
-      ...(attempt.sectionScores || {}),
-      'Grammar & Vocabulary': grammarVocabularyScore.level
-    };
-    // Provisional placement based on Grammar & Vocabulary (Writing + Speaking pending evaluator review)
-    const provisionalPlacement = computeFinalPlacement(sectionScores);
-    
-    // Combine any existing recording metadata (e.g. from prior /recording endpoint upload) with incoming submission
-    const existingRecording = attempt.speakingRecording || null;
-    let finalRecording = null;
-    if (existingRecording?.fileUrl) {
-      finalRecording = {
-        ...existingRecording,
-        ...(speakingRecording || {}),
-        earlyTermination: Boolean(earlyTermination)
+    try {
+      const user = currentUser(request);
+      if (!user || (user.role !== 'teacher' && user.role !== 'student' && user.role !== 'candidate')) return json(response, 401, { error: 'Candidate sign-in required' });
+      const attemptId = url.pathname.split('/')[3];
+      const attempt = await repository.getAttempt(attemptId);
+      if (!attempt || attempt.email !== user.email) return json(response, 404, { error: 'Attempt not found' });
+      if (attempt.status === 'Completed') return json(response, 409, { error: 'This assessment has already been submitted.' });
+      const { writing = '', speaking = '', responses = {}, speakingRecording = null, earlyTermination = false, antiCheat = null } = await requestBody(request);
+      if (speakingRecording?.dataUrl && speakingRecording.dataUrl.length > 14_000_000) return json(response, 413, { error: 'Speaking recording is too large. Please record a shorter response.' });
+      const grammarVocabularyScore = scoreObjective('grammar-vocabulary', responses);
+      // All section scores are now CEFR levels (A1/A2/B1/B2/C1)
+      const sectionScores = {
+        ...(attempt.sectionScores || {}),
+        'Grammar & Vocabulary': grammarVocabularyScore.level
       };
-    } else if (speakingRecording) {
-      finalRecording = {
-        mimeType: speakingRecording.mimeType,
-        durationSeconds: speakingRecording.durationSeconds,
-        transcriptSource: speakingRecording.transcriptSource,
-        fileUrl: speakingRecording.fileUrl || null,
-        dataUrl: speakingRecording.dataUrl || null,
-        driveFileId: speakingRecording.driveFileId || null,
-        driveViewLink: speakingRecording.driveViewLink || null,
-        driveDownloadLink: speakingRecording.driveDownloadLink || null,
-        driveStatus: speakingRecording.driveStatus || null,
-        earlyTermination: Boolean(earlyTermination)
+      const autoScore = currentSystemSettings.provisionalScoringAuto !== false;
+      const provisionalPlacement = autoScore ? computeFinalPlacement(sectionScores) : 'Under Review';
+      const reviewStatus = autoScore ? 'Writing and Speaking review required' : 'Evaluation in progress';
+
+      // Combine any existing recording metadata (e.g. from prior /recording endpoint upload) with incoming submission
+      const existingRecording = attempt.speakingRecording || null;
+      let finalRecording = null;
+      if (existingRecording?.fileUrl) {
+        finalRecording = {
+          ...existingRecording,
+          ...(speakingRecording || {}),
+          driveFileId: existingRecording.driveFileId || speakingRecording?.driveFileId || null,
+          driveViewLink: existingRecording.driveViewLink || speakingRecording?.driveViewLink || null,
+          driveDownloadLink: existingRecording.driveDownloadLink || speakingRecording?.driveDownloadLink || null,
+          driveStatus: existingRecording.driveStatus || speakingRecording?.driveStatus || null,
+          earlyTermination: Boolean(earlyTermination)
+        };
+      } else if (speakingRecording) {
+        finalRecording = {
+          mimeType: speakingRecording.mimeType,
+          durationSeconds: speakingRecording.durationSeconds,
+          transcriptSource: speakingRecording.transcriptSource,
+          fileUrl: speakingRecording.fileUrl || null,
+          dataUrl: speakingRecording.dataUrl || null,
+          driveFileId: speakingRecording.driveFileId || null,
+          driveViewLink: speakingRecording.driveViewLink || null,
+          driveDownloadLink: speakingRecording.driveDownloadLink || null,
+          driveStatus: speakingRecording.driveStatus || null,
+          earlyTermination: Boolean(earlyTermination)
+        };
+      }
+
+      const scored = {
+        ...attempt,
+        status: 'Completed',
+        earlyTermination: Boolean(earlyTermination),
+        sectionScores,
+        overall: provisionalPlacement,
+        review: reviewStatus,
+        scoring: { grammarVocabulary: grammarVocabularyScore },
+        responses,
+        writing,
+        speaking,
+        speakingRecording: finalRecording,
+        antiCheat: antiCheat || attempt.antiCheat || null,
+        submittedAt: new Date().toISOString()
       };
+
+      await repository.updateAttempt(attemptId, scored);
+
+      // Live real-time broadcast of submission
+      broadcastRealtime('admin', 'ATTEMPT_SUBMITTED', { attempt: scored });
+      broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 1, totalStages: 5, label: 'Exam responses and media buffer secured in database', status: 'completed' });
+      broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 2, totalStages: 5, label: 'Securing cloud archive in Google Drive...', status: 'completed' });
+      broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 3, totalStages: 5, label: 'Calculating Grammar & Vocabulary CEFR benchmark...', status: 'completed' });
+      broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 4, totalStages: 5, label: 'Evaluating Writing Task Response, Coherence & Lexical Resource...', status: 'completed' });
+      broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 5, totalStages: 5, label: 'Provisional CEFR & IELTS placement assessment completed', status: 'completed' });
+
+      if (activeCandidatePresence.has(attemptId)) {
+        const p = activeCandidatePresence.get(attemptId);
+        p.status = 'completed';
+        p.completedAt = Date.now();
+        broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
+      }
+
+      await recordAuditLog({
+        actorType: 'teacher',
+        actorId: attempt.email,
+        actorName: attempt.teacher,
+        action: 'SUBMIT_ASSESSMENT',
+        category: 'ASSESSMENT',
+        target: attempt.id,
+        details: {
+          overallBand: provisionalPlacement,
+          unit: attempt.unit,
+          earlyTermination: Boolean(earlyTermination)
+        },
+        ip: getClientIp(request),
+        status: 'SUCCESS'
+      });
+      return json(response, 200, { attempt: scored });
+    } catch (submitErr) {
+      console.error('[Submit Assessment Error]', submitErr);
+      return json(response, 500, { error: `Failed to submit assessment: ${submitErr.message}` });
     }
-
-    const scored = {
-      ...attempt,
-      status: 'Completed',
-      earlyTermination: Boolean(earlyTermination),
-      sectionScores,
-      overall: provisionalPlacement,
-      review: 'Writing and Speaking review required',
-      scoring: { grammarVocabulary: grammarVocabularyScore },
-      responses,
-      writing,
-      speaking,
-      speakingRecording: finalRecording,
-      antiCheat: antiCheat || attempt.antiCheat || null,
-      submittedAt: new Date().toISOString()
-    };
-    await repository.updateAttempt(attemptId, scored);
-
-    // Live real-time broadcast of submission
-    broadcastRealtime('admin', 'ATTEMPT_SUBMITTED', { attempt: scored });
-    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 1, totalStages: 5, label: 'Exam responses and media buffer secured in database', status: 'completed' });
-    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 2, totalStages: 5, label: 'Securing cloud archive in Google Drive...', status: 'completed' });
-    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 3, totalStages: 5, label: 'Calculating Grammar & Vocabulary CEFR benchmark...', status: 'completed' });
-    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 4, totalStages: 5, label: 'Evaluating Writing Task Response, Coherence & Lexical Resource...', status: 'completed' });
-    broadcastRealtime(attemptId, 'GRADING_PROGRESS', { stage: 5, totalStages: 5, label: 'Provisional CEFR & IELTS placement assessment completed', status: 'completed' });
-
-    if (activeCandidatePresence.has(attemptId)) {
-      const p = activeCandidatePresence.get(attemptId);
-      p.status = 'completed';
-      p.completedAt = Date.now();
-      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
-    }
-
-    await recordAuditLog({
-      actorType: 'teacher',
-      actorId: attempt.email,
-      actorName: attempt.teacher,
-      action: 'SUBMIT_ASSESSMENT',
-      category: 'ASSESSMENT',
-      target: attempt.id,
-      details: {
-        overallBand: provisionalPlacement,
-        unit: attempt.unit,
-        earlyTermination: Boolean(earlyTermination)
-      },
-      ip: getClientIp(request),
-      status: 'SUCCESS'
-    });
-    return json(response, 200, { attempt: scored });
   }
 
   // Auto-Save Draft Progress Endpoint (resilient to power cuts and connection loss)
@@ -5507,15 +5996,35 @@ const server = createServer(async (request, response) => {
         answeredCount: Object.keys(update.responses || attempt.responses || {}).length,
         lastSavedAt: update.lastSavedAt
       });
-      if (activeCandidatePresence.has(attemptId)) {
-        const p = activeCandidatePresence.get(attemptId);
+      let p = activeCandidatePresence.get(attemptId);
+      if (!p) {
+        const totalQ = attempt.totalQuestions || 25;
+        p = {
+          attemptId,
+          email: attempt.email,
+          name: attempt.teacher || attempt.email,
+          unit: attempt.unit || 'SMK KARYA BANGSA',
+          sectionIndex: update.sectionIndex ?? attempt.sectionIndex ?? 0,
+          sectionName: (update.sectionIndex ?? attempt.sectionIndex) === 1 ? 'Writing' : ((update.sectionIndex ?? attempt.sectionIndex) === 2 ? 'Speaking' : 'Grammar & Vocabulary'),
+          answeredCount: Object.keys(update.responses || attempt.responses || {}).length,
+          totalQuestions: totalQ,
+          remainingMs: update.sectionRemainingMs?.[update.sectionIndex ?? 0] || 0,
+          antiCheat: update.antiCheat || attempt.antiCheat || { violations: [], totalCount: 0 },
+          lastHeartbeat: Date.now(),
+          status: 'active'
+        };
+        activeCandidatePresence.set(attemptId, p);
+      } else {
         if (update.sectionIndex !== undefined) p.sectionIndex = update.sectionIndex;
         if (update.responses) p.answeredCount = Object.keys(update.responses).length;
         if (update.antiCheat) p.antiCheat = update.antiCheat;
+        if (update.sectionRemainingMs?.[p.sectionIndex] !== undefined) {
+          p.remainingMs = update.sectionRemainingMs[p.sectionIndex];
+        }
         p.lastHeartbeat = Date.now();
         p.status = 'active';
-        broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
       }
+      broadcastRealtime('admin', 'CANDIDATE_PRESENCE_UPDATE', p);
 
       return json(response, 200, { success: true, lastSavedAt: update.lastSavedAt, attemptId });
     } catch (e) {
@@ -5696,12 +6205,21 @@ const server = createServer(async (request, response) => {
       });
     }
     const durationMins = Number(currentSystemSettings.durationMinutes) || Number(content.durationMinutes) || 65;
+    const gvMins = Math.max(5, Math.round(durationMins * (30 / 65)));
+    const writingMins = Math.max(5, Math.round(durationMins * (20 / 65)));
+    const speakingMins = Math.max(5, durationMins - gvMins - writingMins);
+
     const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary');
     const gvQuestions = gvSection?.questions || [];
     const existingInProgress = existing.find(
       (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'In progress'
     );
     if (existingInProgress) {
+      if (currentSystemSettings.allowResume === false) {
+        return json(response, 403, {
+          error: 'Assessment resumption is currently disabled by institutional policy. Please contact your test administrator.'
+        });
+      }
       const updates = {};
       if (!existingInProgress.grammarVocabularyOrder && gvQuestions.length > 0) {
         const seed = user.email ? user.email.toLowerCase().trim() : existingInProgress.id;
@@ -5714,14 +6232,14 @@ const server = createServer(async (request, response) => {
       }
       if (!existingInProgress.sectionEndTimes) {
         const s0Start = new Date(existingInProgress.startedAt).getTime();
-        existingInProgress.sectionEndTimes = { 0: s0Start + 30 * 60 * 1000 };
+        existingInProgress.sectionEndTimes = { 0: s0Start + gvMins * 60 * 1000 };
         updates.sectionEndTimes = existingInProgress.sectionEndTimes;
       }
       if (!existingInProgress.sectionRemainingMs) {
         existingInProgress.sectionRemainingMs = {
-          0: Math.max(0, (new Date(existingInProgress.startedAt).getTime() + 30 * 60 * 1000) - Date.now()),
-          1: 20 * 60 * 1000,
-          2: 15 * 60 * 1000
+          0: Math.max(0, (new Date(existingInProgress.startedAt).getTime() + gvMins * 60 * 1000) - Date.now()),
+          1: writingMins * 60 * 1000,
+          2: speakingMins * 60 * 1000
         };
         updates.sectionRemainingMs = existingInProgress.sectionRemainingMs;
       }
@@ -5763,12 +6281,17 @@ const server = createServer(async (request, response) => {
 
       return json(response, 200, { attempt: existingInProgress, expiresAt, resumed: true });
     }
-    const seed = user.email ? user.email.toLowerCase().trim() : `ATT-${1043 + existing.length}`;
+    const maxAttemptNum = existing.reduce((max, a) => {
+      const match = String(a.id || '').match(/ATT-(\d+)/);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 1042);
+    const newAttemptId = `ATT-${maxAttemptNum + 1}`;
+    const seed = user.email ? user.email.toLowerCase().trim() : newAttemptId;
     const scrambledOrder = gvQuestions.length > 0 ? shuffleWithSeed(gvQuestions, seed).map((q) => q.id) : [];
     const startedAt = new Date().toISOString();
     const startMs = new Date(startedAt).getTime();
     const attempt = {
-      id: `ATT-${1043 + existing.length}`,
+      id: newAttemptId,
       teacher: user.name,
       email: user.email,
       unit: user.unit || 'SD KARYA BANGSA',
@@ -5781,13 +6304,14 @@ const server = createServer(async (request, response) => {
         0: startedAt
       },
       sectionEndTimes: {
-        0: startMs + 30 * 60 * 1000
+        0: startMs + gvMins * 60 * 1000
       },
       sectionRemainingMs: {
-        0: 30 * 60 * 1000,
-        1: 20 * 60 * 1000,
-        2: 15 * 60 * 1000
+        0: gvMins * 60 * 1000,
+        1: writingMins * 60 * 1000,
+        2: speakingMins * 60 * 1000
       },
+
       antiCheat: {
         enabled: Boolean(
           currentSystemSettings.antiCheat?.enabled !== false &&
@@ -5869,7 +6393,27 @@ const server = createServer(async (request, response) => {
       '.ico': 'image/x-icon',
       '.webp': 'image/webp'
     };
-    response.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream' });
+    const etag = `"${crypto.createHash('md5').update(data).digest('hex')}"`;
+    const clientEtag = request.headers['if-none-match'];
+
+    if (clientEtag && clientEtag === etag) {
+      response.writeHead(304, {
+        ETag: etag,
+        'Cache-Control': 'no-cache'
+      });
+      return response.end();
+    }
+
+    const headers = {
+      'Content-Type': types[extname(file)] ?? 'application/octet-stream',
+      ETag: etag
+    };
+    if (file.endsWith('.js') || file.endsWith('.html') || file.endsWith('.css')) {
+      headers['Cache-Control'] = 'no-cache';
+    } else {
+      headers['Cache-Control'] = 'public, max-age=86400';
+    }
+    response.writeHead(200, headers);
     response.end(data);
   } catch {
     response.writeHead(404);

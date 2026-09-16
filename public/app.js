@@ -147,8 +147,11 @@ const ICONS = {
   clipboardCheck: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><polyline points="9 14 12 17 16 12"/></svg>`,
   shield: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
   settings: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-  copy: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`
+  copy: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  alert: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  sparkles: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`
 };
+
 
 function getLevelBadgeClass(level) {
   if (!level) return 'pill';
@@ -278,7 +281,8 @@ class RealtimeClient {
         'GRADING_PROGRESS',
         'ATTEMPT_GRADED',
         'ATTEMPT_DELETED',
-        'AUDIT_LOG_ENTRY'
+        'AUDIT_LOG_ENTRY',
+        'SYSTEM_SETTINGS_UPDATED'
       ];
 
       for (const evType of eventTypes) {
@@ -541,6 +545,171 @@ function openProctorForceSubmitModal(attemptId, candidateName) {
   };
 }
 
+function playAlertChime() {
+  if (window._proctorAudioEnabled === false) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.09);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.32);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.32);
+  } catch {}
+}
+
+async function openCandidateInspectorModal(attemptId, candidateName) {
+  const modalRoot = document.querySelector('#modal-root');
+  if (!modalRoot) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'proctor-alert-backdrop';
+  overlay.innerHTML = `
+    <div class="proctor-alert-box" style="max-width:680px;width:90%;max-height:88vh;overflow-y:auto;border-top-color:#2563eb;text-align:left;padding:24px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.8px">Candidate Live Telemetry Inspector</div>
+          <h3 style="margin:4px 0 2px 0;font-size:19px;font-weight:800;color:var(--navy)">${escapeHtml(candidateName)}</h3>
+          <div style="font-size:12.5px;color:var(--muted)">Attempt ID: <code style="font-weight:700">${attemptId}</code></div>
+        </div>
+        <button id="btn-close-inspect" type="button" class="ghost" style="padding:6px 12px;font-size:13px;border-radius:8px">✕ Close</button>
+      </div>
+
+      <div id="inspector-content" style="text-align:center;padding:30px 10px;color:var(--muted)">
+        <span class="live-sync-dot"></span> Loading real-time candidate diagnostics…
+      </div>
+    </div>
+  `;
+  modalRoot.appendChild(overlay);
+
+  overlay.querySelector('#btn-close-inspect').onclick = () => overlay.remove();
+
+  try {
+    const res = await request(`/api/admin/proctor/candidate/${attemptId}`);
+    const contentEl = overlay.querySelector('#inspector-content');
+    if (!contentEl) return;
+    if (res.error || !res.attempt) {
+      contentEl.innerHTML = `<div style="color:#dc2626;padding:20px">${res.error || 'Candidate telemetry not available'}</div>`;
+      return;
+    }
+    const att = res.attempt;
+    const p = res.presence || {};
+    const ac = att.antiCheat || p.antiCheat || { violations: [], totalCount: 0 };
+    const violations = ac.violations || [];
+    const ansCount = Object.keys(att.responses || {}).length;
+    const totalQ = att.totalQuestions || 25;
+    const pct = Math.min(100, Math.round((ansCount / totalQ) * 100));
+
+    const startTimeStr = att.startedAt ? new Date(att.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+    const lastSaveStr = att.lastSavedAt ? new Date(att.lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+
+    contentEl.innerHTML = `
+      <div style="text-align:left">
+        <!-- Telemetry Summary Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+            <div style="font-size:11px;color:#64748b;font-weight:600">Current Section</div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-top:2px">${escapeHtml(p.sectionName || (att.sectionIndex === 1 ? 'Writing' : (att.sectionIndex === 2 ? 'Speaking' : 'Grammar & Vocabulary')))}</div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+            <div style="font-size:11px;color:#64748b;font-weight:600">Response Pace</div>
+            <div style="font-size:13.5px;font-weight:700;color:#2563eb;margin-top:2px">${ansCount}/${totalQ} (${pct}%)</div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+            <div style="font-size:11px;color:#64748b;font-weight:600">Security Flags</div>
+            <div style="font-size:13.5px;font-weight:700;color:${ac.totalCount > 0 ? '#dc2626' : '#16a34a'};margin-top:2px">
+              ${ac.totalCount > 0 ? `⚠️ ${ac.totalCount} Alert${ac.totalCount === 1 ? '' : 's'}` : '✓ Clean (0)'}
+            </div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+            <div style="font-size:11px;color:#64748b;font-weight:600">Time Extended</div>
+            <div style="font-size:13.5px;font-weight:700;color:#1e40af;margin-top:2px">+${att.timeExtendedBy || 0} mins</div>
+          </div>
+        </div>
+
+        <!-- Candidate Metadata Details -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div><strong>Email:</strong> ${escapeHtml(att.email || '—')}</div>
+          <div><strong>Unit:</strong> ${escapeHtml(att.unit || 'SMK KARYA BANGSA')}</div>
+          <div><strong>Started At:</strong> ${startTimeStr}</div>
+          <div><strong>Last Server Sync:</strong> ${lastSaveStr}</div>
+        </div>
+
+        <!-- Security Incident Audit Log -->
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <span>🛡️</span> <span>Anti-Cheat Telemetry Audit Timeline (${violations.length})</span>
+          </div>
+          <div style="max-height:160px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px">
+            ${violations.length === 0 ? `
+              <div style="text-align:center;padding:16px;font-size:12px;color:#16a34a;font-weight:600">
+                ✓ No anti-cheat infractions recorded. Candidate test integrity is verified.
+              </div>
+            ` : violations.map((v, i) => {
+              const timeStr = v.timestamp ? new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+              return `
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;background:#fef2f2;border-radius:6px;margin-bottom:4px;color:#991b1b">
+                  <div><strong>#${i + 1} [${escapeHtml(v.type)}]</strong>: ${escapeHtml(v.message || 'Window blur or tab switch detected')}</div>
+                  <span style="font-family:'DM Mono',monospace;font-size:11px;opacity:0.8;white-space:nowrap">${timeStr}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Instant Actions inside Drawer -->
+        <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;border-top:1px solid var(--line);padding-top:14px">
+          <button id="drawer-warn-btn" class="button" type="button" style="padding:8px 14px;background:#f59e0b;color:#fff;font-weight:600;font-size:12.5px;border:none;border-radius:8px;cursor:pointer">
+            ⚠️ Send Warning
+          </button>
+          <button id="drawer-extend-btn" class="button" type="button" style="padding:8px 14px;background:#2563eb;color:#fff;font-weight:600;font-size:12.5px;border:none;border-radius:8px;cursor:pointer">
+            ⏱️ Grant +5m Time
+          </button>
+          <button id="drawer-submit-btn" class="button" type="button" style="padding:8px 14px;background:#dc2626;color:#fff;font-weight:600;font-size:12.5px;border:none;border-radius:8px;cursor:pointer">
+            ⏹️ Force Submit
+          </button>
+        </div>
+      </div>
+    `;
+
+    overlay.querySelector('#drawer-warn-btn').onclick = () => {
+      overlay.remove();
+      openProctorWarningModal(attemptId, candidateName);
+    };
+    overlay.querySelector('#drawer-extend-btn').onclick = async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Granting…';
+      const extRes = await request('/api/admin/proctor/extend-time', {
+        method: 'POST',
+        body: { attemptId, additionalMinutes: 5 }
+      });
+      if (extRes.success) {
+        showToast(`Extended time by 5 minutes for ${candidateName}`, 'success');
+        overlay.remove();
+      } else {
+        showToast(extRes.error || 'Failed to extend time', 'error');
+        btn.disabled = false;
+        btn.textContent = '⏱️ Grant +5m Time';
+      }
+    };
+    overlay.querySelector('#drawer-submit-btn').onclick = () => {
+      overlay.remove();
+      openProctorForceSubmitModal(attemptId, candidateName);
+    };
+  } catch (err) {
+    const contentEl = overlay.querySelector('#inspector-content');
+    if (contentEl) contentEl.innerHTML = `<div style="color:#dc2626;padding:20px">Failed to load telemetry: ${err.message}</div>`;
+  }
+}
+
+
 function renderLogin(initialRole) {
   document.body.classList.remove('has-admin-sidebar', 'sidebar-open');
   const logoutBtn = document.querySelector('#logout');
@@ -553,12 +722,28 @@ function renderLogin(initialRole) {
   const savedRole = initialRole || localStorage.getItem('assessify_login_role') || (new URLSearchParams(window.location.search).get('role')) || 'teacher';
   const isAdminRole = savedRole === 'admin';
 
+  const schoolName = window.assessifySettings?.schoolName || 'Karya Bangsa School';
+  const schoolDomain = window.assessifySettings?.schoolDomain || 'karyabangsa.sch.id';
+  const isMaintenance = Boolean(window.assessifySettings?.maintenanceMode);
+  const maintenanceMsg = window.assessifySettings?.maintenanceMessage || 'Assessify is currently undergoing scheduled maintenance. Candidate assessments will resume shortly.';
+
   app.innerHTML = `
     <div class="login-wrapper">
       <section class="panel login-panel">
-        <div class="eyebrow">Karya Bangsa School</div>
+        <div class="eyebrow">${escapeHtml(schoolName)}</div>
         <h1 style="font:700 32px 'Space Grotesk';margin:8px 0;color:var(--ink)">Welcome to Assessify</h1>
         <p style="color:var(--muted);line-height:1.6;font-size:14px;margin-bottom:20px">Sign in with your student or educator credentials to begin a placement assessment or access administration reports.</p>
+
+        ${isMaintenance ? `
+          <div style="background:#fffbeb;border:1.5px solid #fde68a;padding:14px 16px;border-radius:10px;margin-bottom:20px;color:#92400e;font-size:13px;line-height:1.5;display:flex;gap:12px;align-items:flex-start">
+            <span style="font-size:18px;line-height:1">⚠️</span>
+            <div>
+              <strong style="font-weight:700;display:block;margin-bottom:2px">Scheduled System Maintenance Active</strong>
+              <div>${escapeHtml(maintenanceMsg)}</div>
+              <div style="margin-top:6px;font-size:12px;color:#b45309">Candidate test attempts are temporarily paused. Administrators may still log in below.</div>
+            </div>
+          </div>
+        ` : ''}
         
         <form id="login-form">
           <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">Workspace</label>
@@ -570,9 +755,9 @@ function renderLogin(initialRole) {
           <!-- Teacher Login Fields -->
           <div id="teacher-fields" ${isAdminRole ? 'hidden' : ''}>
             <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">
-              School Email <span style="font-size:11.5px;font-weight:400;color:var(--muted)">(Official @karyabangsa.sch.id)</span>
+              School Email <span style="font-size:11.5px;font-weight:400;color:var(--muted)">(Official @${escapeHtml(schoolDomain)})</span>
             </label>
-            <input type="email" id="login-teacher-email" name="email" placeholder="name@karyabangsa.sch.id" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
+            <input type="email" id="login-teacher-email" name="email" placeholder="name@${escapeHtml(schoolDomain)}" ${isAdminRole ? '' : 'required'} style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font:14px 'DM Sans',sans-serif">
             <div id="email-verify-badge" style="margin-top:6px;font-size:12px;font-weight:600;display:none"></div>
 
             <label style="display:block;font-size:13px;font-weight:700;margin:16px 0 6px;color:var(--ink)">
@@ -670,7 +855,8 @@ function renderLogin(initialRole) {
           if (verifyBadge) {
             verifyBadge.style.display = 'block';
             verifyBadge.style.color = '#dc2626';
-            verifyBadge.innerHTML = `⚠ Email is not registered in the Karya Bangsa roster (Students or Teachers).`;
+            const schoolBrand = window.assessifySettings?.schoolName || 'Karya Bangsa School';
+            verifyBadge.innerHTML = `⚠ Email is not registered in the ${escapeHtml(schoolBrand)} roster (Students or Teachers).`;
           }
         }
       } catch (e) { }
@@ -833,6 +1019,14 @@ function renderCompletedTeacher(attempt, user) {
               <div class="overall-text-block">
                 <div class="overall-label">Official Placement Result</div>
                 <h2>Overall CEFR Level ${overallBand}</h2>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 8px">
+                  <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:#334155;display:inline-flex;align-items:center;gap:5px">
+                    ${ICONS.award} Institutional Benchmark: Band ${window.assessifySettings?.passingBand || '6.5'}
+                  </span>
+                  ${window.assessifySettings?.certificateIssuer ? `
+                    <span style="font-size:11.5px;color:var(--muted)">• Issued by ${escapeHtml(window.assessifySettings.certificateIssuer)}</span>
+                  ` : ''}
+                </div>
                 <p>
                   ${isReviewed
                     ? `Evaluated across Grammar & Vocabulary, Writing, and Speaking according to ${schoolName} CEFR Placement Rubrics.`
@@ -968,11 +1162,15 @@ async function renderTeacher(test, user) {
       return;
     }
     if (attemptStatus?.inProgressAttempt) {
-      inProgressAttempt = attemptStatus.inProgressAttempt;
-      const durationMins = Number(test.durationMinutes) || 65;
-      const expiresAt = new Date(new Date(inProgressAttempt.startedAt).getTime() + durationMins * 60 * 1000).toISOString();
-      renderSectionFlow(test, expiresAt, inProgressAttempt.id, { ...inProgressAttempt, resumed: true }, user);
-      return;
+      if (window.assessifySettings?.allowResume === false) {
+        showToast('Assessment resumption is currently disabled by institutional policy.', 'warning', 7000);
+      } else {
+        inProgressAttempt = attemptStatus.inProgressAttempt;
+        const durationMins = Number(window.assessifySettings?.durationMinutes) || Number(test.durationMinutes) || 65;
+        const expiresAt = new Date(new Date(inProgressAttempt.startedAt).getTime() + durationMins * 60 * 1000).toISOString();
+        renderSectionFlow(test, expiresAt, inProgressAttempt.id, { ...inProgressAttempt, resumed: true }, user);
+        return;
+      }
     } else {
       // Candidate data is not in progress (e.g. deleted by admin or fresh): purge any stale autosaves
       const userEmail = (user?.email || '').toLowerCase().trim();
@@ -994,6 +1192,13 @@ async function renderTeacher(test, user) {
   }
 
   const totalQuestions = (test.sections || []).reduce((sum, s) => sum + (s.questions ? s.questions.length : 0), 0);
+  const schoolBrand = window.assessifySettings?.schoolName || 'Karya Bangsa School';
+  const totalMins = Number(window.assessifySettings?.durationMinutes) || Number(test.durationMinutes) || 65;
+  const gvMins = Math.max(5, Math.round(totalMins * (30 / 65)));
+  const writingMins = Math.max(5, Math.round(totalMins * (20 / 65)));
+  const speakingMins = Math.max(5, totalMins - gvMins - writingMins);
+  const totalHrs = Math.floor(totalMins / 60).toString().padStart(2, '0');
+  const remMins = (totalMins % 60).toString().padStart(2, '0');
 
   app.innerHTML = `
     <div class="teacher-shell">
@@ -1021,12 +1226,12 @@ async function renderTeacher(test, user) {
 
       <section class="hero">
         <div>
-          <div class="eyebrow">Karya Bangsa School · Placement Assessment</div>
+          <div class="eyebrow">${escapeHtml(schoolBrand)} · Placement Assessment</div>
           <h1>Welcome, ${user.name || 'Candidate'}.</h1>
-          <p>This English proficiency placement assessment measures your skills across Grammar & Vocabulary (50 questions · 30m), Writing Placement Test (User selects 1 topic to write 1 Essay · 20m), and Oral Placement Test (21 questions · 20m).</p>
+          <p>This English proficiency placement assessment measures your skills across Grammar & Vocabulary (50 questions · ${gvMins}m), Writing Placement Test (User selects 1 topic to write 1 Essay · ${writingMins}m), and Oral Placement Test (21 questions · ${speakingMins}m).</p>
         </div>
         <div class="hero-note">
-          <strong>01:10:00</strong>
+          <strong>${totalHrs}:${remMins}:00</strong>
           <span>Total assessment time</span>
         </div>
       </section>
@@ -1036,11 +1241,12 @@ async function renderTeacher(test, user) {
         ${test.sections.map((section, idx) => {
           const secLabel = section.label || (section.id === 'grammar-vocabulary' ? 'Grammar & Vocabulary Placement Test' : section.id === 'writing' ? 'Writing Placement Test' : 'Oral Placement Test');
           const itemCount = (section.topics && section.topics.length) ? `${section.topics.length} topics (1 selected)` : `${section.questions ? section.questions.length : 0} items`;
+          const customDuration = section.id === 'grammar-vocabulary' ? gvMins : (section.id === 'writing' ? writingMins : (section.id === 'speaking' ? speakingMins : (section.durationMinutes || 20)));
           return `
             <article class="section-card">
               <div class="section-icon">${sectionIcons[secLabel] || sectionIcons[section.id] || (idx + 1)}</div>
               <b>${secLabel}</b>
-              <span>${section.durationMinutes || 20} mins · ${itemCount}</span>
+              <span>${customDuration} mins · ${itemCount}</span>
             </article>
           `;
         }).join('')}
@@ -1057,7 +1263,7 @@ async function renderTeacher(test, user) {
             <div class="guideline-icon">${ICONS.clock}</div>
             <div>
               <div class="guideline-title">Dedicated Section Timers</div>
-              <p class="guideline-desc">Grammar & Vocabulary (30m), Writing (20m), and Speaking (15m). Sections automatically advance when time expires.</p>
+              <p class="guideline-desc">Grammar & Vocabulary (${gvMins}m), Writing (${writingMins}m), and Speaking (${speakingMins}m). Sections automatically advance when time expires.</p>
             </div>
           </div>
           <div class="guideline-item">
@@ -1183,8 +1389,18 @@ async function renderTeacher(test, user) {
     if (camDot) camDot.className = 'status-pulse-dot is-testing';
     if (camStatus) camStatus.textContent = 'Verifying camera & audio…';
 
+    const isCameraRequired = window.assessifySettings?.requireCameraAudio !== false;
     const isInsecureRemote = !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
     if (isInsecureRemote || !navigator.mediaDevices?.getUserMedia) {
+      if (!isCameraRequired) {
+        if (camStatus) camStatus.textContent = 'Camera/Mic Optional (Institutional Policy: Bypassed)';
+        if (camDot) camDot.className = 'status-pulse-dot';
+        if (overallBadge) {
+          overallBadge.className = 'device-status-badge ok';
+          overallBadge.textContent = '✓ Device Check Optional (Allowed)';
+        }
+        return;
+      }
       if (camStatus) camStatus.textContent = isInsecureRemote ? 'HTTPS required on remote IP' : 'Camera not supported';
       if (camDot) camDot.className = 'status-pulse-dot is-error';
       if (overallBadge) {
@@ -1266,15 +1482,24 @@ async function renderTeacher(test, user) {
       }
     } catch (err) {
       console.warn('Diagnostic media check error:', err);
-      const isHttpsIssue = !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
-      if (camStatus) camStatus.textContent = isHttpsIssue ? 'HTTPS required on remote IP' : 'Camera/Mic permission blocked';
-      if (camDot) camDot.className = 'status-pulse-dot is-error';
-      if (overallBadge) {
-        overallBadge.className = 'device-status-badge error';
-        overallBadge.textContent = isHttpsIssue ? '⚠️ HTTPS Required' : '⚠️ Check Permissions';
-      }
-      if (isUserRetry) {
-        showToast(isHttpsIssue ? '⚠️ Mobile browsers block camera/mic over plain HTTP. Access via localhost or HTTPS.' : '⚠️ Unable to access camera/mic. Please check browser permissions.', 'error');
+      if (!isCameraRequired) {
+        if (camStatus) camStatus.textContent = 'Camera & Mic Optional (Institutional Policy: Bypassed)';
+        if (camDot) camDot.className = 'status-pulse-dot';
+        if (overallBadge) {
+          overallBadge.className = 'device-status-badge ok';
+          overallBadge.textContent = '✓ Hardware Check Optional (Allowed)';
+        }
+      } else {
+        const isHttpsIssue = !window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+        if (camStatus) camStatus.textContent = isHttpsIssue ? 'HTTPS required on remote IP' : 'Camera/Mic permission blocked';
+        if (camDot) camDot.className = 'status-pulse-dot is-error';
+        if (overallBadge) {
+          overallBadge.className = 'device-status-badge error';
+          overallBadge.textContent = isHttpsIssue ? '⚠️ HTTPS Required' : '⚠️ Check Permissions';
+        }
+        if (isUserRetry) {
+          showToast(isHttpsIssue ? '⚠️ Mobile browsers block camera/mic over plain HTTP. Access via localhost or HTTPS.' : '⚠️ Unable to access camera/mic. Please check browser permissions.', 'error');
+        }
       }
     } finally {
       if (retryBtn) {
@@ -1399,9 +1624,18 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   let mediaStream = null;
   let recordingChunks = [];
   let recordingStartedAt = null;
+  let recordingTimerInterval = null;
+  let recordingElapsedSeconds = 0;
+  const formatRecordingTime = (secs) => {
+    const s = Math.max(0, Math.floor(secs || 0));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+  };
   let speechRecognizer = null;
   let speakingStep = 0;
-  let speakingRecordingState = 'idle'; // 'idle' | 'recording' | 'stopped'
+  let speakingRecordingState = 'idle'; // 'idle' | 'recording' | 'paused' | 'stopped'
+  let isSpeakingAudioPromptPlaying = false;
   let isTerminated = false;
   let heartbeatInterval = null;
   const playedAudio = {};
@@ -1497,6 +1731,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     : {};
   let timerTimeoutId = null;
   let saveDebounceTimer = null;
+  let periodicAutosaveTimer = null;
   let hasRestoredToastShown = false;
 
   // Connect candidate to real-time telemetry channel
@@ -1526,9 +1761,23 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     }
   };
 
+  const handleSystemSettingsUpdated = (ev) => {
+    if (ev?.settings) {
+      window.assessifySettings = ev.settings;
+      activeAntiCheat = getActiveRules();
+      if (!isAntiCheatActive() || activeAntiCheat.requireFullscreen === false) {
+        if (fullscreenLockdownEl) { fullscreenLockdownEl.remove(); fullscreenLockdownEl = null; }
+      }
+      if (!isAntiCheatActive() || activeAntiCheat.splitScreenDetection === false) {
+        if (splitScreenBannerEl) { splitScreenBannerEl.remove(); splitScreenBannerEl = null; }
+      }
+    }
+  };
+
   realtime.on('TIME_EXTENDED', handleTimeExtended);
   realtime.on('FORCE_SUBMIT', handleForceSubmit);
   realtime.on('ATTEMPT_DELETED', handleCandidateAttemptDeleted);
+  realtime.on('SYSTEM_SETTINGS_UPDATED', handleSystemSettingsUpdated);
 
   // ==========================================
   // ANTI-CHEAT CONTROLS ENGINE
@@ -1835,9 +2084,14 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     if (splitScreenBannerEl) { splitScreenBannerEl.remove(); splitScreenBannerEl = null; }
     const warningDiv = document.querySelector('#tab-warning-overlay');
     if (warningDiv) warningDiv.remove();
+    if (periodicAutosaveTimer) {
+      clearInterval(periodicAutosaveTimer);
+      periodicAutosaveTimer = null;
+    }
     realtime.off('TIME_EXTENDED', handleTimeExtended);
     realtime.off('FORCE_SUBMIT', handleForceSubmit);
     realtime.off('ATTEMPT_DELETED', handleCandidateAttemptDeleted);
+    realtime.off('SYSTEM_SETTINGS_UPDATED', handleSystemSettingsUpdated);
   };
 
   const handleAttemptDeleted = () => {
@@ -1846,6 +2100,10 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
     cleanupAntiCheat();
 
+    if (periodicAutosaveTimer) {
+      clearInterval(periodicAutosaveTimer);
+      periodicAutosaveTimer = null;
+    }
     if (timerTimeoutId) clearTimeout(timerTimeoutId);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
@@ -2027,12 +2285,23 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   window.addEventListener('online', () => persistProgress(true));
   window.addEventListener('offline', () => updateSaveIndicator('offline'));
 
+  const autosaveSecs = Number(window.assessifySettings?.autosaveIntervalSeconds) || 30;
+  periodicAutosaveTimer = setInterval(() => {
+    if (!isTerminated) {
+      persistProgress(true);
+    }
+  }, Math.max(5, autosaveSecs) * 1000);
+
   const section = () => test.sections[sectionIndex];
 
   const stopMedia = () => new Promise((resolve) => {
     if (speechRecognizer) {
       try { speechRecognizer.stop(); } catch { }
       speechRecognizer = null;
+    }
+    if (recordingTimerInterval) {
+      clearInterval(recordingTimerInterval);
+      recordingTimerInterval = null;
     }
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
       if (mediaStream) {
@@ -2041,22 +2310,38 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       }
       return resolve();
     }
-    mediaRecorder.addEventListener('stop', () => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
       if (mediaStream) {
         mediaStream.getTracks().forEach((track) => track.stop());
         mediaStream = null;
       }
       resolve();
+    };
+
+    mediaRecorder.addEventListener('stop', () => {
+      setTimeout(finish, 60);
     }, { once: true });
+
+    setTimeout(finish, 2500);
+
     try {
-      if (mediaRecorder.state === 'recording') {
+      if (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused') {
         try { mediaRecorder.requestData(); } catch { }
+        mediaRecorder.stop();
+      } else {
+        finish();
       }
-      mediaRecorder.stop();
-    } catch { resolve(); }
+    } catch { finish(); }
   });
 
   const submitAssessment = async (isEarlyEnd = false, isAutoTimeLimit = false) => {
+    if (periodicAutosaveTimer) {
+      clearInterval(periodicAutosaveTimer);
+      periodicAutosaveTimer = null;
+    }
     if (timerTimeoutId) clearTimeout(timerTimeoutId);
     window.removeEventListener('beforeunload', handlePageUnload);
     window.removeEventListener('pagehide', handlePageUnload);
@@ -2122,7 +2407,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     const video = recordingChunks.length ? new Blob(recordingChunks, { type: mediaRecorder?.mimeType || 'video/webm' }) : null;
     let recordingMeta = null;
     if (video) {
-      const durationSeconds = Math.round((Date.now() - (recordingStartedAt || Date.now())) / 1000);
+      const durationSeconds = Math.max(1, recordingElapsedSeconds || Math.round((Date.now() - (recordingStartedAt || Date.now())) / 1000));
+      const step1Text = document.querySelector('#g-step-1 div:nth-child(2)');
+      if (step1Text) step1Text.textContent = `Securing exam responses and speaking recording (${(video.size / (1024 * 1024)).toFixed(1)} MB) in database...`;
       try {
         const uploadRes = await fetch(`/api/attempts/${attemptId}/recording`, {
           method: 'POST',
@@ -2135,23 +2422,52 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         if (uploadRes.ok) {
           const uploadData = await uploadRes.json();
           recordingMeta = uploadData.recording;
+          console.log('Spoken video recording uploaded successfully:', recordingMeta);
+        } else {
+          console.warn('Recording upload failed with status:', uploadRes.status);
         }
       } catch (e) {
         console.warn('Failed to upload recording:', e);
       }
     }
 
-    const result = await request(`/api/attempts/${attemptId}/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        responses: answers,
-        writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || ['writing-0', 'writing-1'].map((id) => answers[id] || '').filter(Boolean).join('\n\n') || Object.entries(answers).filter(([k]) => k.startsWith('writing') && !k.includes('selected')).map(([, v]) => v).join('\n\n'),
-        speakingRecording: recordingMeta,
-        earlyTermination: Boolean(isEarlyEnd),
-        antiCheat: antiCheatTracker
-      })
-    });
+    // Step 1 complete instant visual feedback
+    const s1 = document.querySelector('#g-step-1');
+    if (s1) {
+      s1.className = 'grading-step-row completed';
+      const icon = s1.querySelector('.grading-step-icon');
+      if (icon) icon.textContent = '✓';
+    }
+    const s2 = document.querySelector('#g-step-2');
+    if (s2) {
+      s2.className = 'grading-step-row active';
+      const icon = s2.querySelector('.grading-step-icon');
+      if (icon) icon.textContent = '⏳';
+    }
+
+    const submitPayload = {
+      responses: answers,
+      writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || ['writing-0', 'writing-1'].map((id) => answers[id] || '').filter(Boolean).join('\n\n') || Object.entries(answers).filter(([k]) => k.startsWith('writing') && !k.includes('selected')).map(([, v]) => v).join('\n\n'),
+      speakingRecording: recordingMeta,
+      earlyTermination: Boolean(isEarlyEnd),
+      antiCheat: antiCheatTracker
+    };
+
+    let result = null;
+    for (let submitTry = 1; submitTry <= 3; submitTry++) {
+      result = await request(`/api/attempts/${attemptId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitPayload)
+      });
+      if (!result?.error || result.error === 'Attempt not found' || result.attemptDeleted) {
+        break;
+      }
+      if (submitTry < 3) {
+        console.warn(`Submission attempt ${submitTry} blip (${result.error}). Retrying in 1.2s...`);
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
 
     cleanupAntiCheat();
     realtime.off('GRADING_PROGRESS', onGradingProgress);
@@ -2162,10 +2478,21 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         return;
       }
       showToast(result.error, 'error');
-      const nextBtn = document.querySelector('#next');
-      if (nextBtn) {
-        nextBtn.disabled = false;
-        nextBtn.textContent = 'Submit responses';
+      const stepsList = document.querySelector('#grading-pipeline-steps');
+      if (stepsList && !document.querySelector('#retry-submit-box')) {
+        const errBox = document.createElement('div');
+        errBox.id = 'retry-submit-box';
+        errBox.style.cssText = 'margin-top:20px;padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;text-align:center';
+        errBox.innerHTML = `
+          <div style="color:#b91c1c;font-weight:600;font-size:14px;margin-bottom:6px">Submission paused: ${result.error}</div>
+          <p style="color:#7f1d1d;font-size:12.5px;margin:0 0 12px">All your responses and recording are safely stored. Click below to retry final submission.</p>
+          <button class="btn btn-primary" id="retry-submit-btn" style="background:#dc2626;border-color:#dc2626;padding:8px 22px;font-size:13.5px;cursor:pointer">Retry Final Submission</button>
+        `;
+        stepsList.appendChild(errBox);
+        document.querySelector('#retry-submit-btn')?.addEventListener('click', () => {
+          errBox.remove();
+          submitAssessment(isEarlyEnd, isAutoTimeLimit);
+        });
       }
       return;
     }
@@ -2215,6 +2542,13 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     sectionIndex += 1;
     speakingStep = 0;
     const nextSec = test.sections[sectionIndex];
+    const isSpeakingNext = nextSec?.id === 'speaking' || nextSec?.label?.toLowerCase().includes('speaking');
+    if (isSpeakingNext) {
+      speakingRecordingState = 'idle';
+      recordingChunks = [];
+      recordingElapsedSeconds = 0;
+      recordingStartedAt = null;
+    }
     if (nextSec && sectionRemainingMs[sectionIndex] === undefined) {
       const nextDur = sectionDurations[nextSec.id] || (nextSec.durationMinutes || 15) * 60 * 1000;
       sectionRemainingMs[sectionIndex] = nextDur;
@@ -2350,8 +2684,15 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
             <div style="position:relative;border-radius:10px;overflow:hidden;background:#1e293b;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center">
               <video id="camera-preview" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
               ${speakingRecordingState === 'recording' ? `
-                <div style="position:absolute;top:12px;left:12px;background:rgba(220,38,38,0.9);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px">
-                  <span class="pill-dot" style="background:#fff;animation:pulse-dot 1s infinite"></span> Recording in progress
+                <div id="live-rec-badge" style="position:absolute;top:12px;left:12px;background:rgba(220,38,38,0.92);color:#fff;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;box-shadow:0 2px 8px rgba(220,38,38,0.4);z-index:2">
+                  <span class="pill-dot" style="background:#fff;width:8px;height:8px;border-radius:50%;display:inline-block;animation:pulse-dot 1s infinite"></span>
+                  <span>REC</span>
+                  <span id="live-rec-timer" style="font-family:monospace;font-size:13px;letter-spacing:0.5px">${formatRecordingTime(recordingElapsedSeconds)}</span>
+                </div>
+              ` : speakingRecordingState === 'paused' ? `
+                <div id="live-rec-badge" style="position:absolute;top:12px;left:12px;background:rgba(234,88,12,0.92);color:#fff;padding:6px 14px;border-radius:20px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;z-index:2">
+                  <span>⏸ PAUSED</span>
+                  <span id="live-rec-timer" style="font-family:monospace;font-size:13px">${formatRecordingTime(recordingElapsedSeconds)}</span>
                 </div>
               ` : ''}
             </div>
@@ -2367,21 +2708,37 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:10px">
               <div>
-                <span id="recording-status" style="font-weight:600;font-size:13px;color:${speakingRecordingState === 'recording' ? '#f87171' : (speakingRecordingState === 'stopped' ? '#4ade80' : '#94a3b8')}">
-                  ${speakingRecordingState === 'idle' ? 'Camera & Mic Ready — Click Start Recording to record answer' : (speakingRecordingState === 'recording' ? '● Recording candidate response…' : '✓ Recording completed (auto-saved on submission)')}
+                <span id="recording-status" style="font-weight:600;font-size:13px;color:${speakingRecordingState === 'recording' ? '#f87171' : (speakingRecordingState === 'paused' ? '#fb923c' : (speakingRecordingState === 'stopped' ? '#4ade80' : '#94a3b8'))}">
+                  ${speakingRecordingState === 'recording' ? '● Recording active — spoken answers across Part 1, 2, and 3 are being captured' :
+                    speakingRecordingState === 'paused' ? '⏸ Recording paused — click Resume to continue' :
+                    speakingRecordingState === 'stopped' ? '✓ Recording saved (auto-saved on submission)' :
+                    'Camera & Mic connecting…'}
                 </span>
               </div>
-              <div style="display:flex;gap:10px;align-items:center">
-                ${speakingRecordingState === 'idle' ? `
-                  <button class="button" id="start-speaking-record-btn" type="button" style="background:#16a34a;padding:9px 18px;font-size:13px">
+              <div id="speaking-rec-controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                ${speakingRecordingState === 'recording' ? `
+                  <button class="button" id="pause-speaking-record-btn" type="button" style="background:#475569;padding:8px 16px;font-size:12.5px">
+                    ⏸ Pause
+                  </button>
+                  <button class="ghost" id="restart-speaking-record-btn" type="button" style="padding:8px 14px;font-size:12px;color:#f87171;border-color:#7f1d1d">
+                    🔄 Restart Take
+                  </button>
+                ` : speakingRecordingState === 'paused' ? `
+                  <button class="button" id="resume-speaking-record-btn" type="button" style="background:#16a34a;padding:8px 16px;font-size:12.5px">
+                    ▶ Resume
+                  </button>
+                  <button class="ghost" id="restart-speaking-record-btn" type="button" style="padding:8px 14px;font-size:12px;color:#f87171;border-color:#7f1d1d">
+                    🔄 Restart Take
+                  </button>
+                ` : speakingRecordingState === 'idle' ? `
+                  <button class="button" id="start-speaking-record-btn" type="button" style="background:#16a34a;padding:8px 16px;font-size:12.5px">
                     🔴 Start Recording
                   </button>
-                ` : ''}
-                ${speakingRecordingState === 'recording' ? `
-                  <button class="button" id="stop-speaking-record-btn" type="button" style="background:#dc2626;padding:9px 18px;font-size:13px">
-                    ⏹ Stop Recording
+                ` : `
+                  <button class="button" id="resume-speaking-record-btn" type="button" style="background:#16a34a;padding:8px 16px;font-size:12.5px">
+                    🔴 Re-Record
                   </button>
-                ` : ''}
+                `}
               </div>
             </div>
           </div>
@@ -2431,12 +2788,34 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               </p>
 
               <div style="display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap">
-                <button class="button" id="play-speaking-prompt-btn" data-text="${(activePrompt.audioScript || activePrompt.prompt).replaceAll('"', '&quot;')}" type="button" style="background:#16a34a;color:#fff;padding:12px 26px;font-size:14.5px;font-weight:600;border-radius:10px;display:inline-flex;align-items:center;gap:10px;box-shadow:0 4px 12px rgba(22,163,74,0.25)">
-                  ${ICONS.volume2} <span id="play-speaking-btn-text">Play Spoken Prompt</span>
-                </button>
+                ${(() => {
+                  const maxAllowed = Number(window.assessifySettings?.maxAudioPlayCount) || 2;
+                  const count = Number(playedAudio[speakingStep]) || 0;
+                  const limitReached = maxAllowed > 0 && count >= maxAllowed;
+                  if (limitReached) {
+                    return `
+                      <button class="button" id="play-speaking-prompt-btn" data-text="${(activePrompt.audioScript || activePrompt.prompt).replaceAll('"', '&quot;')}" type="button" disabled style="background:#e2e8f0;color:#64748b;cursor:not-allowed;padding:12px 26px;font-size:14.5px;font-weight:600;border-radius:10px;display:inline-flex;align-items:center;gap:10px">
+                        ${ICONS.volume2} <span id="play-speaking-btn-text">Replay Limit Reached (${count}/${maxAllowed})</span>
+                      </button>
+                    `;
+                  }
+                  const btnLabel = count > 0 ? `Replay Prompt (${count}/${maxAllowed})` : (maxAllowed > 0 ? `Play Spoken Prompt (Max ${maxAllowed} plays)` : `Play Spoken Prompt`);
+                  return `
+                    <button class="button" id="play-speaking-prompt-btn" data-text="${(activePrompt.audioScript || activePrompt.prompt).replaceAll('"', '&quot;')}" type="button" style="background:#16a34a;color:#fff;padding:12px 26px;font-size:14.5px;font-weight:600;border-radius:10px;display:inline-flex;align-items:center;gap:10px;box-shadow:0 4px 12px rgba(22,163,74,0.25)">
+                      ${ICONS.volume2} <span id="play-speaking-btn-text">${btnLabel}</span>
+                    </button>
+                  `;
+                })()}
               </div>
               <div id="speaking-audio-status" style="font-size:12.5px;color:#64748b;margin-top:12px;font-weight:500">
-                Click button above to hear Part ${speakingStep + 1}
+                ${(() => {
+                  const maxAllowed = Number(window.assessifySettings?.maxAudioPlayCount) || 2;
+                  const count = Number(playedAudio[speakingStep]) || 0;
+                  if (maxAllowed > 0 && count >= maxAllowed) {
+                    return `Replay limit reached (${count}/${maxAllowed} plays used). Please speak your answer.`;
+                  }
+                  return count > 0 ? `✓ Audio played ${count} time(s). ${maxAllowed > 0 ? (maxAllowed - count) + ' replay(s) remaining.' : ''}` : `Click button above to hear Part ${speakingStep + 1}`;
+                })()}
               </div>
             </div>
 
@@ -2809,31 +3188,116 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         }
       }
 
-      function getSupportedMediaOptions() {
-        const types = [
-          'video/webm;codecs=vp8,opus',
-          'video/webm;codecs=vp9,opus',
-          'video/webm;codecs=h264,opus',
-          'video/webm',
-          'video/mp4;codecs=avc1,mp4a.40.2',
-          'video/mp4'
-        ];
-        for (const type of types) {
+      function createMediaRecorder(stream) {
+        const hasVideo = stream.getVideoTracks().length > 0;
+        const candidates = hasVideo
+          ? ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4']
+          : ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg', 'audio/mp4'];
+        for (const type of candidates) {
           if (window.MediaRecorder && MediaRecorder.isTypeSupported(type)) {
-            return { mimeType: type, audioBitsPerSecond: 128000, videoBitsPerSecond: 2500000 };
+            try {
+              return new MediaRecorder(stream, { mimeType: type });
+            } catch (e) {
+              console.warn('Failed with MIME type ' + type + ':', e);
+            }
           }
         }
-        return {};
+        return new MediaRecorder(stream);
+      }
+
+      function updateRecordingUI() {
+        const badge = document.querySelector('#live-rec-badge');
+        const st = document.querySelector('#recording-status');
+        const timerEl = document.querySelector('#live-rec-timer');
+        const controls = document.querySelector('#speaking-rec-controls');
+
+        if (speakingRecordingState === 'recording') {
+          if (badge) {
+            badge.style.display = 'flex';
+            badge.style.background = 'rgba(220,38,38,0.92)';
+            badge.innerHTML = `
+              <span class="pill-dot" style="background:#fff;width:8px;height:8px;border-radius:50%;display:inline-block;animation:pulse-dot 1s infinite"></span>
+              <span>REC</span>
+              <span id="live-rec-timer" style="font-family:monospace;font-size:13px;letter-spacing:0.5px">${formatRecordingTime(recordingElapsedSeconds)}</span>
+            `;
+          }
+          if (st) {
+            st.style.color = '#f87171';
+            st.textContent = '● Recording active — spoken answers across Part 1, 2, and 3 are being captured';
+          }
+          if (controls) {
+            controls.innerHTML = `
+              <button class="button" id="pause-speaking-record-btn" type="button" style="background:#475569;padding:8px 16px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px">
+                ⏸ Pause
+              </button>
+              <button class="ghost" id="restart-speaking-record-btn" type="button" style="padding:8px 14px;font-size:12px;color:#f87171;border-color:#7f1d1d;display:inline-flex;align-items:center;gap:4px">
+                🔄 Restart Take
+              </button>
+            `;
+          }
+        } else if (speakingRecordingState === 'paused') {
+          if (badge) {
+            badge.style.display = 'flex';
+            badge.style.background = 'rgba(234,88,12,0.92)';
+            badge.innerHTML = `
+              <span>⏸ PAUSED</span>
+              <span id="live-rec-timer" style="font-family:monospace;font-size:13px">${formatRecordingTime(recordingElapsedSeconds)}</span>
+            `;
+          }
+          if (st) {
+            st.style.color = '#fb923c';
+            st.textContent = '⏸ Recording paused — click Resume to continue';
+          }
+          if (controls) {
+            controls.innerHTML = `
+              <button class="button" id="resume-speaking-record-btn" type="button" style="background:#16a34a;padding:8px 16px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px">
+                ▶ Resume
+              </button>
+              <button class="ghost" id="restart-speaking-record-btn" type="button" style="padding:8px 14px;font-size:12px;color:#f87171;border-color:#7f1d1d;display:inline-flex;align-items:center;gap:4px">
+                🔄 Restart Take
+              </button>
+            `;
+          }
+        } else {
+          if (badge) {
+            badge.style.display = 'none';
+          }
+          if (st) {
+            st.style.color = speakingRecordingState === 'stopped' ? '#4ade80' : '#94a3b8';
+            st.textContent = speakingRecordingState === 'stopped' ? '✓ Recording saved' : 'Camera & Mic connecting…';
+          }
+          if (controls) {
+            controls.innerHTML = `
+              <button class="button" id="start-speaking-record-btn" type="button" style="background:#16a34a;padding:8px 16px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px">
+                🔴 Start Recording
+              </button>
+            `;
+          }
+        }
+        if (typeof bindRecordingControlEvents === 'function') {
+          bindRecordingControlEvents();
+        }
       }
 
       async function setupCameraAndMic() {
         if (mediaStream && mediaStream.active) {
           if (preview) preview.srcObject = mediaStream;
           attachAudioVisualizer(mediaStream);
+          if (speaking && (!mediaRecorder || mediaRecorder.state === 'inactive')) {
+            beginRecording(false);
+          }
           return mediaStream;
         }
-        if (!navigator.mediaDevices?.getUserMedia) return null;
+        if (!navigator.mediaDevices?.getUserMedia) {
+          const st = document.querySelector('#recording-status');
+          if (st) {
+            st.style.color = '#ef4444';
+            st.textContent = '⚠️ Camera/mic not supported in this browser.';
+          }
+          return null;
+        }
         try {
+          // Attempt 1: 720p Video + Audio
           mediaStream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: {
@@ -2842,33 +3306,87 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               autoGainControl: true
             }
           });
+        } catch (err) {
+          console.warn('Camera 720p attempt failed, trying standard video/audio:', err.message);
+          try {
+            // Attempt 2: Standard Video + Audio
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          } catch (err2) {
+            console.warn('Video + Audio failed, falling back to Audio Only (mic):', err2.message);
+            try {
+              // Attempt 3: Audio Only (headset/mic without webcam)
+              mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              const st = document.querySelector('#recording-status');
+              if (st) st.textContent = '🎤 Microphone Connected (Audio-only response)';
+            } catch (err3) {
+              console.error('All media access failed:', err3.message);
+              const st = document.querySelector('#recording-status');
+              if (st) {
+                st.style.color = '#ef4444';
+                st.textContent = '⚠️ Microphone/camera permission blocked in browser. Please allow in address bar to record answers.';
+              }
+              return null;
+            }
+          }
+        }
+
+        if (mediaStream) {
           mediaStream.getAudioTracks().forEach((track) => { track.enabled = true; });
           if (preview) preview.srcObject = mediaStream;
           attachAudioVisualizer(mediaStream);
-          return mediaStream;
-        } catch (err) {
-          console.warn('Camera/mic fallback:', err);
-          try {
-            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            mediaStream.getAudioTracks().forEach((track) => { track.enabled = true; });
-            if (preview) preview.srcObject = mediaStream;
-            attachAudioVisualizer(mediaStream);
-            return mediaStream;
-          } catch (e2) {
-            console.warn('Camera/mic access error:', e2);
-            const st = document.querySelector('#recording-status');
-            if (st) st.textContent = 'Camera/mic permission unavailable (Proceeding without video)';
-            return null;
+          if (speaking && (!mediaRecorder || mediaRecorder.state === 'inactive')) {
+            beginRecording(false);
           }
+          return mediaStream;
         }
+        return null;
       }
 
       if (preview) {
-        if (mediaStream) {
+        if (mediaStream && mediaStream.active) {
           preview.srcObject = mediaStream;
           attachAudioVisualizer(mediaStream);
+          if (speaking && (!mediaRecorder || mediaRecorder.state === 'inactive')) {
+            beginRecording(false);
+          }
         } else {
           setupCameraAndMic();
+        }
+      }
+
+      if (speakingRecordingState === 'recording' && !recordingTimerInterval) {
+        startRecordingTimer();
+      }
+
+      function setListeningAudioPlaying(isPlaying) {
+        isSpeakingAudioPromptPlaying = isPlaying;
+        const nextPromptBtn = document.querySelector('#speaking-next-prompt-btn');
+        if (nextPromptBtn) {
+          nextPromptBtn.disabled = isPlaying;
+          if (isPlaying) {
+            nextPromptBtn.style.opacity = '0.55';
+            nextPromptBtn.style.cursor = 'not-allowed';
+            nextPromptBtn.innerHTML = `<span>🎧 Listening in progress…</span>`;
+          } else {
+            nextPromptBtn.style.opacity = '';
+            nextPromptBtn.style.cursor = '';
+            nextPromptBtn.innerHTML = `<span>Next Part</span> <span aria-hidden="true">→</span>`;
+          }
+        }
+        document.querySelectorAll('.speaking-step-chip').forEach((chip) => {
+          if (isPlaying) {
+            chip.style.pointerEvents = 'none';
+            chip.style.opacity = '0.6';
+          } else {
+            chip.style.pointerEvents = '';
+            chip.style.opacity = '';
+          }
+        });
+        const bottomNextBtn = document.querySelector('#next');
+        if (bottomNextBtn && speaking) {
+          bottomNextBtn.disabled = isPlaying;
+          bottomNextBtn.style.opacity = isPlaying ? '0.55' : '';
+          bottomNextBtn.style.cursor = isPlaying ? 'not-allowed' : '';
         }
       }
 
@@ -2887,28 +3405,58 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
             audioStatusEl.textContent = `🔊 Playing Part ${speakingStep + 1} audio prompt...`;
             audioStatusEl.style.color = '#2563eb';
           }
+          setListeningAudioPlaying(true);
           speakQuestionAudio(
             textToSpeak,
             speakingStep,
-            null,
             () => {
-              playSpeakingBtn.disabled = false;
-              if (audioBtnTextEl) audioBtnTextEl.textContent = 'Replay Spoken Prompt';
-              playSpeakingBtn.style.background = '#16a34a';
-              playSpeakingBtn.style.color = '#fff';
-              if (audioStatusEl) {
-                audioStatusEl.textContent = `✓ Audio finished. Click to replay Part ${speakingStep + 1}.`;
-                audioStatusEl.style.color = '#16a34a';
+              setListeningAudioPlaying(true);
+            },
+            () => {
+              setListeningAudioPlaying(false);
+              playedAudio[speakingStep] = (Number(playedAudio[speakingStep]) || 0) + 1;
+              const count = playedAudio[speakingStep];
+              const maxAllowed = Number(window.assessifySettings?.maxAudioPlayCount) || 2;
+              if (maxAllowed > 0 && count >= maxAllowed) {
+                playSpeakingBtn.disabled = true;
+                playSpeakingBtn.style.background = '#e2e8f0';
+                playSpeakingBtn.style.color = '#64748b';
+                playSpeakingBtn.style.cursor = 'not-allowed';
+                if (audioBtnTextEl) audioBtnTextEl.textContent = `Replay Limit Reached (${count}/${maxAllowed})`;
+                if (audioStatusEl) {
+                  audioStatusEl.textContent = `Replay limit reached (${count}/${maxAllowed} plays used). Please proceed with your spoken response.`;
+                  audioStatusEl.style.color = '#64748b';
+                }
+              } else {
+                playSpeakingBtn.disabled = false;
+                if (audioBtnTextEl) audioBtnTextEl.textContent = maxAllowed > 0 ? `Replay Spoken Prompt (${count}/${maxAllowed})` : 'Replay Spoken Prompt';
+                playSpeakingBtn.style.background = '#16a34a';
+                playSpeakingBtn.style.color = '#fff';
+                if (audioStatusEl) {
+                  audioStatusEl.textContent = `✓ Audio finished. ${maxAllowed > 0 ? (maxAllowed - count) + ' replay(s) remaining.' : 'Click to replay.'}`;
+                  audioStatusEl.style.color = '#16a34a';
+                }
               }
             },
             () => {
-              playSpeakingBtn.disabled = false;
-              if (audioBtnTextEl) audioBtnTextEl.textContent = 'Play Spoken Prompt';
-              playSpeakingBtn.style.background = '#16a34a';
-              playSpeakingBtn.style.color = '#fff';
-              if (audioStatusEl) {
-                audioStatusEl.textContent = `Click button above to hear Part ${speakingStep + 1}`;
-                audioStatusEl.style.color = '#64748b';
+              setListeningAudioPlaying(false);
+              const count = Number(playedAudio[speakingStep]) || 0;
+              const maxAllowed = Number(window.assessifySettings?.maxAudioPlayCount) || 2;
+              if (maxAllowed > 0 && count >= maxAllowed) {
+                playSpeakingBtn.disabled = true;
+                playSpeakingBtn.style.background = '#e2e8f0';
+                playSpeakingBtn.style.color = '#64748b';
+                playSpeakingBtn.style.cursor = 'not-allowed';
+                if (audioBtnTextEl) audioBtnTextEl.textContent = `Replay Limit Reached (${count}/${maxAllowed})`;
+              } else {
+                playSpeakingBtn.disabled = false;
+                if (audioBtnTextEl) audioBtnTextEl.textContent = 'Play Spoken Prompt';
+                playSpeakingBtn.style.background = '#16a34a';
+                playSpeakingBtn.style.color = '#fff';
+                if (audioStatusEl) {
+                  audioStatusEl.textContent = `Click button above to hear Part ${speakingStep + 1}`;
+                  audioStatusEl.style.color = '#64748b';
+                }
               }
             }
           );
@@ -2918,6 +3466,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       // Step chip click handlers
       document.querySelectorAll('.speaking-step-chip').forEach((chip) => {
         chip.onclick = () => {
+          if (isSpeakingAudioPromptPlaying) return;
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setListeningAudioPlaying(false);
           const step = Number(chip.dataset.step);
           if (!isNaN(step) && step >= 0 && step < current.questions.length) {
             speakingStep = step;
@@ -2927,34 +3478,111 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         };
       });
 
-      const startRecordBtn = document.querySelector('#start-speaking-record-btn');
-      if (startRecordBtn) {
-        startRecordBtn.onclick = async () => {
-          if (!mediaStream) {
-            await setupCameraAndMic();
+      function startRecordingTimer() {
+        if (recordingTimerInterval) clearInterval(recordingTimerInterval);
+        recordingTimerInterval = setInterval(() => {
+          if (speakingRecordingState === 'recording') {
+            recordingElapsedSeconds = Math.max(1, Math.round((Date.now() - (recordingStartedAt || Date.now())) / 1000));
+            const timerEl = document.querySelector('#live-rec-timer');
+            if (timerEl) timerEl.textContent = formatRecordingTime(recordingElapsedSeconds);
           }
-          beginRecording();
-        };
+        }, 500);
       }
 
-      function beginRecording() {
+      function beginRecording(isRestart = false) {
         speakingRecordingState = 'recording';
-        recordingStartedAt = Date.now();
-        recordingChunks = [];
+        if (isRestart) {
+          recordingChunks = [];
+          recordingElapsedSeconds = 0;
+          recordingStartedAt = Date.now();
+        } else {
+          if (!recordingStartedAt) recordingStartedAt = Date.now();
+        }
         if (mediaStream && window.MediaRecorder) {
           try {
-            const opts = getSupportedMediaOptions();
-            mediaRecorder = new MediaRecorder(mediaStream, opts);
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size) recordingChunks.push(e.data); };
-            mediaRecorder.start(500);
-          } catch (e) { console.warn('MediaRecorder error:', e); }
+            if (!mediaRecorder || mediaRecorder.state === 'inactive' || isRestart) {
+              if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                try { mediaRecorder.stop(); } catch { }
+              }
+              mediaRecorder = createMediaRecorder(mediaStream);
+              mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                  recordingChunks.push(e.data);
+                }
+              };
+              mediaRecorder.start(500);
+            } else if (mediaRecorder.state === 'paused') {
+              mediaRecorder.resume();
+            }
+          } catch (e) {
+            console.warn('MediaRecorder error:', e);
+          }
         }
-        draw();
+        startRecordingTimer();
+        updateRecordingUI();
       }
+
+      function bindRecordingControlEvents() {
+        const startRecordBtn = document.querySelector('#start-speaking-record-btn');
+        if (startRecordBtn) {
+          startRecordBtn.onclick = async () => {
+            if (!mediaStream) {
+              await setupCameraAndMic();
+            }
+            beginRecording(false);
+          };
+        }
+
+        const pauseRecordBtn = document.querySelector('#pause-speaking-record-btn');
+        if (pauseRecordBtn) {
+          pauseRecordBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              try {
+                mediaRecorder.requestData();
+                mediaRecorder.pause();
+              } catch { }
+            }
+            speakingRecordingState = 'paused';
+            if (recordingTimerInterval) {
+              clearInterval(recordingTimerInterval);
+              recordingTimerInterval = null;
+            }
+            updateRecordingUI();
+          };
+        }
+
+        const resumeRecordBtn = document.querySelector('#resume-speaking-record-btn');
+        if (resumeRecordBtn) {
+          resumeRecordBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === 'paused') {
+              try { mediaRecorder.resume(); } catch { }
+              speakingRecordingState = 'recording';
+              startRecordingTimer();
+              updateRecordingUI();
+            } else {
+              beginRecording(false);
+            }
+          };
+        }
+
+        const restartRecordBtn = document.querySelector('#restart-speaking-record-btn');
+        if (restartRecordBtn) {
+          restartRecordBtn.onclick = () => {
+            const ok = window.confirm('Restart speaking recording from the beginning? This will discard your current take.');
+            if (ok) {
+              beginRecording(true);
+            }
+          };
+        }
+      }
+
+      bindRecordingControlEvents();
 
       const prevPromptBtn = document.querySelector('#speaking-prev-prompt-btn');
       if (prevPromptBtn) {
         prevPromptBtn.onclick = () => {
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setListeningAudioPlaying(false);
           speakingStep = Math.max(speakingStep - 1, 0);
           persistProgress(true);
           draw();
@@ -2964,19 +3592,10 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       const nextPromptBtn = document.querySelector('#speaking-next-prompt-btn');
       if (nextPromptBtn) {
         nextPromptBtn.onclick = () => {
+          if (isSpeakingAudioPromptPlaying) return;
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setListeningAudioPlaying(false);
           speakingStep = Math.min(speakingStep + 1, current.questions.length - 1);
-          persistProgress(true);
-          draw();
-        };
-      }
-
-      const stopRecordBtn = document.querySelector('#stop-speaking-record-btn');
-      if (stopRecordBtn) {
-        stopRecordBtn.onclick = async () => {
-          speakingRecordingState = 'stopped';
-          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-            try { mediaRecorder.stop(); } catch { }
-          }
           persistProgress(true);
           draw();
         };
@@ -2985,6 +3604,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       const endEarlyBtn = document.querySelector('#end-early-btn');
       if (endEarlyBtn) {
         endEarlyBtn.onclick = () => {
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setListeningAudioPlaying(false);
           const modalBackdrop = document.createElement('div');
           modalBackdrop.className = 'modal-backdrop';
           modalBackdrop.innerHTML = `
@@ -2995,7 +3616,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               </div>
               <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px">
                 If the student is unable to answer subsequent questions, you can conclude the test now.
-                All written tasks, recorded responses, and grammar answers completed so far will be preserved and submitted.
+                All written tasks, recorded responses, and grammar answers completed so far will be automatically preserved, uploaded to Google Drive, and submitted.
               </p>
               <div style="display:flex;justify-content:flex-end;gap:10px">
                 <button class="ghost" id="modal-cancel-early" type="button" style="padding:9px 18px">Cancel & Continue</button>
@@ -3113,6 +3734,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         await advanceToNextSection();
         return;
       }
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
       const nextBtn = document.querySelector('#next');
       nextBtn.disabled = true;
       nextBtn.textContent = 'Submitting responses…';
@@ -3122,21 +3744,15 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     startSectionTimer();
   };
 
-  draw();
-
   // Live real-time heartbeat and candidate presence telemetry
-  heartbeatInterval = setInterval(async () => {
-    if (isTerminated || !document.querySelector('.test-screen')) {
-      clearInterval(heartbeatInterval);
-      return;
-    }
+  const sendCandidateTelemetry = async () => {
+    if (isTerminated || !document.querySelector('.test-screen')) return;
     try {
       const curSection = section();
       const currentRemainingMs = sectionEndTimes[sectionIndex]
         ? Math.max(0, Number(sectionEndTimes[sectionIndex]) - Date.now())
         : (sectionRemainingMs[sectionIndex] || 0);
 
-      // Send telemetry to real-time proctoring presence
       fetch('/api/realtime/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3150,7 +3766,19 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           antiCheat: antiCheatTracker
         })
       }).catch(() => {});
+    } catch {}
+  };
 
+  draw();
+  sendCandidateTelemetry();
+
+  heartbeatInterval = setInterval(async () => {
+    if (isTerminated || !document.querySelector('.test-screen')) {
+      clearInterval(heartbeatInterval);
+      return;
+    }
+    await sendCandidateTelemetry();
+    try {
       const res = await fetch(`/api/attempts/${attemptId}/status`);
       if (res.status === 401 || res.status === 403 || res.status === 404) {
         clearInterval(heartbeatInterval);
@@ -3174,9 +3802,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
 const getStoredAdminTab = () => {
   const hash = window.location.hash.replace('#', '').trim();
-  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash)) return hash;
+  if (['live', 'results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(hash)) return hash;
   const stored = localStorage.getItem('assessify_admin_tab');
-  if (['results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(stored)) return stored;
+  if (['live', 'results', 'users', 'bulk-users', 'questions', 'rubrics', 'audit', 'settings'].includes(stored)) return stored;
   return 'results';
 };
 
@@ -3383,6 +4011,11 @@ async function renderAdmin(tab) {
 }
 
 async function renderAdminLiveTab(container) {
+  // Ensure real-time connection is active
+  if (typeof realtime !== 'undefined' && realtime) {
+    if (!realtime.eventSource) realtime.connect();
+  }
+
   // Clean up any existing listeners and timer for live proctoring tab
   if (window._adminTabUnsubs && Array.isArray(window._adminTabUnsubs)) {
     window._adminTabUnsubs.forEach(unsub => {
@@ -3395,244 +4028,576 @@ async function renderAdminLiveTab(container) {
     window.proctorTickInterval = null;
   }
 
+  if (window._proctorAudioEnabled === undefined) {
+    window._proctorAudioEnabled = true;
+  }
+
+  let candidates = [];
+  let currentFilter = 'all';
+  let searchQuery = '';
+  let sortOrder = 'risk';
+  let feedFilter = 'all';
+  const recentFeedKeys = new Map();
+
   container.innerHTML = `
-    <div class="proctor-header">
-      <div>
-        <div class="eyebrow" style="display:inline-flex;align-items:center;gap:6px">
-          <span style="width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulseLiveDot 1.6s infinite"></span>
-          Live Session Telemetry
+    <!-- Hero Mission Control Command Header -->
+    <div class="proctor-hero-banner">
+      <div class="proctor-hero-top">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="proctor-radar-badge">
+            <span class="proctor-radar-pulse"></span>
+            <span>Real-Time Surveillance Active</span>
+          </div>
+          <span style="font-size:11px;opacity:0.75;font-weight:600;letter-spacing:0.5px">ENGINE v2026.3</span>
         </div>
-        <h1 style="font:700 28px 'Space Grotesk';margin:6px 0 4px;color:var(--navy)">Exam Proctoring & Telemetry Center</h1>
-        <p style="margin:0;font-size:13.5px;color:var(--muted)">Active candidate telemetry, real-time anti-cheat detection, time extensions, and session proctoring controls.</p>
+        <div class="proctor-hero-actions">
+          <button class="btn-hero-action secondary" id="btn-toggle-audio" type="button" title="Toggle audio chime for security alerts">
+            <span id="audio-icon">${window._proctorAudioEnabled ? '🔊' : '🔇'}</span>
+            <span id="audio-label">${window._proctorAudioEnabled ? 'Audio Alerts: ON' : 'Audio: Muted'}</span>
+          </button>
+          <button class="btn-hero-action secondary" id="btn-resync-proctor" type="button" title="Force telemetry re-sync with server">
+            <span id="resync-icon">🔄</span> <span>Resync</span>
+          </button>
+          <button class="btn-hero-action primary" id="btn-broadcast-open" type="button">
+            <span>📢</span> <span>Global Broadcast</span>
+          </button>
+        </div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn-icon" id="btn-broadcast-open" type="button" style="padding:9px 16px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:10px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(37,99,235,0.25)">
-          <span>📢</span> <span>Broadcast to Candidates</span>
-        </button>
+
+      <h1 class="proctor-hero-title">Live Exam Proctoring & Mission Control</h1>
+      <p class="proctor-hero-sub">Institutional candidate telemetry cockpit monitoring active exam progress, anti-cheat security flags, and real-time administrator interventions.</p>
+
+      <div class="proctor-telemetry-strip">
+        <div class="telemetry-chip success">
+          <span class="live-sync-dot"></span>
+          <span>SSE Telemetry Connected</span>
+        </div>
+        <div class="telemetry-chip">
+          <span>⚡ Ping &lt; 20ms</span>
+        </div>
+        <div class="telemetry-chip">
+          <span>🛡️ Anti-Cheat Shield: Active</span>
+        </div>
       </div>
     </div>
 
-    <!-- Overview Metrics -->
+    <!-- Overview KPI Metrics Cards -->
     <div class="proctor-metrics-grid">
       <div class="proctor-stat-card">
         <div class="proctor-stat-icon" style="background:#eff6ff;color:#2563eb">${ICONS.users}</div>
         <div>
           <div class="proctor-stat-num" id="stat-active-candidates">0</div>
           <div class="proctor-stat-label">Active Test-Takers Now</div>
+          <div class="proctor-stat-sub" id="sub-active-candidates">Live testing in session</div>
         </div>
       </div>
       <div class="proctor-stat-card">
-        <div class="proctor-stat-icon" style="background:#fef2f2;color:#dc2626">${ICONS.alertTriangle}</div>
+        <div class="proctor-stat-icon" style="background:#fef2f2;color:#dc2626">${ICONS.alert}</div>
         <div>
-          <div class="proctor-stat-num" id="stat-security-alerts">0</div>
-          <div class="proctor-stat-label">Security Incidents Today</div>
+          <div class="proctor-stat-num" id="stat-alerts-count">0</div>
+          <div class="proctor-stat-label">Security Flags</div>
+          <div class="proctor-stat-sub" id="sub-alerts-count">Clean integrity session</div>
         </div>
       </div>
       <div class="proctor-stat-card">
-        <div class="proctor-stat-icon" style="background:#f0fdf4;color:#16a34a">${ICONS.checkCircle}</div>
+        <div class="proctor-stat-icon" style="background:#f0fdf4;color:#16a34a">${ICONS.sparkles}</div>
         <div>
-          <div class="proctor-stat-num" id="stat-completed-today">0</div>
-          <div class="proctor-stat-label">Completed Tests Today</div>
+          <div class="proctor-stat-num" id="stat-avg-pace">0%</div>
+          <div class="proctor-stat-label">Avg Response Progress</div>
+          <div class="proctor-stat-sub">Across all active tests</div>
         </div>
+      </div>
+      <div class="proctor-stat-card">
+        <div class="proctor-stat-icon" style="background:#faf5ff;color:#9333ea">${ICONS.clock}</div>
+        <div>
+          <div class="proctor-stat-num" id="stat-avg-time">—</div>
+          <div class="proctor-stat-label">Avg Time Remaining</div>
+          <div class="proctor-stat-sub">Current test section</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls Toolbar -->
+    <div class="proctor-toolbar">
+      <div class="proctor-search-box">
+        <span class="proctor-search-icon">${ICONS.search}</span>
+        <input id="proctor-search-input" type="text" placeholder="Search live candidates by name, email, or school unit…" autocomplete="off" />
+      </div>
+      <div class="proctor-filter-group">
+        <button class="proctor-filter-pill active" data-filter="all" type="button">All (<span id="count-pill-all">0</span>)</button>
+        <button class="proctor-filter-pill" data-filter="active" type="button">Active (<span id="count-pill-active">0</span>)</button>
+        <button class="proctor-filter-pill" data-filter="alert" type="button">⚠️ Alerts (<span id="count-pill-alert">0</span>)</button>
+        <button class="proctor-filter-pill" data-filter="idle" type="button">Idle (<span id="count-pill-idle">0</span>)</button>
+        <button class="proctor-filter-pill" data-filter="extended" type="button">Extended (<span id="count-pill-extended">0</span>)</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label for="proctor-sort-select" style="font-size:12px;font-weight:600;color:#64748b">Sort:</label>
+        <select id="proctor-sort-select" style="padding:6px 10px;border-radius:8px;border:1px solid #cbd5e1;font-size:12.5px;background:#fff;outline:none">
+          <option value="time-asc">Least Time Left</option>
+          <option value="time-desc">Most Time Left</option>
+          <option value="alerts-desc">Highest Violations</option>
+          <option value="progress-desc">Highest Progress</option>
+          <option value="name-asc">Candidate Name (A-Z)</option>
+        </select>
       </div>
     </div>
 
     <!-- Active Candidates Grid Section -->
-    <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px">
-        <span>👨‍💻</span> <span>Live Test-Takers Cockpit</span>
-      </h3>
-      <div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">
-        <span class="live-sync-dot"></span> <span>Reactive stream active</span>
-      </div>
-    </div>
-    <div class="proctor-candidates-grid" id="proctor-candidates-container">
-      <div style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border-radius:12px;border:1px dashed var(--line);color:var(--muted)">
-        Connecting to active test sessions…
+    <div id="proctor-candidates-container" class="proctor-candidates-grid">
+      <div class="proctor-empty-state" style="grid-column:1/-1">
+        <div style="font-size:36px;margin-bottom:8px">📡</div>
+        <h3 style="margin:0 0 6px 0;font-size:16px;color:var(--navy)">No Active Candidates Connected</h3>
+        <p style="margin:0;font-size:13px;color:var(--muted)">When examinees begin their English proficiency assessment, their live telemetry, progress, and anti-cheat surveillance cards will appear here in real time.</p>
       </div>
     </div>
 
-    <!-- Real-Time Proctoring Feed -->
+    <!-- Live Event Stream Feed -->
     <div class="proctor-live-feed">
       <div class="proctor-feed-header">
-        <h4 style="margin:0;font-size:14.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px">
-          <span>⚡</span> Real-Time Proctor & Security Feed
-        </h4>
-        <span style="font-size:11.5px;color:var(--muted)">Live telemetry stream</span>
+        <div class="proctor-feed-title">
+          <span>⚡</span>
+          <span>Real-Time Security & Telemetry Event Stream</span>
+        </div>
+        <div class="proctor-feed-controls">
+          <div class="proctor-feed-tabs">
+            <button class="feed-tab-btn active" data-tab="all" type="button">All Events</button>
+            <button class="feed-tab-btn" data-tab="alerts" type="button">⚠️ Alerts Only</button>
+            <button class="feed-tab-btn" data-tab="activity" type="button">Candidate Activity</button>
+            <button class="feed-tab-btn" data-tab="actions" type="button">Admin Actions</button>
+          </div>
+          <button id="btn-clear-feed" class="ghost" type="button" style="padding:4px 8px;font-size:11.5px" title="Clear stream view">Clear</button>
+        </div>
       </div>
       <div class="proctor-feed-list" id="proctor-live-feed-list">
-        <div class="proctor-feed-empty" style="text-align:center;padding:16px;font-size:12px;color:var(--muted)">Proctor event feed initialized. Monitoring candidate activity…</div>
+        <div class="proctor-feed-empty" style="text-align:center;padding:24px;font-size:12.5px;color:var(--muted)">Proctor event telemetry stream initialized. Monitoring live candidate activity…</div>
       </div>
     </div>
   `;
 
-  // Fetch initial candidates snapshot
-  const res = await request('/api/admin/proctor/candidates');
-  let candidates = res.candidates || [];
-  const resultsData = await request('/api/admin/results');
-  const allResults = resultsData.results || [];
-  const completedToday = allResults.filter(r => r.status === 'Completed').length;
-  const compEl = document.querySelector('#stat-completed-today');
-  if (compEl) compEl.textContent = completedToday;
+  // Fetch initial telemetry snapshot
+  async function loadInitialData() {
+    try {
+      const res = await request('/api/admin/proctor/candidates');
+      candidates = res.candidates || [];
+      const proctorCountEl = document.querySelector('#telemetry-proctors-count');
+      if (proctorCountEl && res.connectedAdmins) proctorCountEl.textContent = res.connectedAdmins;
 
-  const updateSecurityAlertsStat = () => {
-    const sum = candidates.reduce((total, c) => total + (c.antiCheat?.totalCount || 0), 0);
-    const alertsEl = document.querySelector('#stat-security-alerts');
-    if (alertsEl) alertsEl.textContent = sum;
-  };
-  updateSecurityAlertsStat();
+      const resultsData = await request('/api/admin/results');
+      const allResults = resultsData.results || [];
+      const completedToday = allResults.filter(r => r.status === 'Completed').length;
+      const compEl = document.querySelector('#stat-completed-today');
+      if (compEl) compEl.textContent = completedToday;
 
-  // Populate initial feed entries from candidates' violation history
-  const feedList = document.querySelector('#proctor-live-feed-list');
-  const initialEntries = [];
-  for (const c of candidates) {
-    const candName = c.name || c.teacher || c.email;
-    if (Array.isArray(c.antiCheat?.violations) && c.antiCheat.violations.length > 0) {
-      c.antiCheat.violations.forEach(v => {
-        initialEntries.push({
-          candidateName: candName,
-          type: v.type,
-          message: v.message || 'Candidate switched browser tab or minimized window',
-          timestamp: v.timestamp || new Date().toISOString()
-        });
-      });
+      updateMetricCounters();
+      renderFilteredCandidates();
+      populateInitialFeedEntries();
+    } catch (err) {
+      console.warn('Failed to load initial proctor candidates:', err);
     }
   }
 
-  if (feedList) {
-    if (initialEntries.length === 0) {
-      feedList.innerHTML = `<div class="proctor-feed-empty" style="text-align:center;padding:24px 16px;font-size:12.5px;color:var(--muted)">No security violations detected. Telemetry monitoring active.</div>`;
-    } else {
-      initialEntries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      feedList.innerHTML = initialEntries.slice(0, 30).map(entry => {
-        const timeStr = new Date(entry.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-        return `
-          <div class="proctor-feed-entry security-alert">
-            <div>⚠️ <strong>SECURITY ALERT:</strong> ${escapeHtml(entry.candidateName)} triggered <code>${entry.type}</code> - ${escapeHtml(entry.message)}</div>
-            <span style="font-size:11px;opacity:0.75;white-space:nowrap">${timeStr}</span>
-          </div>
-        `;
-      }).join('');
-    }
-  }
-
-  function renderCandidatesGrid() {
-    const grid = document.querySelector('#proctor-candidates-container');
-    if (!grid) return;
-
+  function updateMetricCounters() {
     const activeList = candidates.filter(c => c.status !== 'completed');
     const actEl = document.querySelector('#stat-active-candidates');
     if (actEl) actEl.textContent = activeList.length;
 
-    if (activeList.length === 0) {
+    const totalViolations = candidates.reduce((total, c) => total + (c.antiCheat?.totalCount || 0), 0);
+    const alertsEl = document.querySelector('#stat-alerts-count') || document.querySelector('#stat-security-alerts');
+    const subAlertsEl = document.querySelector('#sub-alerts-count') || document.querySelector('#sub-security-status');
+    if (alertsEl) alertsEl.textContent = totalViolations;
+    if (subAlertsEl) {
+      if (totalViolations > 0) {
+        subAlertsEl.innerHTML = `<span style="color:#dc2626;font-weight:600">⚠️ Attention: ${totalViolations} flag${totalViolations === 1 ? '' : 's'} recorded</span>`;
+      } else {
+        subAlertsEl.innerHTML = `<span style="color:#16a34a;font-weight:600">✓ Clean integrity session</span>`;
+      }
+    }
+
+    // Calculate average response progress %
+    const paceEl = document.querySelector('#stat-avg-pace');
+    if (paceEl) {
+      if (activeList.length === 0) {
+        paceEl.textContent = '0%';
+      } else {
+        const totalPct = activeList.reduce((acc, c) => {
+          const tQ = c.totalQuestions || 25;
+          const ans = c.answeredCount || 0;
+          return acc + Math.min(100, (ans / tQ) * 100);
+        }, 0);
+        paceEl.textContent = `${Math.round(totalPct / activeList.length)}%`;
+      }
+    }
+
+    // Calculate average remaining time
+    const timeEl = document.querySelector('#stat-avg-time');
+    if (timeEl) {
+      if (activeList.length === 0) {
+        timeEl.textContent = '—';
+      } else {
+        const avgMs = activeList.reduce((acc, c) => acc + (c.remainingMs || 0), 0) / activeList.length;
+        const totalSecs = Math.max(0, Math.floor(avgMs / 1000));
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        timeEl.textContent = `${mins}m ${String(secs).padStart(2, '0')}s`;
+      }
+    }
+
+    // Filter pill count badges
+    const cAll = activeList.length;
+    const cAlerts = activeList.filter(c => (c.antiCheat?.totalCount || 0) > 0).length;
+    const cActive = activeList.filter(c => c.status === 'active').length;
+    const cIdle = activeList.filter(c => c.status === 'idle').length;
+    const cExtended = activeList.filter(c => (c.timeExtendedBy || 0) > 0).length;
+
+    const elAll = document.querySelector('#count-pill-all') || document.querySelector('#count-all');
+    const elActive = document.querySelector('#count-pill-active') || document.querySelector('#count-active');
+    const elAlerts = document.querySelector('#count-pill-alert') || document.querySelector('#count-alerts');
+    const elIdle = document.querySelector('#count-pill-idle') || document.querySelector('#count-idle');
+    const elExtended = document.querySelector('#count-pill-extended') || document.querySelector('#count-offline');
+
+    if (elAll) elAll.textContent = cAll;
+    if (elAlerts) elAlerts.textContent = cAlerts;
+    if (elActive) elActive.textContent = cActive;
+    if (elIdle) elIdle.textContent = cIdle;
+    if (elExtended) elExtended.textContent = cExtended;
+  }
+
+  function filterAndSortCandidates() {
+    let list = candidates.filter(c => c.status !== 'completed');
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.attemptId || '').toLowerCase().includes(q) ||
+        (c.unit || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by status tab
+    if (currentFilter === 'alert' || currentFilter === 'alerts') {
+      list = list.filter(c => (c.antiCheat?.totalCount || 0) > 0);
+    } else if (currentFilter === 'active') {
+      list = list.filter(c => c.status === 'active');
+    } else if (currentFilter === 'idle') {
+      list = list.filter(c => c.status === 'idle');
+    } else if (currentFilter === 'extended') {
+      list = list.filter(c => (c.timeExtendedBy || 0) > 0);
+    }
+
+    // Sort order
+    if (sortOrder === 'alerts-desc' || sortOrder === 'risk') {
+      list.sort((a, b) => (b.antiCheat?.totalCount || 0) - (a.antiCheat?.totalCount || 0));
+    } else if (sortOrder === 'progress-desc' || sortOrder === 'pace') {
+      list.sort((a, b) => (b.answeredCount || 0) - (a.answeredCount || 0));
+    } else if (sortOrder === 'time-asc' || sortOrder === 'time') {
+      list.sort((a, b) => (a.remainingMs || 0) - (b.remainingMs || 0));
+    } else if (sortOrder === 'time-desc') {
+      list.sort((a, b) => (b.remainingMs || 0) - (a.remainingMs || 0));
+    } else if (sortOrder === 'name-asc' || sortOrder === 'name') {
+      list.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
+    }
+
+    return list;
+  }
+
+
+  function buildCandidateCardHtml(cand) {
+    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
+    const violations = cand.antiCheat?.totalCount || 0;
+    const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
+    const remMins = Math.floor(remSecs / 60);
+    const remSecRemainder = remSecs % 60;
+    const timeDisplay = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+    const isUrgent = remSecs > 0 && remSecs < 300;
+
+    const name = cand.name || cand.email;
+    const initials = name.split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'CA';
+    const unit = cand.unit || 'SMK KARYA BANGSA';
+    const serial = cand.attemptId;
+
+    const latestViolation = Array.isArray(cand.antiCheat?.violations) && cand.antiCheat.violations.length > 0
+      ? cand.antiCheat.violations[cand.antiCheat.violations.length - 1]
+      : null;
+
+    let incidentBannerHtml = '';
+    if (latestViolation) {
+      const vTime = latestViolation.timestamp ? new Date(latestViolation.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+      incidentBannerHtml = `
+        <div class="proctor-incident-banner">
+          <span>⚠️</span>
+          <div>
+            <strong>${escapeHtml(latestViolation.type || 'SECURITY_FLAG')}:</strong>
+            <span>${escapeHtml(latestViolation.message || 'Window focus change or tab switch')}</span>
+            ${vTime ? `<span style="opacity:0.75;margin-left:4px">(${vTime})</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    let statusText = 'ACTIVE';
+    let statusClass = 'active';
+    if (cand.status === 'idle') {
+      statusText = 'IDLE (>15s)';
+      statusClass = 'idle';
+    } else if (cand.status === 'offline') {
+      statusText = 'OFFLINE';
+      statusClass = 'offline';
+    } else if (cand.status === 'completed') {
+      statusText = 'COMPLETED';
+      statusClass = 'completed';
+    }
+
+    return `
+      <div class="proctor-candidate-card ${violations > 0 ? 'has-alert' : ''}" data-attempt-id="${cand.attemptId}">
+        <div>
+          <!-- Candidate Header -->
+          <div class="proctor-cand-header">
+            <div class="cand-identity-block">
+              <div class="cand-avatar-disc">${initials}</div>
+              <div class="cand-meta-text">
+                <h4 title="${escapeHtml(name)}">${escapeHtml(name)}</h4>
+                <div class="cand-email">${escapeHtml(cand.email)}</div>
+                <div class="cand-tags-row">
+                  <span class="cand-unit-pill">${escapeHtml(unit)}</span>
+                  <span class="cand-serial-pill">${serial}</span>
+                </div>
+              </div>
+            </div>
+            <span class="proctor-status-chip ${statusClass}">
+              <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
+              <span>${statusText}</span>
+            </span>
+          </div>
+
+          <!-- Section Progress Box -->
+          <div class="proctor-progress-box" style="margin-top:12px">
+            <div class="proctor-progress-header">
+              <span class="section-tag">
+                <span>📘</span>
+                <span class="cand-section-name">${escapeHtml(cand.sectionName || 'Grammar & Vocabulary')}</span>
+              </span>
+              <span class="progress-pct cand-progress-pct">${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)</span>
+            </div>
+            <div class="proctor-progress-bar">
+              <div class="proctor-progress-fill cand-progress-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="proctor-timer-strip">
+              <span style="font-size:11px;color:#64748b">Remaining Session Time:</span>
+              <span class="cand-timer-badge ${isUrgent ? 'urgent' : ''}">
+                ${ICONS.clock} <span class="cand-timer">${timeDisplay}</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Anti-Cheat Mini Radar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+            <div class="anti-cheat-radar-strip">
+              <span class="radar-stat-pill ${(cand.antiCheat?.tabSwitches || 0) > 0 ? 'alert' : ''}" title="Tab switches">
+                👁️ ${cand.antiCheat?.tabSwitches || 0}
+              </span>
+              <span class="radar-stat-pill ${(cand.antiCheat?.fullscreenExits || 0) > 0 ? 'alert' : ''}" title="Window blur / Fullscreen exits">
+                🖥️ ${cand.antiCheat?.fullscreenExits || 0}
+              </span>
+              <span class="radar-stat-pill ${(cand.antiCheat?.copyPasteAttempts || 0) > 0 ? 'alert' : ''}" title="Copy paste events">
+                📋 ${cand.antiCheat?.copyPasteAttempts || 0}
+              </span>
+            </div>
+            <span class="cand-violations-badge" style="font-size:11px;font-weight:700;color:${violations > 0 ? '#dc2626' : '#16a34a'}">
+              ${violations > 0 ? `⚠️ ${violations} Flag${violations === 1 ? '' : 's'}` : '✓ Clean'}
+            </span>
+          </div>
+
+          <!-- Latest Incident Banner (If any) -->
+          <div class="cand-incident-container" style="margin-top:8px">
+            ${incidentBannerHtml}
+          </div>
+        </div>
+
+        <!-- Proctor Intervention Controls -->
+        <div class="proctor-card-footer">
+          <button class="btn-proctor-action inspect btn-cand-inspect" data-id="${cand.attemptId}" data-name="${escapeHtml(name)}" type="button" title="View detailed candidate telemetry and answer timeline">
+            🔍 Inspect
+          </button>
+          <div class="proctor-action-buttons">
+            <button class="btn-proctor-action warn btn-cand-warn" data-id="${cand.attemptId}" data-name="${escapeHtml(name)}" type="button" title="Send live direct proctor warning">
+              ⚠️ Warn
+            </button>
+            <button class="btn-proctor-action extend btn-cand-extend5" data-id="${cand.attemptId}" data-name="${escapeHtml(name)}" type="button" title="Grant +5 minutes extension">
+              +5m
+            </button>
+            <button class="btn-proctor-action extend btn-cand-extend10" data-id="${cand.attemptId}" data-name="${escapeHtml(name)}" type="button" title="Grant +10 minutes extension">
+              +10m
+            </button>
+            <button class="btn-proctor-action danger btn-cand-submit" data-id="${cand.attemptId}" data-name="${escapeHtml(name)}" type="button" title="Force submit candidate assessment">
+              Submit
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindCardActionButtons(containerEl) {
+    containerEl.querySelectorAll('.btn-cand-inspect').forEach(btn => {
+      btn.onclick = () => openCandidateInspectorModal(btn.dataset.id, btn.dataset.name);
+    });
+    containerEl.querySelectorAll('.btn-cand-warn').forEach(btn => {
+      btn.onclick = () => openProctorWarningModal(btn.dataset.id, btn.dataset.name);
+    });
+    containerEl.querySelectorAll('.btn-cand-extend5').forEach(btn => {
+      btn.onclick = () => handleExtendTime(btn, 5);
+    });
+    containerEl.querySelectorAll('.btn-cand-extend10').forEach(btn => {
+      btn.onclick = () => handleExtendTime(btn, 10);
+    });
+    containerEl.querySelectorAll('.btn-cand-submit').forEach(btn => {
+      btn.onclick = () => openProctorForceSubmitModal(btn.dataset.id, btn.dataset.name);
+    });
+  }
+
+  async function handleExtendTime(btn, minutes) {
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+    const extRes = await request('/api/admin/proctor/extend-time', {
+      method: 'POST',
+      body: { attemptId: btn.dataset.id, additionalMinutes: minutes }
+    });
+    btn.disabled = false;
+    btn.textContent = origText;
+    if (extRes.success) {
+      showToast(`Extended time by +${minutes}m for ${btn.dataset.name}`, 'success');
+      appendProctorFeed(`Proctor extended time by <strong>+${minutes} minutes</strong> for candidate <strong>${escapeHtml(btn.dataset.name)}</strong>.`, 'intervention');
+    } else {
+      showToast(extRes.error || 'Failed to extend time', 'error');
+    }
+  }
+
+  function renderFilteredCandidates() {
+    const grid = document.querySelector('#proctor-candidates-container');
+    if (!grid) return;
+
+    const list = filterAndSortCandidates();
+
+    if (list.length === 0) {
       grid.innerHTML = `
-        <div style="grid-column:1/-1;text-align:center;padding:48px 24px;background:#fff;border-radius:14px;border:1px dashed var(--line)">
-          <div style="font-size:32px;margin-bottom:8px">👨‍🏫</div>
-          <h4 style="margin:0 0 6px 0;font-size:15px;color:var(--navy);font-weight:700">No Active Test-Takers At This Moment</h4>
-          <p style="margin:0;font-size:13px;color:var(--muted)">When a candidate starts an assessment, their real-time screen telemetry, countdown timer, question progress, and anti-cheat events will populate here live.</p>
+        <div style="grid-column:1/-1;text-align:center;padding:52px 24px;background:#fff;border-radius:16px;border:1px dashed var(--line)">
+          <div style="font-size:36px;margin-bottom:10px">👨‍🏫</div>
+          <h4 style="margin:0 0 6px 0;font-size:16px;color:var(--navy);font-weight:700">No Candidates Match The Selected Criteria</h4>
+          <p style="margin:0;font-size:13px;color:var(--muted)">Adjust your search query or filter tags above to view candidate telemetry.</p>
         </div>
       `;
       return;
     }
 
-    grid.innerHTML = activeList.map(cand => {
-      const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
-      const violations = cand.antiCheat?.totalCount || 0;
-      const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
-      const remMins = Math.floor(remSecs / 60);
-      const remSecRemainder = remSecs % 60;
-      const timeDisplay = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+    grid.innerHTML = list.map(buildCandidateCardHtml).join('');
+    bindCardActionButtons(grid);
+  }
 
-      return `
-        <div class="proctor-candidate-card ${violations > 0 ? 'has-alert' : ''}" data-attempt-id="${cand.attemptId}">
+  // Live in-place DOM updater (zero page reload, no DOM tearing)
+  function updateCandidateInPlace(presence) {
+    const idx = candidates.findIndex(c => c.attemptId === presence.attemptId);
+    if (idx !== -1) {
+      candidates[idx] = Object.assign({}, candidates[idx], presence);
+    } else {
+      candidates.push(presence);
+    }
+
+    updateMetricCounters();
+
+    const card = document.querySelector(`.proctor-candidate-card[data-attempt-id="${presence.attemptId}"]`);
+    if (!card) {
+      renderFilteredCandidates();
+      return;
+    }
+
+    const cand = candidates.find(c => c.attemptId === presence.attemptId);
+    if (!cand) return;
+
+    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
+    const violations = cand.antiCheat?.totalCount || 0;
+    const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
+    const remMins = Math.floor(remSecs / 60);
+    const remSecRemainder = remSecs % 60;
+    const timeDisplay = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+
+    // 1. Update Section & Progress in place
+    const secEl = card.querySelector('.cand-section-name');
+    if (secEl && cand.sectionName) secEl.textContent = cand.sectionName;
+
+    const pctEl = card.querySelector('.cand-progress-pct');
+    if (pctEl) pctEl.textContent = `${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)`;
+
+    const fillEl = card.querySelector('.cand-progress-fill');
+    if (fillEl) fillEl.style.width = `${pct}%`;
+
+    // 2. Update Timer in place
+    const timerEl = card.querySelector('.cand-timer');
+    if (timerEl) timerEl.textContent = timeDisplay;
+    const timerBadge = card.querySelector('.cand-timer-badge');
+    if (timerBadge) {
+      if (remSecs > 0 && remSecs < 300) {
+        timerBadge.classList.add('urgent');
+      } else {
+        timerBadge.classList.remove('urgent');
+      }
+    }
+
+    // 3. Update Status in place
+    const statusChip = card.querySelector('.proctor-status-chip');
+    if (statusChip) {
+      statusChip.className = `proctor-status-chip ${cand.status}`;
+      const txtSpan = statusChip.querySelector('span:last-child');
+      if (txtSpan) {
+        txtSpan.textContent = cand.status === 'idle' ? 'IDLE (>15s)' : (cand.status === 'offline' ? 'OFFLINE' : 'ACTIVE');
+      }
+    }
+
+    // 4. Update Violations in place
+    if (violations > 0) {
+      card.classList.add('has-alert');
+    } else {
+      card.classList.remove('has-alert');
+    }
+    const vBadge = card.querySelector('.cand-violations-badge');
+    if (vBadge) {
+      vBadge.textContent = violations > 0 ? `⚠️ ${violations} Flag${violations === 1 ? '' : 's'}` : '✓ Clean';
+      vBadge.style.color = violations > 0 ? '#dc2626' : '#16a34a';
+    }
+
+    // 5. Update incident banner
+    const incidentContainer = card.querySelector('.cand-incident-container');
+    if (incidentContainer && cand.antiCheat?.violations?.length > 0) {
+      const v = cand.antiCheat.violations[cand.antiCheat.violations.length - 1];
+      const vTime = v.timestamp ? new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+      incidentContainer.innerHTML = `
+        <div class="proctor-incident-banner">
+          <span>⚠️</span>
           <div>
-            <div class="proctor-candidate-header">
-              <div class="proctor-candidate-info">
-                <h4>${escapeHtml(cand.name || cand.email)}</h4>
-                <div class="proctor-candidate-meta">${escapeHtml(cand.unit || 'School')} • <span style="font-family:monospace">${cand.attemptId}</span></div>
-              </div>
-              <span class="proctor-status-chip ${cand.status}">
-                <span style="width:6px;height:6px;border-radius:50%;background:currentColor"></span>
-                ${cand.status.toUpperCase()}
-              </span>
-            </div>
-
-            <div class="proctor-progress-wrapper">
-              <div class="proctor-progress-label">
-                <span>${escapeHtml(cand.sectionName || 'Grammar & Vocabulary')}</span>
-                <span>${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)</span>
-              </div>
-              <div class="proctor-progress-bar">
-                <div class="proctor-progress-fill" style="width:${pct}%"></div>
-              </div>
-            </div>
-
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px">
-              <div class="proctor-time-tag">
-                ${ICONS.clock} <span class="cand-timer">${timeDisplay}</span>
-              </div>
-              <div class="anti-cheat-pill-badge ${violations > 0 ? 'warning' : 'active'}" title="Tab switches: ${cand.antiCheat?.tabSwitches || 0}, Fullscreen exits: ${cand.antiCheat?.fullscreenExits || 0}">
-                ${ICONS.shield} <span>${violations} Violation${violations === 1 ? '' : 's'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="proctor-card-footer">
-            <span style="font-size:11px;color:var(--muted)">Proctor Control</span>
-            <div class="proctor-action-buttons">
-              <button class="btn-proctor-action btn-proctor-warn" data-id="${cand.attemptId}" data-name="${escapeHtml(cand.name || cand.email)}" type="button" title="Send Proctor Warning">
-                ⚠️ Warn
-              </button>
-              <button class="btn-proctor-action btn-proctor-extend" data-id="${cand.attemptId}" type="button" title="Extend Time by 5 minutes">
-                +5m
-              </button>
-              <button class="btn-proctor-action danger btn-proctor-submit" data-id="${cand.attemptId}" data-name="${escapeHtml(cand.name || cand.email)}" type="button" title="Force Submit Assessment">
-                Submit
-              </button>
-            </div>
+            <strong>${escapeHtml(v.type || 'SECURITY_FLAG')}:</strong>
+            <span>${escapeHtml(v.message || 'Window focus change or tab switch')}</span>
+            ${vTime ? `<span style="opacity:0.75;margin-left:4px">(${vTime})</span>` : ''}
           </div>
         </div>
       `;
-    }).join('');
+    }
 
-    grid.querySelectorAll('.btn-proctor-warn').forEach(btn => {
-      btn.onclick = () => openProctorWarningModal(btn.dataset.id, btn.dataset.name);
-    });
-    grid.querySelectorAll('.btn-proctor-extend').forEach(btn => {
-      btn.onclick = async () => {
-        btn.disabled = true;
-        btn.textContent = '…';
-        const extRes = await request('/api/admin/proctor/extend-time', {
-          method: 'POST',
-          body: { attemptId: btn.dataset.id, additionalMinutes: 5 }
-        });
-        btn.disabled = false;
-        btn.textContent = '+5m';
-        if (extRes.success) {
-          showToast(`Extended time by 5 minutes for candidate ${btn.dataset.id}`, 'success');
-        } else {
-          showToast(extRes.error || 'Failed to extend time', 'error');
-        }
-      };
-    });
-    grid.querySelectorAll('.btn-proctor-submit').forEach(btn => {
-      btn.onclick = () => {
-        openProctorForceSubmitModal(btn.dataset.id, btn.dataset.name);
-      };
-    });
+    // 6. Subtle live pulse animation
+    card.classList.remove('live-pulse-update');
+    void card.offsetWidth; // trigger reflow
+    card.classList.add('live-pulse-update');
   }
 
-  renderCandidatesGrid();
-
-  const recentFeedKeys = new Map();
   function appendProctorFeed(text, type = 'info', timestamp = null) {
     const list = document.querySelector('#proctor-live-feed-list');
     if (!list) return;
 
-    // Deduplicate identical alerts within 2500ms
     const alertKey = `${type}_${text}`;
     const now = Date.now();
-    if (recentFeedKeys.has(alertKey) && (now - recentFeedKeys.get(alertKey) < 2500)) {
+    if (recentFeedKeys.has(alertKey) && (now - recentFeedKeys.get(alertKey) < 2000)) {
       return;
     }
     recentFeedKeys.set(alertKey, now);
@@ -3644,107 +4609,262 @@ async function renderAdminLiveTab(container) {
       ? new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
       : new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
+    let badgeClass = 'info';
+    let badgeText = 'TELEMETRY';
+    if (type === 'alert') {
+      badgeClass = 'alert';
+      badgeText = 'SECURITY';
+    } else if (type === 'submission') {
+      badgeClass = 'success';
+      badgeText = 'SUBMITTED';
+    } else if (type === 'intervention') {
+      badgeClass = 'info';
+      badgeText = 'ACTION';
+    }
+
     const item = document.createElement('div');
-    item.className = `proctor-feed-entry ${type === 'alert' ? 'security-alert' : (type === 'submission' ? 'submission' : '')}`;
+    item.className = `proctor-feed-entry ${type === 'alert' ? 'security-alert' : (type === 'submission' ? 'submission' : (type === 'intervention' ? 'intervention' : ''))}`;
+    item.dataset.feedType = type;
     item.innerHTML = `
-      <div>${text}</div>
-      <span style="font-size:11px;opacity:0.75;white-space:nowrap">${timeStr}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="feed-badge ${badgeClass}">${badgeText}</span>
+        <div>${text}</div>
+      </div>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;opacity:0.8;white-space:nowrap">${timeStr}</span>
     `;
+
+    // Filter check
+    if (feedFilter === 'alerts' && type !== 'alert') item.style.display = 'none';
+    if (feedFilter === 'activity' && (type === 'alert' || type === 'intervention')) item.style.display = 'none';
+    if (feedFilter === 'actions' && type !== 'intervention') item.style.display = 'none';
+
     list.insertBefore(item, list.firstChild);
-    while (list.children.length > 30) list.removeChild(list.lastChild);
+    while (list.children.length > 50) list.removeChild(list.lastChild);
   }
 
-  // Ticking interval for candidate remaining times
+  function populateInitialFeedEntries() {
+    const initialEntries = [];
+    for (const c of candidates) {
+      const candName = c.name || c.teacher || c.email;
+      if (Array.isArray(c.antiCheat?.violations) && c.antiCheat.violations.length > 0) {
+        c.antiCheat.violations.forEach(v => {
+          initialEntries.push({
+            candidateName: candName,
+            type: 'alert',
+            vType: v.type,
+            message: v.message || 'Candidate switched browser tab or minimized window',
+            timestamp: v.timestamp || new Date().toISOString()
+          });
+        });
+      }
+    }
+
+    if (initialEntries.length > 0) {
+      initialEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      initialEntries.slice(-20).forEach(entry => {
+        appendProctorFeed(`⚠️ <strong>SECURITY ALERT:</strong> ${escapeHtml(entry.candidateName)} triggered <code>${entry.vType}</code> - ${escapeHtml(entry.message)}`, 'alert', entry.timestamp);
+      });
+    }
+  }
+
+  // Ticking countdown interval (smooth 1s tick in place)
   window.proctorTickInterval = setInterval(() => {
     if (localStorage.getItem('assessify_admin_tab') !== 'live') {
       clearInterval(window.proctorTickInterval);
       window.proctorTickInterval = null;
       return;
     }
-    let anyChanged = false;
     for (const c of candidates) {
       if (c.status === 'active' && c.remainingMs > 1000) {
         c.remainingMs -= 1000;
-        anyChanged = true;
-      }
-    }
-    if (anyChanged) {
-      candidates.forEach(c => {
         const card = document.querySelector(`.proctor-candidate-card[data-attempt-id="${c.attemptId}"]`);
         if (card) {
-          const remSecs = Math.max(0, Math.floor((c.remainingMs || 0) / 1000));
+          const remSecs = Math.max(0, Math.floor(c.remainingMs / 1000));
           const remMins = Math.floor(remSecs / 60);
           const remSecRemainder = remSecs % 60;
           const timerEl = card.querySelector('.cand-timer');
           if (timerEl) timerEl.textContent = `${remMins}:${String(remSecRemainder).padStart(2, '0')}`;
+
+          const timerBadge = card.querySelector('.cand-timer-badge');
+          if (timerBadge) {
+            if (remSecs > 0 && remSecs < 300) timerBadge.classList.add('urgent');
+            else timerBadge.classList.remove('urgent');
+          }
         }
-      });
+      }
     }
   }, 1000);
 
-  // Subscribe to real-time events and register unsubs
+  // Register real-time reactive listeners
   window._adminTabUnsubs.push(
     realtime.on('CANDIDATE_PRESENCE_SYNC', (syncData) => {
       if (Array.isArray(syncData.candidates)) {
         candidates = syncData.candidates;
-        renderCandidatesGrid();
-        updateSecurityAlertsStat();
+        updateMetricCounters();
+        renderFilteredCandidates();
       }
     }),
     realtime.on('CANDIDATE_PRESENCE_UPDATE', (presence) => {
-      const idx = candidates.findIndex(c => c.attemptId === presence.attemptId);
-      if (idx !== -1) {
-        candidates[idx] = presence;
-      } else {
-        candidates.push(presence);
-      }
-      renderCandidatesGrid();
-      updateSecurityAlertsStat();
+      updateCandidateInPlace(presence);
     }),
-    realtime.on('ATTEMPT_STARTED', (evData) => {
-      appendProctorFeed(`Candidate <strong>${escapeHtml(evData.teacher || evData.email)}</strong> (${evData.unit || 'School'}) started assessment.`, 'info', evData.startedAt);
-      showToast(`Candidate started assessment: ${evData.teacher || evData.email}`, 'info', 3000);
+    realtime.on('ATTEMPT_AUTOSAVED', (data) => {
+      const cand = candidates.find(c => c.attemptId === data.attemptId);
+      if (cand) {
+        cand.answeredCount = data.answeredCount || cand.answeredCount;
+        cand.sectionIndex = data.sectionIndex ?? cand.sectionIndex;
+        updateCandidateInPlace(cand);
+        appendProctorFeed(`Candidate <strong>${escapeHtml(cand.name || cand.email)}</strong> answered question. Progress: ${cand.answeredCount} responses recorded.`, 'info');
+      }
     }),
     realtime.on('ANTI_CHEAT_VIOLATION', (evData) => {
-      // 1. Update candidate violation count in memory
-      const cand = candidates.find(c => c.attemptId === evData.attemptId);
+      let cand = candidates.find(c => c.attemptId === evData.attemptId);
       if (cand) {
         if (!cand.antiCheat) cand.antiCheat = { totalCount: 0, violations: [] };
         cand.antiCheat.totalCount = evData.totalCount || ((cand.antiCheat.totalCount || 0) + 1);
-        cand.antiCheat.violations = Array.isArray(cand.antiCheat.violations) ? cand.antiCheat.violations : [];
+        if (!Array.isArray(cand.antiCheat.violations)) cand.antiCheat.violations = [];
         cand.antiCheat.violations.push({
           type: evData.type,
           message: evData.message,
           timestamp: evData.timestamp || new Date().toISOString()
         });
-        renderCandidatesGrid();
+        updateCandidateInPlace(cand);
       }
 
-      // 2. Security Incidents Today is strictly synchronized to total violation count
-      updateSecurityAlertsStat();
-
-      // 3. Append to proctor feed with deduplication
+      playAlertChime();
       appendProctorFeed(`⚠️ <strong>SECURITY ALERT:</strong> ${escapeHtml(evData.teacher || evData.email)} triggered <code>${evData.type}</code> - ${escapeHtml(evData.message)}`, 'alert', evData.timestamp);
-      showToast(`Proctor Alert: ${evData.teacher || evData.email} (${evData.type})`, 'error', 5000);
+      showToast(`Proctor Security Flag: ${evData.teacher || evData.email} (${evData.type})`, 'error', 4500);
+    }),
+    realtime.on('ATTEMPT_STARTED', (evData) => {
+      const started = evData.attempt || {};
+      const newPresence = {
+        attemptId: started.id || evData.attemptId,
+        name: evData.teacher || started.teacher || 'Candidate',
+        email: evData.email || started.email,
+        unit: evData.unit || started.unit || 'SMK KARYA BANGSA',
+        sectionIndex: 0,
+        sectionName: 'Grammar & Vocabulary',
+        answeredCount: 0,
+        totalQuestions: 25,
+        remainingMs: 30 * 60 * 1000,
+        antiCheat: { totalCount: 0, violations: [] },
+        status: 'active'
+      };
+      candidates.unshift(newPresence);
+      updateMetricCounters();
+      renderFilteredCandidates();
+      appendProctorFeed(`Candidate <strong>${escapeHtml(newPresence.name)}</strong> (${newPresence.unit}) started English assessment.`, 'info', evData.startedAt);
+      showToast(`Candidate started test: ${newPresence.name}`, 'info', 3000);
     }),
     realtime.on('ATTEMPT_SUBMITTED', (evData) => {
       const att = evData.attempt || {};
-      appendProctorFeed(`✓ Assessment submitted by <strong>${escapeHtml(att.teacher || att.email)}</strong>. Provisional Band: ${att.overall || 'Pending'}`, 'submission');
-      showToast(`Assessment submitted: ${att.teacher || att.email}`, 'success', 4000);
-      const completedEl = document.querySelector('#stat-completed-today');
-      if (completedEl) completedEl.textContent = Number(completedEl.textContent || 0) + 1;
+      const cand = candidates.find(c => c.attemptId === (att.id || evData.attemptId));
+      if (cand) {
+        cand.status = 'completed';
+        updateCandidateInPlace(cand);
+      }
+      const compEl = document.querySelector('#stat-completed-today');
+      if (compEl) compEl.textContent = Number(compEl.textContent || 0) + 1;
+      appendProctorFeed(`✓ Assessment submitted by <strong>${escapeHtml(att.teacher || att.email || 'Candidate')}</strong>. Result: <strong>${att.overall || 'Under Review'}</strong>`, 'submission');
+      showToast(`Assessment submitted by ${att.teacher || att.email}`, 'success', 3500);
+    }),
+    realtime.on('TIME_EXTENDED', (evData) => {
+      const cand = candidates.find(c => c.attemptId === evData.attemptId);
+      if (cand) {
+        cand.remainingMs = (cand.remainingMs || 0) + (evData.extraMs || 0);
+        updateCandidateInPlace(cand);
+      }
+      appendProctorFeed(`⏱️ Time extended by <strong>+${evData.additionalMinutes}m</strong> for candidate <code>${evData.attemptId}</code>.`, 'intervention');
     }),
     realtime.on('ATTEMPT_DELETED', (evData) => {
       candidates = candidates.filter(c => c.attemptId !== evData.attemptId);
-      renderCandidatesGrid();
-      updateSecurityAlertsStat();
+      updateMetricCounters();
+      renderFilteredCandidates();
     })
   );
 
-  const bBtn = document.querySelector('#btn-broadcast-open');
-  if (bBtn) bBtn.onclick = () => openProctorBroadcastModal();
-}
+  // Bind toolbar and header controls
+  const searchInput = document.querySelector('#proctor-search-input');
+  if (searchInput) {
+    searchInput.oninput = () => {
+      searchQuery = searchInput.value;
+      renderFilteredCandidates();
+    };
+  }
 
+  document.querySelectorAll('.proctor-filter-pill').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.proctor-filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderFilteredCandidates();
+    };
+  });
+
+  const sortSelect = document.querySelector('#proctor-sort-select');
+  if (sortSelect) {
+    sortSelect.onchange = () => {
+      sortOrder = sortSelect.value;
+      renderFilteredCandidates();
+    };
+  }
+
+  // Audio alerts toggle
+  const audioBtn = document.querySelector('#btn-toggle-audio');
+  if (audioBtn) {
+    audioBtn.onclick = () => {
+      window._proctorAudioEnabled = !window._proctorAudioEnabled;
+      const iconEl = audioBtn.querySelector('#audio-icon');
+      const labelEl = audioBtn.querySelector('#audio-label');
+      if (iconEl) iconEl.textContent = window._proctorAudioEnabled ? '🔊' : '🔇';
+      if (labelEl) labelEl.textContent = window._proctorAudioEnabled ? 'Audio Alerts: ON' : 'Audio: Muted';
+      showToast(window._proctorAudioEnabled ? 'Audio alerts unmuted' : 'Audio alerts muted', 'info', 2000);
+    };
+  }
+
+  // Resync button
+  const resyncBtn = document.querySelector('#btn-resync-proctor');
+  if (resyncBtn) {
+    resyncBtn.onclick = async () => {
+      const icon = resyncBtn.querySelector('#resync-icon');
+      if (icon) icon.style.animation = 'spin 0.6s linear infinite';
+      await loadInitialData();
+      setTimeout(() => { if (icon) icon.style.animation = ''; }, 600);
+      showToast('Telemetry re-synchronized with live server', 'success', 2000);
+    };
+  }
+
+  const broadcastBtn = document.querySelector('#btn-broadcast-open');
+  if (broadcastBtn) {
+    broadcastBtn.onclick = () => openProctorBroadcastModal();
+  }
+
+  // Feed filter tabs
+  document.querySelectorAll('.feed-tab-btn').forEach(tabBtn => {
+    tabBtn.onclick = () => {
+      document.querySelectorAll('.feed-tab-btn').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+      feedFilter = tabBtn.dataset.tab;
+      const entries = document.querySelectorAll('.proctor-feed-entry');
+      entries.forEach(entry => {
+        const type = entry.dataset.feedType;
+        if (feedFilter === 'all') entry.style.display = 'flex';
+        else if (feedFilter === 'alerts') entry.style.display = type === 'alert' ? 'flex' : 'none';
+        else if (feedFilter === 'activity') entry.style.display = (type !== 'alert' && type !== 'intervention') ? 'flex' : 'none';
+        else if (feedFilter === 'actions') entry.style.display = type === 'intervention' ? 'flex' : 'none';
+      });
+    };
+  });
+
+  const clearFeedBtn = document.querySelector('#btn-clear-feed');
+  if (clearFeedBtn) {
+    clearFeedBtn.onclick = () => {
+      const list = document.querySelector('#proctor-live-feed-list');
+      if (list) list.innerHTML = '<div class="proctor-feed-empty" style="text-align:center;padding:24px;font-size:12.5px;color:var(--muted)">Feed cleared by proctor.</div>';
+    };
+  }
+
+  await loadInitialData();
+}
 async function renderAdminResultsTab(container) {
   const data = await request('/api/admin/results');
   if (data.error) return renderLogin();
@@ -4066,7 +5186,14 @@ async function renderAdminResultsTab(container) {
     bindDetails();
   };
 
-  document.querySelector('#search').oninput = filter;
+  let searchDebounceTimer = null;
+  const searchEl = document.querySelector('#search');
+  if (searchEl) {
+    searchEl.oninput = () => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(filter, 160);
+    };
+  }
   document.querySelector('#unit-filter').onchange = filter;
   document.querySelector('#status').onchange = filter;
   document.querySelector('#review-filter').onchange = filter;
@@ -7519,6 +8646,8 @@ function bindDetails() {
 // GRADING MODAL LOGIC (Integrated with Active Admin Rubrics)
 // -------------------------------------------------------------
 
+let cachedRubricsData = null;
+
 const calculateLevel = (total) => {
   if (total <= 6) return 'A1';
   if (total <= 9) return 'A2';
@@ -7531,31 +8660,65 @@ const calculateLevel = (total) => {
 async function openGradingModal(attemptInput) {
   const attemptId = typeof attemptInput === 'object' && attemptInput !== null ? (attemptInput.id || attemptInput.attemptId) : attemptInput;
   const modalContainer = document.querySelector('#modal-root') || document.body;
+
+  // Mount stable backdrop & card ONCE with skeleton placeholders (prevents double-animation & layout flash)
   modalContainer.innerHTML = `
     <div class="modal-backdrop" id="grading-modal-backdrop">
-      <div class="modal-card" role="dialog" aria-modal="true" style="max-width:960px">
-        <div class="modal-header">
-          <div class="modal-title-wrap">
-            <div class="modal-icon">${ICONS.grade}</div>
-            <div>
-              <h2>Assessment Evaluation & Grading</h2>
-              <p>Loading candidate attempt and active rubrics…</p>
+      <div class="modal-card grading-modal-card" id="grading-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div id="grading-modal-shell-content">
+          <div class="modal-header">
+            <div class="modal-title-wrap">
+              <div class="modal-icon">${ICONS.clipboardCheck || ICONS.grade}</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <h2 id="modal-title" style="margin:0">Assessment Evaluation & Grading</h2>
+                  <span class="modal-skeleton-shimmer" style="display:inline-block;width:64px;height:20px;border-radius:12px;"></span>
+                </div>
+                <p style="margin:2px 0 0">Loading candidate attempt and active rubrics…</p>
+              </div>
+            </div>
+            <button class="modal-close" id="modal-close-btn" type="button" aria-label="Close modal">✕</button>
+          </div>
+          <div class="modal-body" style="padding:22px 24px;display:flex;flex-direction:column;gap:16px;flex:1 1 auto;min-height:0;overflow-y:auto">
+            <div class="modal-skeleton-shimmer" style="height:62px;border-radius:12px;"></div>
+            <div class="modal-skeleton-shimmer" style="height:52px;border-radius:10px;"></div>
+            <div class="modal-skeleton-shimmer" style="height:110px;border-radius:12px;"></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px">
+              <div class="modal-skeleton-shimmer" style="height:240px;border-radius:12px;"></div>
+              <div class="modal-skeleton-shimmer" style="height:240px;border-radius:12px;"></div>
             </div>
           </div>
-          <button class="modal-close" id="modal-close-btn" type="button" aria-label="Close modal">✕</button>
-        </div>
-        <div class="modal-body" style="min-height:280px;display:grid;place-items:center;">
-          <p style="color:var(--muted)">Fetching assessment and evaluation criteria…</p>
+          <div class="modal-footer" style="opacity:0.6">
+            <div class="modal-footer-summary">Loading criteria details…</div>
+            <div class="modal-actions">
+              <button class="ghost" id="modal-cancel-btn" type="button">Cancel</button>
+              <button class="button" disabled style="opacity:0.5">Save & Finalize Grades</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   `;
 
-  document.querySelector('#modal-close-btn').onclick = closeGradingModal;
+  // Attach immediate close handlers for loading state
+  const initCloseBtn = document.querySelector('#modal-close-btn');
+  if (initCloseBtn) initCloseBtn.onclick = closeGradingModal;
+  const initCancelBtn = document.querySelector('#modal-cancel-btn');
+  if (initCancelBtn) initCancelBtn.onclick = closeGradingModal;
+  const initBackdrop = document.querySelector('#grading-modal-backdrop');
+  if (initBackdrop) {
+    initBackdrop.onclick = (e) => {
+      if (e.target === initBackdrop) closeGradingModal();
+    };
+  }
 
+  // Optimized parallel fetch with cached rubrics
   const [data, rubricsData] = await Promise.all([
     request(`/api/admin/results/${attemptId}`),
-    request('/api/admin/rubrics')
+    cachedRubricsData ? Promise.resolve(cachedRubricsData) : request('/api/admin/rubrics').then((res) => {
+      if (res && !res.error) cachedRubricsData = res;
+      return res;
+    })
   ]);
 
   if (data.error || !data.attempt) {
@@ -7738,10 +8901,8 @@ async function openGradingModal(attemptInput) {
     const totalViolations = ac ? (ac.totalCount || (ac.violations?.length) || (ac.tabSwitches || 0) + (ac.fullscreenExits || 0) + (ac.splitScreenDetections || 0) + (ac.devToolsAttempts || 0) + (ac.copyPasteAttempts || 0)) : 0;
 
     return `
-      <div class="modal-backdrop" id="grading-modal-backdrop">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <!-- Modal Header -->
-          <div class="modal-header">
+      <!-- Modal Header -->
+      <div class="modal-header">
             <div class="modal-title-wrap">
               <div class="modal-icon">${ICONS.clipboardCheck}</div>
               <div>
@@ -7756,7 +8917,7 @@ async function openGradingModal(attemptInput) {
           </div>
 
           <!-- Modal Body -->
-          <div class="modal-body">
+          <div class="modal-body" style="flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch">
             <!-- Candidate Meta Strip -->
             <div class="candidate-meta-bar">
               <div class="candidate-profile">
@@ -8050,12 +9211,26 @@ async function openGradingModal(attemptInput) {
               </button>
             </div>
           </div>
-        </div>
-      </div>
     `;
   };
 
-  modalContainer.innerHTML = renderModalContent();
+  const shell = document.querySelector('#grading-modal-shell-content');
+  if (shell) {
+    shell.innerHTML = renderModalContent();
+    shell.classList.remove('modal-fade-content');
+    void shell.offsetWidth;
+    shell.classList.add('modal-fade-content');
+  } else {
+    modalContainer.innerHTML = `
+      <div class="modal-backdrop" id="grading-modal-backdrop">
+        <div class="modal-card grading-modal-card" id="grading-modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div id="grading-modal-shell-content" class="modal-fade-content">
+            ${renderModalContent()}
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   // Close button
   document.querySelector('#modal-close-btn').onclick = closeGradingModal;
@@ -8383,8 +9558,10 @@ function closeGradingModal() {
   if (modalRoot) {
     const backdrop = modalRoot.querySelector('.modal-backdrop');
     if (backdrop) {
-      backdrop.style.opacity = '0';
-      setTimeout(() => { modalRoot.innerHTML = ''; }, 150);
+      backdrop.classList.add('modal-closing');
+      setTimeout(() => {
+        modalRoot.innerHTML = '';
+      }, 180);
       return;
     }
     modalRoot.innerHTML = '';
@@ -9099,9 +10276,10 @@ async function renderAdminAuditTab(container) {
 // System Setting Tab
 // ==========================================================================
 async function renderAdminSettingsTab(container) {
-  const [data, aiDataRes] = await Promise.all([
+  const [data, aiDataRes, driveDataRes] = await Promise.all([
     request('/api/admin/settings'),
-    request('/api/admin/ai-settings').catch(() => ({ configured: false, model: 'gemini-1.5-flash' }))
+    request('/api/admin/ai-settings').catch(() => ({ configured: false, model: 'gemini-1.5-flash' })),
+    request('/api/admin/google-drive/status').catch(() => ({ configured: false, authType: 'none', pendingSyncCount: 0 }))
   ]);
   if (data.error) {
     if (data.error === 'Unauthorized' || data.error.includes('access')) return renderLogin('admin');
@@ -9120,6 +10298,7 @@ async function renderAdminSettingsTab(container) {
   const activeCount = [acSettings.tabSwitchDetection, acSettings.requireFullscreen, acSettings.splitScreenDetection, acSettings.blockDevTools, acSettings.blockCopyPaste].filter((x) => x !== false).length;
   const isAllActive = activeCount === 5;
   const aiData = aiDataRes || { configured: false, model: 'gemini-1.5-flash' };
+  const driveData = driveDataRes || { configured: false, authType: 'none', pendingSyncCount: 0 };
   const storageMode = data.storageMode || 'mysql';
 
   container.innerHTML = `
@@ -9537,6 +10716,66 @@ async function renderAdminSettingsTab(container) {
             </button>
           </div>
         </div>
+
+        <!-- 6. Google Drive Cloud Storage -->
+        <div class="setting-card">
+          <div class="setting-card-header">
+            <div class="setting-card-icon" style="background:#e0f2fe;color:#0284c7">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+            <div>
+              <h2 class="setting-card-title">Google Drive Cloud Storage</h2>
+              <p class="setting-card-subtitle">Automated candidate speaking audio/video backup & MySQL binary purge</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Google Drive Status</label>
+              <span class="setting-desc">State of cloud storage connection for archiving candidate media recordings.</span>
+            </div>
+            <div class="setting-control">
+              <span class="pill ${driveData.configured ? 'success' : 'pending'}">${driveData.configured ? `Active (${driveData.authType.toUpperCase()})` : 'Disconnected'}</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Dedicated Assessify Folder</label>
+              <span class="setting-desc">All candidate recordings are permanently organized and saved inside this folder in Google Drive.</span>
+            </div>
+            <div class="setting-control" style="width:100%;max-width:320px;display:flex;flex-direction:column;align-items:flex-end">
+              <input class="setting-input-text" type="text" readonly value="${driveData.folderName || 'Assessify Recordings'} (${driveData.folderId || '13s7PXkjZBdv1R3Hf0grh4bkg0lL3cI8O'})" style="background:var(--card);cursor:default;font-size:12px;width:100%">
+              ${driveData.folderLink || driveData.folderId ? `
+                <a href="${driveData.folderLink || `https://drive.google.com/drive/folders/${driveData.folderId}`}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--primary);text-decoration:none;display:inline-flex;align-items:center;gap:4px;font-weight:600;margin-top:6px">
+                  <span>📁 Open "${driveData.folderName || 'Assessify Recordings'}" in Drive ↗</span>
+                </a>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <label class="setting-label">Database Media Buffer</label>
+              <span class="setting-desc">Candidate recordings safely buffered in MySQL awaiting Google Drive upload.</span>
+            </div>
+            <div class="setting-control" style="display:flex;align-items:center;gap:10px">
+              <span class="pill ${driveData.pendingSyncCount > 0 ? 'warning' : 'success'}">${driveData.pendingSyncCount || 0} Pending</span>
+              ${driveData.pendingSyncCount > 0 ? `
+                <button class="button button-sm" id="btn-sync-drive-now" type="button">Sync to Drive</button>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="setting-row" style="border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <a href="/api/admin/google-workspace/connect" class="button ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
+              <span>🔑 ${driveData.configured ? 'Reconnect Google Account' : 'Connect Google Workspace'}</span>
+            </a>
+            <button class="button ghost" id="btn-test-drive-conn" type="button" style="display:flex;align-items:center;gap:6px">
+              <span>⚡ Test Drive Connection</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -9559,6 +10798,51 @@ async function renderAdminSettingsTab(container) {
       } finally {
         testAiBtn.disabled = false;
         testAiBtn.innerHTML = '<span>⚡ Test Gemini Connection</span>';
+      }
+    };
+  }
+
+  // Test Google Drive Connection
+  const testDriveBtn = document.querySelector('#btn-test-drive-conn');
+  if (testDriveBtn) {
+    testDriveBtn.onclick = async () => {
+      testDriveBtn.disabled = true;
+      testDriveBtn.innerHTML = '<span>Testing Drive connection…</span>';
+      try {
+        const testRes = await request('/api/admin/google-drive/test', { method: 'POST' });
+        if (testRes.error) {
+          showToast(testRes.error, 'error');
+        } else {
+          showToast(testRes.message || 'Google Drive connection verified successfully!', 'success');
+        }
+      } catch (err) {
+        showToast(err.message || 'Drive connection test failed', 'error');
+      } finally {
+        testDriveBtn.disabled = false;
+        testDriveBtn.innerHTML = '<span>⚡ Test Drive Connection</span>';
+      }
+    };
+  }
+
+  // Manual Sync Recordings to Drive
+  const syncDriveBtn = document.querySelector('#btn-sync-drive-now');
+  if (syncDriveBtn) {
+    syncDriveBtn.onclick = async () => {
+      syncDriveBtn.disabled = true;
+      syncDriveBtn.innerHTML = '<span>Syncing…</span>';
+      try {
+        const syncRes = await request('/api/admin/recordings/sync-drive', { method: 'POST' });
+        if (syncRes.error) {
+          showToast(syncRes.error, 'error');
+        } else {
+          showToast(`Synced ${syncRes.syncedCount || 0} recordings to Google Drive!`, 'success');
+          renderAdminSettingsTab(container);
+        }
+      } catch (err) {
+        showToast(err.message || 'Sync failed', 'error');
+      } finally {
+        syncDriveBtn.disabled = false;
+        syncDriveBtn.innerHTML = '<span>Sync to Drive</span>';
       }
     };
   }
@@ -9734,9 +11018,27 @@ document.querySelector('#logout').onclick = async () => {
 async function loadPublicSettings() {
   try {
     const s = await request('/api/public-settings');
-    if (s) window.assessifySettings = s;
+    if (s && !s.error) {
+      window.assessifySettings = s;
+      if (s.schoolName) {
+        document.title = `Assessify | ${s.schoolName}`;
+        const brandSmall = document.querySelector('.brand small');
+        if (brandSmall) brandSmall.textContent = s.schoolName.toUpperCase();
+      }
+    }
   } catch {}
 }
+
+realtime.on('SYSTEM_SETTINGS_UPDATED', (ev) => {
+  if (ev && ev.settings) {
+    window.assessifySettings = ev.settings;
+    if (ev.settings.schoolName) {
+      document.title = `Assessify | ${ev.settings.schoolName}`;
+      const brandSmall = document.querySelector('.brand small');
+      if (brandSmall) brandSmall.textContent = ev.settings.schoolName.toUpperCase();
+    }
+  }
+});
 
 async function init() {
   await loadPublicSettings();

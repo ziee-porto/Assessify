@@ -1,4 +1,4 @@
-const baseUrl = 'http://localhost:3001';
+const baseUrl = process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 
 async function sync() {
   console.log('1. Logging in as Admin...');

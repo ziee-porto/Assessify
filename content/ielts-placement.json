@@ -2,12 +2,13 @@
   "id": "ielts-placement-bank-2026",
   "version": "2026.3",
   "title": "KBS Comprehensive Placement Assessment",
-  "durationMinutes": 70,
+  "durationMinutes": 65,
   "audience": "Candidate Teachers / Academic Faculty & Students",
   "sourceNote": "Final Placement Test Structure: Section 1 Grammar & Vocabulary (50 questions, 30 mins), Section 2 Writing Placement Test (User selects 1 question from 5 topics to write 1 Essay, 20 mins), Section 3 Oral Placement Test (21 questions, 20 mins).",
   "sections": [
     {
       "id": "grammar-vocabulary",
+      "label": "Grammar & Vocabulary",
       "durationMinutes": 30,
       "instructions": "Choose the correct letter for each question (50 questions · 30 minutes).",
       "questions": [
@@ -311,7 +312,7 @@
         {
           "id": "g-28",
           "type": "multiple-choice",
-          "prompt": "I promise I’ll call you as soon as ........ .",
+          "prompt": "I promise I’ll call you as soon as I ........ .",
           "options": [
             "I arrive",
             "I arrived",
@@ -586,7 +587,7 @@
         },
         {
           "id": "w-topic-2",
-          "title": "Email to a Friend",
+          "title": "Email About Your Country",
           "type": "essay",
           "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
           "guidingQuestions": [
@@ -624,7 +625,7 @@
         },
         {
           "id": "w-topic-5",
-          "title": "Opinion Essay",
+          "title": "World Progress Discussion Article",
           "type": "essay",
           "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
           "guidingQuestions": [
@@ -653,7 +654,7 @@
         },
         {
           "id": "w-topic-2",
-          "title": "Email to a Friend",
+          "title": "Email About Your Country",
           "type": "essay",
           "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
           "guidingQuestions": [
@@ -691,7 +692,7 @@
         },
         {
           "id": "w-topic-5",
-          "title": "Opinion Essay",
+          "title": "World Progress Discussion Article",
           "type": "essay",
           "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
           "guidingQuestions": [
@@ -710,7 +711,7 @@
       "label": "Oral Placement Test",
       "durationMinutes": 20,
       "navigationType": "sequential_next_button",
-      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 21 questions until all prompts are completed or the 20-minute time limit is reached[cite: 3].",
+      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 21 questions until all prompts are completed or the 20-minute time limit is reached.",
       "scoring": {
         "minScore": 1,
         "maxScore": 5

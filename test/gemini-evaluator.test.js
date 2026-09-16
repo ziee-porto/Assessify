@@ -6,7 +6,7 @@ import {
   testGeminiConnection
 } from '../src/gemini-evaluator.js';
 
-const baseUrl = 'http://localhost:3001';
+const baseUrl = process.env.BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 
 describe('Google Gemini AI Evaluator Module', () => {
   it('returns graceful error when testing connection without API key', async () => {

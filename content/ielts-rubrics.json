@@ -1,14 +1,14 @@
 {
   "title": "Karya Bangsa Placement Detailed CEFR Rubrics",
   "version": "2026.2",
-  "notice": "Grammar & Vocabulary is scored automatically mapped to CEFR. Writing and Speaking are evaluated by administrators using 1–6 CEFR criteria. Listening comprehension is integrated into audio-format Speaking prompts.",
+  "notice": "Grammar & Vocabulary is scored automatically mapped to CEFR (A1–C2). Writing and Speaking are evaluated by administrators using 1–6 CEFR criteria. Listening comprehension is integrated into audio-format Speaking prompts.",
   "bandScale": {
     "range": "A1–C2",
     "overall": "Writing and Speaking: 0–1 = A1, 2–3 = A2, 4–5 = B1, 6–7 = B2, 8–9 = C1, 10 = C2"
   },
   "grammarVocabulary": {
-    "title": "GRAMMAR & VOCABULARY",
-    "format": "50 Contextual Objective Items (1 point per item)",
+    "title": "Grammar & Vocabulary Evaluation Standard",
+    "format": "50 Contextual Objective Items (30 Mins)",
     "thresholds": "A1: 0–18 | A2: 19–25 | B1: 26–32 | B2: 33–39 | C1: 40–46 | C2: 47–50",
     "scoreMapping": [
       {
@@ -52,84 +52,10 @@
     ]
   },
   "writing": {
-    "title": "WRITING",
-    "format": "2 Tasks: Memo (120–150 words) and Discursive Essay (180–220 words) (20 Mins)",
-    "weight": "Administrator scores each of 4 criteria from (A1) to (C2).",
+    "title": "Written Placement Essay Rubric (Single-Choice Topic)",
+    "format": "1 Selected Topic Essay (150–220 words · 20 Mins)",
+    "weight": "Administrator scores each of 4 criteria from 1 (A1) to 5 (C1). Total maximum score is 20.",
     "reviewNote": "Evaluators grade responses against CEFR descriptors (1=A1, 2=A2, 3=B1, 4=B2, 5=C1).",
-    "levels": [
-      {
-        "score": "0–1",
-        "level": "A1",
-        "descriptors": [
-          "The topic is not developed at all, and writing seems to take enormous effort.",
-          "The purpose of the text and the writer’s aim are entirely unclear.",
-          "The text is not organised at either the paragraph or sentence level.",
-          "There is insufficient language control to express even very simple ideas.",
-          "There are very many errors in the use of language and standard writing conventions.",
-          "There is little or no use of appropriate vocabulary and structures."
-        ]
-      },
-      {
-        "score": "2–3",
-        "level": "A2",
-        "descriptors": [
-          "The topic is not well developed, and writing seems to take considerable effort.",
-          "The purpose of the text and the writer’s aim are generally unclear.",
-          "The text is not well organised at either the paragraph or sentence level.",
-          "There is insufficient language control to express relatively simple ideas.",
-          "There are many errors in the use of language and standard writing conventions.",
-          "There is very limited use of appropriate vocabulary and structures."
-        ]
-      },
-      {
-        "score": "4–5",
-        "level": "B1",
-        "descriptors": [
-          "The topic is quite well developed, although writing seems to take some effort.",
-          "The purpose of the text and the writer’s aim are not entirely clear.",
-          "The text is reasonably well organised, at least at the sentence level.",
-          "There is usually sufficient language control to express simple ideas.",
-          "There are some errors in the use of language and standard writing conventions.",
-          "There is limited use of appropriate vocabulary and structures."
-        ]
-      },
-      {
-        "score": "6–7",
-        "level": "B2",
-        "descriptors": [
-          "The topic is well developed, and writing seems to take little effort.",
-          "The purpose of the text and the writer’s aim are generally clear.",
-          "The text is reasonably well organised at both the sentence and paragraph level.",
-          "There is sufficient language control to express simple ideas.",
-          "There are a few errors in the use of language and standard writing conventions.",
-          "The text contains a range of appropriate vocabulary and structures."
-        ]
-      },
-      {
-        "score": "8–9",
-        "level": "C1",
-        "descriptors": [
-          "The topic is very well developed, and writing seems to take very little effort.",
-          "The purpose of the text and the writer’s aim are clear.",
-          "The text is well organised at both the sentence and paragraph level.",
-          "There is sufficient language control to express some quite complex ideas.",
-          "There are few errors in the use of language and standard writing conventions.",
-          "The text contains quite a wide range of appropriate vocabulary and structures."
-        ]
-      },
-      {
-        "score": "10",
-        "level": "C2",
-        "descriptors": [
-          "The topic is fully developed, and writing seems effortless.",
-          "The purpose of the text and the writer’s aim are perfectly clear.",
-          "The text is extremely well organised at both the sentence and paragraph level.",
-          "There is sufficient language control to express a range of complex ideas.",
-          "There are almost no errors in the use of language and standard writing conventions.",
-          "The text contains a wide range of appropriate vocabulary and structures."
-        ]
-      }
-    ],
     "criteria": [
       {
         "name": "Task Achievement",
@@ -150,81 +76,10 @@
     ]
   },
   "speaking": {
-    "title": "SPEAKING",
-    "format": "2-Part Recorded Audio/Video Interview with Audio-Format Prompts (20 Mins)",
-    "weight": "Administrator scores each of 4 criteria from (A1) to (C2).",
+    "title": "Speaking & Listening Oral Interview Rubric",
+    "format": "2-Part Recorded Audio/Video Interview with Audio-Format Prompts (15 Mins)",
+    "weight": "Administrator scores each of 4 criteria from 1 (A1) to 5 (C1). Total maximum score is 20.",
     "reviewNote": "Evaluators review recorded video and audio streams to evaluate oral fluency, auditory prompt comprehension, grammatical control, and communicative efficacy.",
-    "passingRules": {
-      "lulusLevel": "Siswa berhasil mendapatkan skor minimal 3 (Good) pada pertanyaan di tingkat tersebut.",
-      "belumMampu": "Siswa mendapatkan skor 1 (Low) atau 2 (Fair) saat mencoba pertanyaan di tingkat berikutnya."
-    },
-    "levels": [
-      {
-        "score": 1,
-        "level": "Low",
-        "descriptors": [
-          "Speaks with frequent hesitation; occasionally does not respond verbally.",
-          "Rarely responds with confidence; frequently reluctant to use the language.",
-          "Speech and pronunciation are usually not easily understood.",
-          "Rarely uses complete sentences and phrases appropriately.",
-          "Rarely or never uses colloquial expressions appropriately.",
-          "Rarely uses appropriate and varied vocabulary.",
-          "Makes numerous errors in form or function."
-        ]
-      },
-      {
-        "score": 2,
-        "level": "Fair",
-        "descriptors": [
-          "Speaks with frequent hesitation.",
-          "Rarely responds with confidence; often reluctant to use the language.",
-          "Speech and pronunciation are frequently not easily understood.",
-          "Occasionally uses complete sentences and phrases appropriately.",
-          "Uses very few colloquial expressions appropriately.",
-          "Occasionally uses appropriate and varied vocabulary.",
-          "Makes frequent errors in form or function."
-        ]
-      },
-      {
-        "score": 3,
-        "level": "Good",
-        "descriptors": [
-          "Speaks fluently with a little hesitation.",
-          "Usually responds with confidence.",
-          "Speech and pronunciation may not always be easily understood.",
-          "Generally uses complete sentences and phrases appropriately.",
-          "Uses a few colloquial expressions appropriately.",
-          "Uses appropriate and varied vocabulary on most occasions.",
-          "Makes occasional errors in form or function."
-        ]
-      },
-      {
-        "score": 4,
-        "level": "Very Good",
-        "descriptors": [
-          "Speaks fluently without much hesitation.",
-          "Almost always responds with confidence.",
-          "Speech and pronunciation are almost always clear and easily understood.",
-          "Almost always uses complete sentences and phrases appropriately.",
-          "Uses a number of colloquial expressions appropriately.",
-          "Almost always uses appropriate and varied vocabulary.",
-          "Makes few errors in form or function."
-        ]
-      },
-      {
-        "score": 5,
-        "level": "Excellent",
-        "descriptors": [
-          "Speaks fluently without hesitation.",
-          "Consistently responds with confidence.",
-          "Speech and pronunciation are always clear and easily understood.",
-          "Consistently uses complete sentences and phrases appropriately.",
-          "Uses a wide range of colloquial expressions appropriately.",
-          "Consistently uses appropriate and varied vocabulary.",
-          "Makes very few or no errors in form or function."
-        ]
-      }
-    ],
     "criteria": [
       {
         "name": "Fluency and Spontaneity",
