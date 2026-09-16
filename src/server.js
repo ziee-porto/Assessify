@@ -3341,15 +3341,20 @@ const server = createServer(async (request, response) => {
         ? existingAc.violations
         : (Array.isArray(bodyAc.violations) ? bodyAc.violations : [])
     };
+    const sIdx = Number(body.sectionIndex ?? existing.sectionIndex ?? 0);
+    const sName = body.sectionName || (sIdx === 1 ? 'Writing Placement Test' : (sIdx === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary'));
+    const sTotalQ = Number(body.totalQuestions ?? (sIdx === 0 ? 50 : (sIdx === 1 ? 1 : 21)));
+    const sAnsCount = Number(body.answeredCount ?? existing.answeredCount ?? 0);
+
     const presence = {
       attemptId,
       email: user.email,
       name: user.name || existing.name || attemptRecord?.teacher || user.email,
       unit: user.unit || existing.unit || attemptRecord?.unit || 'School Unit',
-      sectionIndex: Number(body.sectionIndex ?? existing.sectionIndex ?? 0),
-      sectionName: body.sectionName || existing.sectionName || 'Grammar & Vocabulary',
-      answeredCount: Number(body.answeredCount ?? existing.answeredCount ?? 0),
-      totalQuestions: Number(body.totalQuestions ?? existing.totalQuestions ?? 25),
+      sectionIndex: sIdx,
+      sectionName: sName,
+      answeredCount: sAnsCount,
+      totalQuestions: sTotalQ,
       remainingMs: Number(body.remainingMs ?? existing.remainingMs ?? 0),
       antiCheat: mergedAntiCheat,
       lastHeartbeat: Date.now(),
@@ -3380,18 +3385,31 @@ const server = createServer(async (request, response) => {
           const lastActive = new Date(att.lastSavedAt || att.startedAt || att.started || 0).getTime();
           const diff = now - lastActive;
           const status = diff < 25_000 ? 'active' : (diff < 90_000 ? 'idle' : 'offline');
-          const totalQ = att.totalQuestions || 25;
-          const ansCount = Object.keys(att.responses || {}).length;
+          const sIdx = Number(att.sectionIndex || 0);
+          const sName = sIdx === 1 ? 'Writing Placement Test' : (sIdx === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary');
+          let sTotalQ = 50;
+          let sAnsCount = 0;
+          if (sIdx === 0) {
+            sTotalQ = 50;
+            sAnsCount = Object.keys(att.responses || {}).filter(k => !k.startsWith('writing') && !k.startsWith('speaking') && !k.includes('title')).length;
+          } else if (sIdx === 1) {
+            sTotalQ = 1;
+            const essay = (att.writing || att.responses?.['writing-essay'] || '').trim();
+            sAnsCount = essay.length > 0 ? 1 : 0;
+          } else if (sIdx === 2) {
+            sTotalQ = 21;
+            sAnsCount = Math.min(21, (Number(att.speakingStep || 0)) + 1);
+          }
           const presence = {
             attemptId: att.id,
             email: att.email,
             name: att.teacher || att.email,
             unit: att.unit || 'SMK KARYA BANGSA',
-            sectionIndex: att.sectionIndex || 0,
-            sectionName: att.sectionIndex === 1 ? 'Writing' : (att.sectionIndex === 2 ? 'Speaking' : 'Grammar & Vocabulary'),
-            answeredCount: ansCount,
-            totalQuestions: totalQ,
-            remainingMs: att.sectionRemainingMs?.[att.sectionIndex || 0] || 0,
+            sectionIndex: sIdx,
+            sectionName: sName,
+            answeredCount: sAnsCount,
+            totalQuestions: sTotalQ,
+            remainingMs: att.sectionRemainingMs?.[sIdx] || 0,
             antiCheat: att.antiCheat || { violations: [], totalCount: 0 },
             lastHeartbeat: lastActive || now,
             status
@@ -5989,37 +6007,56 @@ const server = createServer(async (request, response) => {
 
       await repository.updateAttempt(attemptId, update);
 
+      const sIdx = Number(update.sectionIndex ?? attempt.sectionIndex ?? 0);
+      const sName = update.sectionName || (sIdx === 1 ? 'Writing Placement Test' : (sIdx === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary'));
+      let sTotalQ = 50;
+      let sAnsCount = 0;
+      if (sIdx === 0) {
+        sTotalQ = 50;
+        sAnsCount = Object.keys(update.responses || attempt.responses || {}).filter(k => !k.startsWith('writing') && !k.startsWith('speaking') && !k.includes('title')).length;
+      } else if (sIdx === 1) {
+        sTotalQ = 1;
+        const essay = (update.writing || update.responses?.['writing-essay'] || attempt.writing || '').trim();
+        sAnsCount = essay.length > 0 ? 1 : 0;
+      } else if (sIdx === 2) {
+        sTotalQ = 21;
+        sAnsCount = Math.min(21, (Number(update.speakingStep ?? attempt.speakingStep ?? 0)) + 1);
+      }
+
       broadcastRealtime('admin', 'ATTEMPT_AUTOSAVED', {
         attemptId,
         email: attempt.email,
-        sectionIndex: update.sectionIndex ?? attempt.sectionIndex,
-        answeredCount: Object.keys(update.responses || attempt.responses || {}).length,
+        sectionIndex: sIdx,
+        sectionName: sName,
+        answeredCount: sAnsCount,
+        totalQuestions: sTotalQ,
         lastSavedAt: update.lastSavedAt
       });
       let p = activeCandidatePresence.get(attemptId);
       if (!p) {
-        const totalQ = attempt.totalQuestions || 25;
         p = {
           attemptId,
           email: attempt.email,
           name: attempt.teacher || attempt.email,
           unit: attempt.unit || 'SMK KARYA BANGSA',
-          sectionIndex: update.sectionIndex ?? attempt.sectionIndex ?? 0,
-          sectionName: (update.sectionIndex ?? attempt.sectionIndex) === 1 ? 'Writing' : ((update.sectionIndex ?? attempt.sectionIndex) === 2 ? 'Speaking' : 'Grammar & Vocabulary'),
-          answeredCount: Object.keys(update.responses || attempt.responses || {}).length,
-          totalQuestions: totalQ,
-          remainingMs: update.sectionRemainingMs?.[update.sectionIndex ?? 0] || 0,
+          sectionIndex: sIdx,
+          sectionName: sName,
+          answeredCount: sAnsCount,
+          totalQuestions: sTotalQ,
+          remainingMs: update.sectionRemainingMs?.[sIdx] || 0,
           antiCheat: update.antiCheat || attempt.antiCheat || { violations: [], totalCount: 0 },
           lastHeartbeat: Date.now(),
           status: 'active'
         };
         activeCandidatePresence.set(attemptId, p);
       } else {
-        if (update.sectionIndex !== undefined) p.sectionIndex = update.sectionIndex;
-        if (update.responses) p.answeredCount = Object.keys(update.responses).length;
+        p.sectionIndex = sIdx;
+        p.sectionName = sName;
+        p.answeredCount = sAnsCount;
+        p.totalQuestions = sTotalQ;
         if (update.antiCheat) p.antiCheat = update.antiCheat;
-        if (update.sectionRemainingMs?.[p.sectionIndex] !== undefined) {
-          p.remainingMs = update.sectionRemainingMs[p.sectionIndex];
+        if (update.sectionRemainingMs?.[sIdx] !== undefined) {
+          p.remainingMs = update.sectionRemainingMs[sIdx];
         }
         p.lastHeartbeat = Date.now();
         p.status = 'active';
@@ -6251,16 +6288,32 @@ const server = createServer(async (request, response) => {
         expiresAt = new Date(Date.now() + durationMins * 60 * 1000).toISOString();
       }
 
+      const resIdx = Number(existingInProgress.sectionIndex || 0);
+      const resName = resIdx === 1 ? 'Writing Placement Test' : (resIdx === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary');
+      let resTotalQ = 50;
+      let resAnsCount = 0;
+      if (resIdx === 0) {
+        resTotalQ = gvQuestions.length || 50;
+        resAnsCount = Object.keys(existingInProgress.responses || {}).filter(k => !k.startsWith('writing') && !k.startsWith('speaking') && !k.includes('title')).length;
+      } else if (resIdx === 1) {
+        resTotalQ = 1;
+        const essay = (existingInProgress.writing || existingInProgress.responses?.['writing-essay'] || '').trim();
+        resAnsCount = essay.length > 0 ? 1 : 0;
+      } else if (resIdx === 2) {
+        resTotalQ = 21;
+        resAnsCount = Math.min(21, (Number(existingInProgress.speakingStep || 0)) + 1);
+      }
+
       activeCandidatePresence.set(existingInProgress.id, {
         attemptId: existingInProgress.id,
         email: user.email,
         name: user.name || user.email,
         unit: existingInProgress.unit || user.unit || 'School',
-        sectionIndex: existingInProgress.sectionIndex || 0,
-        sectionName: 'Grammar & Vocabulary',
-        answeredCount: Object.keys(existingInProgress.responses || {}).length,
-        totalQuestions: gvQuestions.length || 25,
-        remainingMs: existingInProgress.sectionRemainingMs?.[existingInProgress.sectionIndex || 0] || durationMins * 60 * 1000,
+        sectionIndex: resIdx,
+        sectionName: resName,
+        answeredCount: resAnsCount,
+        totalQuestions: resTotalQ,
+        remainingMs: existingInProgress.sectionRemainingMs?.[resIdx] || durationMins * 60 * 1000,
         antiCheat: existingInProgress.antiCheat,
         lastHeartbeat: Date.now(),
         status: 'active'

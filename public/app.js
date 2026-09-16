@@ -602,8 +602,21 @@ async function openCandidateInspectorModal(attemptId, candidateName) {
     const p = res.presence || {};
     const ac = att.antiCheat || p.antiCheat || { violations: [], totalCount: 0 };
     const violations = ac.violations || [];
-    const ansCount = Object.keys(att.responses || {}).length;
-    const totalQ = att.totalQuestions || 25;
+    const curSecIdx = att.sectionIndex !== undefined ? att.sectionIndex : (p.sectionIndex || 0);
+    const curSecName = p.sectionName || (curSecIdx === 1 ? 'Writing Placement Test' : (curSecIdx === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary'));
+    let totalQ = 50;
+    let ansCount = 0;
+    if (curSecIdx === 0) {
+      totalQ = p.totalQuestions || 50;
+      ansCount = p.answeredCount !== undefined ? p.answeredCount : Object.keys(att.responses || {}).filter(k => !k.startsWith('writing') && !k.startsWith('speaking') && !k.includes('title')).length;
+    } else if (curSecIdx === 1) {
+      totalQ = 1;
+      const essay = (att.writing || att.responses?.['writing-essay'] || '').trim();
+      ansCount = essay.length > 0 ? 1 : 0;
+    } else if (curSecIdx === 2) {
+      totalQ = 21;
+      ansCount = p.answeredCount !== undefined ? p.answeredCount : Math.min(21, (Number(att.speakingStep || 0)) + 1);
+    }
     const pct = Math.min(100, Math.round((ansCount / totalQ) * 100));
 
     const startTimeStr = att.startedAt ? new Date(att.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
@@ -615,7 +628,7 @@ async function openCandidateInspectorModal(attemptId, candidateName) {
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px">
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
             <div style="font-size:11px;color:#64748b;font-weight:600">Current Section</div>
-            <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-top:2px">${escapeHtml(p.sectionName || (att.sectionIndex === 1 ? 'Writing' : (att.sectionIndex === 2 ? 'Speaking' : 'Grammar & Vocabulary')))}</div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-top:2px">${escapeHtml(curSecName)}</div>
           </div>
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
             <div style="font-size:11px;color:#64748b;font-weight:600">Response Pace</div>
@@ -2206,10 +2219,12 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       if (isTerminated) return;
       updateSaveIndicator('saving');
       try {
+        const curSec = section();
         const payload = {
           responses: answers,
           writing: answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '',
           sectionIndex,
+          sectionName: curSec?.label || curSec?.title || (sectionIndex === 1 ? 'Writing Placement Test' : (sectionIndex === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary')),
           speakingStep,
           sectionStartTimes,
           sectionRemainingMs,
@@ -2556,6 +2571,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     }
     persistProgress(true);
     draw();
+    sendCandidateTelemetry();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -3474,6 +3490,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
             speakingStep = step;
             persistProgress(true);
             draw();
+            sendCandidateTelemetry();
           }
         };
       });
@@ -3586,6 +3603,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           speakingStep = Math.max(speakingStep - 1, 0);
           persistProgress(true);
           draw();
+          sendCandidateTelemetry();
         };
       }
 
@@ -3598,6 +3616,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           speakingStep = Math.min(speakingStep + 1, current.questions.length - 1);
           persistProgress(true);
           draw();
+          sendCandidateTelemetry();
         };
       }
 
@@ -3661,6 +3680,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       speakingStep = 0;
       persistProgress(true);
       draw();
+      sendCandidateTelemetry();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
@@ -3746,12 +3766,31 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
 
   // Live real-time heartbeat and candidate presence telemetry
   const sendCandidateTelemetry = async () => {
-    if (isTerminated || !document.querySelector('.test-screen')) return;
+    if (isTerminated || !document.querySelector('.teacher-shell')) return;
     try {
       const curSection = section();
       const currentRemainingMs = sectionEndTimes[sectionIndex]
         ? Math.max(0, Number(sectionEndTimes[sectionIndex]) - Date.now())
         : (sectionRemainingMs[sectionIndex] || 0);
+
+      let secName = curSection?.label || curSection?.title;
+      if (!secName) {
+        secName = sectionIndex === 1 ? 'Writing Placement Test' : (sectionIndex === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary');
+      }
+
+      let secTotalQ = 50;
+      let secAnsCount = 0;
+      if (sectionIndex === 0) {
+        secTotalQ = curSection?.questions?.length || 50;
+        secAnsCount = (curSection?.questions || []).filter(q => answers[q.id] !== undefined && String(answers[q.id]).trim() !== '').length;
+      } else if (sectionIndex === 1) {
+        secTotalQ = 1;
+        const essay = (answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '').trim();
+        secAnsCount = essay.length > 0 ? 1 : 0;
+      } else if (sectionIndex === 2) {
+        secTotalQ = curSection?.questions?.length || 21;
+        secAnsCount = Math.min(secTotalQ, (speakingStep || 0) + 1);
+      }
 
       fetch('/api/realtime/heartbeat', {
         method: 'POST',
@@ -3759,9 +3798,10 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         body: JSON.stringify({
           attemptId,
           sectionIndex,
-          sectionName: curSection?.title || curSection?.label || `Section ${sectionIndex + 1}`,
-          answeredCount: Object.keys(answers || {}).length,
-          totalQuestions: curSection?.questions?.length || (sectionIndex === 0 ? 25 : (sectionIndex === 1 ? 2 : 1)),
+          sectionName: secName,
+          answeredCount: secAnsCount,
+          totalQuestions: secTotalQ,
+          speakingStep,
           remainingMs: currentRemainingMs,
           antiCheat: antiCheatTracker
         })
@@ -3773,7 +3813,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
   sendCandidateTelemetry();
 
   heartbeatInterval = setInterval(async () => {
-    if (isTerminated || !document.querySelector('.test-screen')) {
+    if (isTerminated || !document.querySelector('.teacher-shell')) {
       clearInterval(heartbeatInterval);
       return;
     }
@@ -4305,7 +4345,11 @@ async function renderAdminLiveTab(container) {
 
 
   function buildCandidateCardHtml(cand) {
-    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
+    const defaultTotalQ = cand.sectionIndex === 1 ? 1 : (cand.sectionIndex === 2 ? 21 : 50);
+    const totalQ = cand.totalQuestions || defaultTotalQ;
+    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / totalQ) * 100));
+    const secIcon = (cand.sectionIndex === 1 || (cand.sectionName && cand.sectionName.toLowerCase().includes('writing'))) ? '✍️' :
+                    (cand.sectionIndex === 2 || (cand.sectionName && (cand.sectionName.toLowerCase().includes('speaking') || cand.sectionName.toLowerCase().includes('oral')))) ? '🎙️' : '📘';
     const violations = cand.antiCheat?.totalCount || 0;
     const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
     const remMins = Math.floor(remSecs / 60);
@@ -4376,10 +4420,10 @@ async function renderAdminLiveTab(container) {
           <div class="proctor-progress-box" style="margin-top:12px">
             <div class="proctor-progress-header">
               <span class="section-tag">
-                <span>📘</span>
-                <span class="cand-section-name">${escapeHtml(cand.sectionName || 'Grammar & Vocabulary')}</span>
+                <span class="cand-section-icon">${secIcon}</span>
+                <span class="cand-section-name">${escapeHtml(cand.sectionName || (cand.sectionIndex === 1 ? 'Writing Placement Test' : (cand.sectionIndex === 2 ? 'Oral Placement Test' : 'Grammar & Vocabulary')))}</span>
               </span>
-              <span class="progress-pct cand-progress-pct">${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)</span>
+              <span class="progress-pct cand-progress-pct">${cand.answeredCount || 0} / ${totalQ} (${pct}%)</span>
             </div>
             <div class="proctor-progress-bar">
               <div class="proctor-progress-fill cand-progress-fill" style="width:${pct}%"></div>
@@ -4517,7 +4561,11 @@ async function renderAdminLiveTab(container) {
     const cand = candidates.find(c => c.attemptId === presence.attemptId);
     if (!cand) return;
 
-    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / (cand.totalQuestions || 25)) * 100));
+    const defaultTotalQ = cand.sectionIndex === 1 ? 1 : (cand.sectionIndex === 2 ? 21 : 50);
+    const totalQ = cand.totalQuestions || defaultTotalQ;
+    const pct = Math.min(100, Math.round(((cand.answeredCount || 0) / totalQ) * 100));
+    const secIcon = (cand.sectionIndex === 1 || (cand.sectionName && cand.sectionName.toLowerCase().includes('writing'))) ? '✍️' :
+                    (cand.sectionIndex === 2 || (cand.sectionName && (cand.sectionName.toLowerCase().includes('speaking') || cand.sectionName.toLowerCase().includes('oral')))) ? '🎙️' : '📘';
     const violations = cand.antiCheat?.totalCount || 0;
     const remSecs = Math.max(0, Math.floor((cand.remainingMs || 0) / 1000));
     const remMins = Math.floor(remSecs / 60);
@@ -4528,8 +4576,11 @@ async function renderAdminLiveTab(container) {
     const secEl = card.querySelector('.cand-section-name');
     if (secEl && cand.sectionName) secEl.textContent = cand.sectionName;
 
+    const secIconEl = card.querySelector('.cand-section-icon');
+    if (secIconEl) secIconEl.textContent = secIcon;
+
     const pctEl = card.querySelector('.cand-progress-pct');
-    if (pctEl) pctEl.textContent = `${cand.answeredCount || 0} / ${cand.totalQuestions || 25} (${pct}%)`;
+    if (pctEl) pctEl.textContent = `${cand.answeredCount || 0} / ${totalQ} (${pct}%)`;
 
     const fillEl = card.querySelector('.cand-progress-fill');
     if (fillEl) fillEl.style.width = `${pct}%`;
@@ -4710,10 +4761,15 @@ async function renderAdminLiveTab(container) {
     realtime.on('ATTEMPT_AUTOSAVED', (data) => {
       const cand = candidates.find(c => c.attemptId === data.attemptId);
       if (cand) {
-        cand.answeredCount = data.answeredCount || cand.answeredCount;
+        cand.answeredCount = data.answeredCount !== undefined ? data.answeredCount : cand.answeredCount;
+        cand.totalQuestions = data.totalQuestions || cand.totalQuestions || (data.sectionIndex === 1 ? 1 : (data.sectionIndex === 2 ? 21 : 50));
         cand.sectionIndex = data.sectionIndex ?? cand.sectionIndex;
+        if (data.sectionName) cand.sectionName = data.sectionName;
+        else if (cand.sectionIndex === 1) cand.sectionName = 'Writing Placement Test';
+        else if (cand.sectionIndex === 2) cand.sectionName = 'Oral Placement Test';
+        else cand.sectionName = 'Grammar & Vocabulary';
         updateCandidateInPlace(cand);
-        appendProctorFeed(`Candidate <strong>${escapeHtml(cand.name || cand.email)}</strong> answered question. Progress: ${cand.answeredCount} responses recorded.`, 'info');
+        appendProctorFeed(`Candidate <strong>${escapeHtml(cand.name || cand.email)}</strong> synced progress in <strong>${escapeHtml(cand.sectionName)}</strong>.`, 'info');
       }
     }),
     realtime.on('ANTI_CHEAT_VIOLATION', (evData) => {
