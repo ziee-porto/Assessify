@@ -15,7 +15,8 @@ function showToast(message, type = 'success', duration = 4500) {
   const icons = {
     success: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
     error: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-    info: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
+    info: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+    warning: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
   };
 
   const toast = document.createElement('div');
@@ -314,21 +315,40 @@ const realtime = new RealtimeClient();
 
 // Global Proctor Listeners
 realtime.on('PROCTOR_MESSAGE', (data) => {
-  const modalRoot = document.querySelector('#modal-root');
-  if (!modalRoot) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'proctor-alert-backdrop';
-  overlay.innerHTML = `
-    <div class="proctor-alert-box">
-      <div style="font-size:36px;margin-bottom:12px">⚠️</div>
-      <h3 style="margin:0 0 10px 0;font-size:18px;font-weight:800;color:#991b1b">PROCTOR WARNING</h3>
-      <p style="font-size:14px;color:#1e293b;line-height:1.5;margin-bottom:16px">${escapeHtml(data.message)}</p>
-      <div style="font-size:12px;color:#64748b;margin-bottom:20px">Issued by <strong>${escapeHtml(data.sender || 'Exam Proctor')}</strong> at ${new Date(data.sentAt || Date.now()).toLocaleTimeString()}</div>
-      <button class="button" id="btn-ack-proctor-alert" style="width:100%;padding:10px 18px;font-weight:700;background:#dc2626;color:#fff">Acknowledge & Return to Test</button>
+  const msg = (data && data.message) ? String(data.message).trim() : 'Please maintain assessment integrity and follow test instructions.';
+  const sender = (data && data.sender) ? String(data.sender).trim() : 'Exam Proctor';
+
+  // Play subtle audio alert tone if supported
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch {
+    // Audio autoplay fallback
+  }
+
+  // Remove any lingering legacy modal overlay
+  const existingOverlay = document.querySelector('.proctor-alert-backdrop');
+  if (existingOverlay) existingOverlay.remove();
+
+  // Show top toast notification that auto closes in 3 seconds (3000ms)
+  showToast(`
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <div style="font-weight:700;font-size:13.5px;color:#92400e;display:flex;align-items:center;gap:5px">
+        <span>⚠️ Proctor Warning (${escapeHtml(sender)})</span>
+      </div>
+      <div style="font-size:13px;color:#1e293b;line-height:1.45">${escapeHtml(msg)}</div>
     </div>
-  `;
-  modalRoot.appendChild(overlay);
-  overlay.querySelector('#btn-ack-proctor-alert').onclick = () => overlay.remove();
+  `, 'warning', 3000);
 });
 
 realtime.on('BROADCAST_ANNOUNCEMENT', (data) => {

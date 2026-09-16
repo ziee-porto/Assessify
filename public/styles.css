@@ -1711,7 +1711,7 @@ table tbody tr:hover {
   position: fixed;
   top: 24px;
   right: 24px;
-  z-index: 1100;
+  z-index: 10500;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1735,6 +1735,13 @@ table tbody tr:hover {
   border-color: var(--blue);
 }
 
+.toast-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #f59e0b;
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.22);
+}
+
 .toast {
   pointer-events: auto;
   background: var(--white);
@@ -1753,13 +1760,13 @@ table tbody tr:hover {
 }
 
 @keyframes toastSlideIn {
-  from { opacity: 0; transform: translateX(40px) scale(0.95); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  from { opacity: 0; transform: translateY(-16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .toast.toast-hiding {
   opacity: 0;
-  transform: translateX(40px);
+  transform: translateY(-16px) scale(0.96);
 }
 
 .toast-success {
@@ -1768,6 +1775,10 @@ table tbody tr:hover {
 
 .toast-error {
   border-left-color: #ef4444;
+}
+
+.toast-warning {
+  border-left-color: #f59e0b;
 }
 
 .toast-icon {
@@ -1779,10 +1790,27 @@ table tbody tr:hover {
 .toast-success .toast-icon { color: #10b981; }
 .toast-error .toast-icon { color: #ef4444; }
 .toast-info .toast-icon { color: var(--blue); }
+.toast-warning .toast-icon { color: #d97706; }
 
 .toast-content {
   flex: 1;
   color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .toast-container {
+    top: 14px;
+    left: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+  .toast {
+    padding: 12px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  }
 }
 
 .toast-close {
@@ -7035,6 +7063,17 @@ table tbody tr:hover {
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 640px) {
+  .proctor-alert-backdrop {
+    padding: 12px;
+  }
+  .proctor-alert-box {
+    padding: 20px 16px;
+    border-radius: 12px;
+    max-width: 100%;
+  }
 }
 
 /* ==========================================================================
