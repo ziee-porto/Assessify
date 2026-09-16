@@ -6432,22 +6432,22 @@ async function renderAdminBulkUsersTab(container) {
     };
 
     container.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
+      <div class="bulk-header-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px">
         <div>
           <div class="eyebrow">School Administration</div>
-          <h1 style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">Bulk User Import</h1>
-          <p style="color:var(--muted);font-size:14px;margin:0">Dedicated bulk management module: import students, teacher candidates, or administrators via CSV or JSON files.</p>
+          <h1 class="bulk-header-title" style="font:700 32px 'Space Grotesk';margin:6px 0 4px;color:var(--ink)">Bulk User Import</h1>
+          <p class="bulk-header-desc" style="color:var(--muted);font-size:14px;margin:0">Dedicated bulk management module: import students, teacher candidates, or administrators via CSV or JSON files.</p>
         </div>
       </div>
 
       <!-- 2-Column Responsive Setup Grid -->
-      <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:24px;margin-bottom:24px" class="bulk-import-layout">
+      <div class="bulk-import-layout">
         
         <!-- Left Column: Step Workflow -->
-        <div class="panel" style="padding:24px 28px;background:#ffffff;border-radius:16px;border:1px solid var(--line)">
+        <div class="panel bulk-step-panel" style="background:#ffffff;border:1px solid var(--line)">
           
           <!-- STEP 1: Select School Unit -->
-          <div style="margin-bottom:22px">
+          <div class="bulk-step-group" style="margin-bottom:22px">
             <label for="bulk-unit-select" style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:8px">
               <span style="display:flex;align-items:center;gap:8px">
                 <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">1</span>
@@ -6469,12 +6469,12 @@ async function renderAdminBulkUsersTab(container) {
           </div>
 
           <!-- STEP 2: Select Role -->
-          <div style="margin-bottom:22px">
+          <div class="bulk-step-group" style="margin-bottom:22px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">
               <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">2</span>
               Select Target User Role *
             </label>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="bulk-roles-grid">
               <label id="role-btn-students" class="role-select-card" style="display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1.5px solid ${activeRole === 'students' ? '#059669' : '#e2e8f0'};border-radius:10px;cursor:pointer;background:${activeRole === 'students' ? '#ecfdf5' : '#ffffff'};transition:all 0.2s ease">
                 <div style="display:flex;align-items:center;gap:6px">
                   <input type="radio" name="bulk-target-role" value="students" ${activeRole === 'students' ? 'checked' : ''} style="accent-color:#059669">
@@ -6505,12 +6505,12 @@ async function renderAdminBulkUsersTab(container) {
           </div>
 
           <!-- STEP 3: Choose Format & Upload -->
-          <div>
+          <div class="bulk-step-group">
             <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:10px">
               <span style="display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#2563eb;color:#fff;font-size:12px;font-weight:700">3</span>
               Format & Upload Method (CSV or JSON) *
             </label>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+            <div class="bulk-method-grid">
               <button type="button" class="btn-bulk-method ${activeUploadTab === 'csv' ? 'active' : ''}" id="bulk-method-csv" style="padding:10px;border-radius:8px;border:1.5px solid ${activeUploadTab === 'csv' ? '#2563eb' : '#cbd5e1'};background:${activeUploadTab === 'csv' ? '#eff6ff' : '#fff'};font-weight:600;font-size:13px;cursor:pointer">
                 📄 CSV File (.csv)
               </button>
@@ -6541,7 +6541,7 @@ async function renderAdminBulkUsersTab(container) {
         </div>
 
         <!-- Right Column: Panduan & Download Template -->
-        <div class="panel" style="padding:24px 28px;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;display:flex;flex-direction:column;justify-content:space-between">
+        <div class="panel bulk-guide-panel" style="background:#f8fafc;border:1px solid #e2e8f0;display:flex;flex-direction:column;justify-content:space-between">
           <div>
             <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#1e293b;margin-bottom:12px">
               <span style="color:#f59e0b;font-size:18px">💡</span>
@@ -6582,7 +6582,7 @@ async function renderAdminBulkUsersTab(container) {
           <!-- Download Template Buttons -->
           <div style="border-top:1px dashed #cbd5e1;padding-top:16px">
             <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:10px">Download Ready-to-Use Templates:</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="bulk-dl-btns-wrap">
               <button type="button" class="button button-sm" id="btn-bulk-dl-csv" style="background:#0284c7;color:#fff;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-flex;align-items:center;gap:6px">
                 ${ICONS.download} <span>Download CSV Template</span>
               </button>
@@ -6597,8 +6597,8 @@ async function renderAdminBulkUsersTab(container) {
       </div>
 
       <!-- Preview Table & Submission Bar -->
-      <div class="panel" style="padding:24px 28px;background:#ffffff;border-radius:16px;border:1px solid var(--line);margin-bottom:24px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div class="panel bulk-preview-panel" style="background:#ffffff;border:1px solid var(--line);margin-bottom:24px">
+        <div class="bulk-preview-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
             <h3 style="font:700 18px 'Space Grotesk';margin:0;color:#0f172a">
               Live Data Preview (${parsedUsers.length} candidate accounts detected)
@@ -6607,7 +6607,7 @@ async function renderAdminBulkUsersTab(container) {
               Review parsed data below before importing to the database.
             </p>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
+          <div class="bulk-target-unit-tag" style="display:flex;align-items:center;gap:10px">
             <span style="font-size:12.5px;font-weight:600;padding:5px 12px;border-radius:20px;background:${selectedUnit ? '#ecfdf5' : '#fef2f2'};color:${selectedUnit ? '#047857' : '#b91c1c'};border:1px solid ${selectedUnit ? '#a7f3d0' : '#fecaca'}">
               ${selectedUnit ? `✓ Target Unit: ${selectedUnit}` : '⚠️ Select school unit in Step 1'}
             </span>
@@ -6615,8 +6615,8 @@ async function renderAdminBulkUsersTab(container) {
         </div>
 
         <!-- Table Container -->
-        <div class="table-responsive" style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px">
-          <table style="width:100%;font-size:13px">
+        <div class="table-responsive bulk-table-wrap" style="max-height:300px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px">
+          <table class="bulk-preview-table" style="font-size:13px">
             <thead style="background:#f8fafc;position:sticky;top:0;z-index:2">
               <tr>
                 <th style="padding:10px 14px;text-align:left;width:50px">#</th>
@@ -6668,7 +6668,7 @@ async function renderAdminBulkUsersTab(container) {
         <div id="bulk-page-error" style="display:none;padding:12px 16px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:13px;color:#dc2626;margin-bottom:16px"></div>
 
         <!-- Submission Buttons -->
-        <div style="display:flex;justify-content:flex-end;gap:12px;align-items:center">
+        <div class="bulk-action-bar">
           ${parsedUsers.length > 0 ? `
             <button type="button" class="button ghost" id="btn-reset-bulk-data" style="padding:10px 18px">
               Reset Data
