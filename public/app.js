@@ -2853,9 +2853,9 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
                     <span>Next Part</span> <span aria-hidden="true">→</span>
                   </button>
                 ` : `
-                  <span style="font-size:13px;color:#16a34a;font-weight:600;display:inline-flex;align-items:center;gap:6px">
-                    ✓ Final Part Reached
-                  </span>
+                  <button class="button" id="speaking-conclude-btn" type="button" style="background:#16a34a;color:#fff;padding:10px 22px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+                    <span>✓ Conclude & Submit Assessment</span>
+                  </button>
                 `}
               </div>
             </div>
@@ -3069,9 +3069,11 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
               <button class="ghost" id="bottom-scroll-top" type="button" style="padding:10px 18px;font-size:13.5px;display:inline-flex;align-items:center;gap:6px" title="Scroll back to top of questions">
                 <span>↑ Scroll to Top</span>
               </button>
-              <button class="button" id="next" type="button" style="padding:12px 24px">
-                ${isLastSection ? 'Submit Assessment ✓' : 'Next Section →'}
-              </button>
+              ${!isLastSection && !speaking ? `
+                <button class="button" id="next" type="button" style="padding:12px 24px">
+                  Next Section →
+                </button>
+              ` : ''}
             </div>
           </div>
         </section>
@@ -3620,36 +3622,41 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
         };
       }
 
+      const concludeSpeaking = () => {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setListeningAudioPlaying(false);
+        const modalBackdrop = document.createElement('div');
+        modalBackdrop.className = 'modal-backdrop';
+        modalBackdrop.innerHTML = `
+          <div class="modal-card" style="max-width:500px;border-radius:14px;padding:26px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;flex-shrink:0">⚠️</div>
+              <h3 style="font:700 20px 'Space Grotesk';margin:0;color:var(--ink)">End Speaking Assessment?</h3>
+            </div>
+            <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px">
+              All written tasks, recorded interview responses, and grammar answers completed so far will be automatically preserved, uploaded to Google Drive, and submitted.
+            </p>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button class="ghost" id="modal-cancel-early" type="button" style="padding:9px 18px">Cancel & Continue</button>
+              <button class="button" id="modal-confirm-early" type="button" style="background:#dc2626;color:#fff;padding:9px 20px">Yes, Conclude & Submit</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modalBackdrop);
+        modalBackdrop.querySelector('#modal-cancel-early').onclick = () => modalBackdrop.remove();
+        modalBackdrop.querySelector('#modal-confirm-early').onclick = async () => {
+          modalBackdrop.remove();
+          await submitAssessment(true);
+        };
+      };
+
       const endEarlyBtn = document.querySelector('#end-early-btn');
       if (endEarlyBtn) {
-        endEarlyBtn.onclick = () => {
-          if (window.speechSynthesis) window.speechSynthesis.cancel();
-          setListeningAudioPlaying(false);
-          const modalBackdrop = document.createElement('div');
-          modalBackdrop.className = 'modal-backdrop';
-          modalBackdrop.innerHTML = `
-            <div class="modal-card" style="max-width:500px;border-radius:14px;padding:26px">
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-                <div style="width:40px;height:40px;border-radius:50%;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-size:22px;flex-shrink:0">⚠️</div>
-                <h3 style="font:700 20px 'Space Grotesk';margin:0;color:var(--ink)">End Speaking Assessment Early?</h3>
-              </div>
-              <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px">
-                If the student is unable to answer subsequent questions, you can conclude the test now.
-                All written tasks, recorded responses, and grammar answers completed so far will be automatically preserved, uploaded to Google Drive, and submitted.
-              </p>
-              <div style="display:flex;justify-content:flex-end;gap:10px">
-                <button class="ghost" id="modal-cancel-early" type="button" style="padding:9px 18px">Cancel & Continue</button>
-                <button class="button" id="modal-confirm-early" type="button" style="background:#dc2626;color:#fff;padding:9px 20px">Yes, Conclude & Submit</button>
-              </div>
-            </div>
-          `;
-          document.body.appendChild(modalBackdrop);
-          modalBackdrop.querySelector('#modal-cancel-early').onclick = () => modalBackdrop.remove();
-          modalBackdrop.querySelector('#modal-confirm-early').onclick = async () => {
-            modalBackdrop.remove();
-            await submitAssessment(true);
-          };
-        };
+        endEarlyBtn.onclick = concludeSpeaking;
+      }
+      const concludeBtn = document.querySelector('#speaking-conclude-btn');
+      if (concludeBtn) {
+        concludeBtn.onclick = concludeSpeaking;
       }
     }
 
@@ -3684,82 +3691,84 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    document.querySelector('#next').onclick = async () => {
-      // Validation before advancing to next section
-      const currSec = section();
-      if (currSec && !speaking) {
-        // Multiple-choice questions validation (e.g., Grammar & Vocabulary)
-        if (currSec.questions && currSec.questions.length > 0 && currSec.questions[0].options) {
-          const unanswered = [];
-          currSec.questions.forEach((q, idx) => {
-            const val = answers[q.id];
-            if (!val || String(val).trim() === '') {
-              unanswered.push({ q, number: idx + 1 });
-            }
-          });
-
-          if (unanswered.length > 0) {
-            // Clear previous error highlights
-            document.querySelectorAll('.question.unanswered-highlight').forEach((el) => {
-              el.classList.remove('unanswered-highlight');
-              el.querySelector('.unanswered-badge')?.remove();
-            });
-
-            // Highlight all unanswered questions
-            unanswered.forEach(({ q, number }) => {
-              const wrap = document.querySelector(`#q-wrap-${q.id}`);
-              if (wrap) {
-                wrap.classList.add('unanswered-highlight');
-                if (!wrap.querySelector('.unanswered-badge')) {
-                  const badge = document.createElement('span');
-                  badge.className = 'unanswered-badge';
-                  badge.innerHTML = `⚠️ Number ${number} is not answered yet`;
-                  wrap.prepend(badge);
-                }
+    const nextBtn = document.querySelector('#next');
+    if (nextBtn) {
+      nextBtn.onclick = async () => {
+        // Validation before advancing to next section
+        const currSec = section();
+        if (currSec && !speaking) {
+          // Multiple-choice questions validation (e.g., Grammar & Vocabulary)
+          if (currSec.questions && currSec.questions.length > 0 && currSec.questions[0].options) {
+            const unanswered = [];
+            currSec.questions.forEach((q, idx) => {
+              const val = answers[q.id];
+              if (!val || String(val).trim() === '') {
+                unanswered.push({ q, number: idx + 1 });
               }
             });
 
-            // Auto-scroll to the first unanswered question
-            const firstUnfilled = document.querySelector(`#q-wrap-${unanswered[0].q.id}`);
-            if (firstUnfilled) {
-              firstUnfilled.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            if (unanswered.length > 0) {
+              // Clear previous error highlights
+              document.querySelectorAll('.question.unanswered-highlight').forEach((el) => {
+                el.classList.remove('unanswered-highlight');
+                el.querySelector('.unanswered-badge')?.remove();
+              });
 
-            const count = unanswered.length;
-            const sampleNums = unanswered.slice(0, 6).map((u) => `#${u.number}`).join(', ');
-            const moreStr = count > 6 ? ` and ${count - 6} more` : '';
-            showToast(`⚠️ Please complete all questions before proceeding! ${count} question${count === 1 ? '' : 's'} still not answered: ${sampleNums}${moreStr}.`, 'error');
-            return;
-          }
-        } else if (currSec.id === 'writing' || currSec.label?.toLowerCase().includes('writing')) {
-          // Writing section validation
-          const essayText = answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '';
-          const wordCount = essayText.trim() ? essayText.trim().split(/\s+/).filter(Boolean).length : 0;
-          if (wordCount < 10) {
-            const essayInput = document.querySelector('#writing-essay') || document.querySelector('.writing-input');
-            if (essayInput) {
-              essayInput.focus();
-              essayInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              essayInput.style.borderColor = '#ef4444';
-              essayInput.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.15)';
+              // Highlight all unanswered questions
+              unanswered.forEach(({ q, number }) => {
+                const wrap = document.querySelector(`#q-wrap-${q.id}`);
+                if (wrap) {
+                  wrap.classList.add('unanswered-highlight');
+                  if (!wrap.querySelector('.unanswered-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'unanswered-badge';
+                    badge.innerHTML = `⚠️ Number ${number} is not answered yet`;
+                    wrap.prepend(badge);
+                  }
+                }
+              });
+
+              // Auto-scroll to the first unanswered question
+              const firstUnfilled = document.querySelector(`#q-wrap-${unanswered[0].q.id}`);
+              if (firstUnfilled) {
+                firstUnfilled.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+
+              const count = unanswered.length;
+              const sampleNums = unanswered.slice(0, 6).map((u) => `#${u.number}`).join(', ');
+              const moreStr = count > 6 ? ` and ${count - 6} more` : '';
+              showToast(`⚠️ Please complete all questions before proceeding! ${count} question${count === 1 ? '' : 's'} still not answered: ${sampleNums}${moreStr}.`, 'error');
+              return;
             }
-            showToast('⚠️ Please write your essay response before proceeding to the next section.', 'error');
-            return;
+          } else if (currSec.id === 'writing' || currSec.label?.toLowerCase().includes('writing')) {
+            // Writing section validation
+            const essayText = answers['writing-essay'] || answers['writing-0'] || answers['writing'] || '';
+            const wordCount = essayText.trim() ? essayText.trim().split(/\s+/).filter(Boolean).length : 0;
+            if (wordCount < 10) {
+              const essayInput = document.querySelector('#writing-essay') || document.querySelector('.writing-input');
+              if (essayInput) {
+                essayInput.focus();
+                essayInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                essayInput.style.borderColor = '#ef4444';
+                essayInput.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.15)';
+              }
+              showToast('⚠️ Please write your essay response before proceeding to the next section.', 'error');
+              return;
+            }
           }
         }
-      }
 
-      persistProgress(true);
-      if (sectionIndex < test.sections.length - 1) {
-        await advanceToNextSection();
-        return;
-      }
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      const nextBtn = document.querySelector('#next');
-      nextBtn.disabled = true;
-      nextBtn.textContent = 'Submitting responses…';
-      await submitAssessment(false);
-    };
+        persistProgress(true);
+        if (sectionIndex < test.sections.length - 1) {
+          await advanceToNextSection();
+          return;
+        }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        nextBtn.disabled = true;
+        nextBtn.textContent = 'Submitting responses…';
+        await submitAssessment(false);
+      };
+    }
 
     startSectionTimer();
   };
