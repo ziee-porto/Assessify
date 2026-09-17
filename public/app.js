@@ -9572,6 +9572,9 @@ async function openGradingModal(attemptInput) {
 
   // Background Auto-Save Debounced Routine
   let autoSaveTimer = null;
+  let isAutoSaving = false;
+  let pendingAutoSavePayload = null;
+
   const triggerAutoSave = () => {
     const statusBadge = document.querySelector('#autosave-status-badge');
     if (statusBadge) {
@@ -9579,14 +9582,20 @@ async function openGradingModal(attemptInput) {
     }
     clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
+      const payload = {
+        writing: scores.writing,
+        speaking: scores.speaking
+      };
+      if (isAutoSaving) {
+        pendingAutoSavePayload = payload;
+        return;
+      }
+      isAutoSaving = true;
       try {
         await request(`/api/admin/results/${attemptId}/review`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            writing: scores.writing,
-            speaking: scores.speaking
-          })
+          body: JSON.stringify(payload)
         });
         if (statusBadge) {
           statusBadge.innerHTML = `<span style="color:#16a34a;font-weight:700">✓ Autosaved at ${new Date().toLocaleTimeString()}</span>`;
@@ -9595,8 +9604,14 @@ async function openGradingModal(attemptInput) {
         if (statusBadge) {
           statusBadge.innerHTML = '<span style="color:#dc2626">⚠️ Autosave failed</span>';
         }
+      } finally {
+        isAutoSaving = false;
+        if (pendingAutoSavePayload) {
+          pendingAutoSavePayload = null;
+          triggerAutoSave();
+        }
       }
-    }, 250);
+    }, 1000);
   };
 
   // Scale Button Clicks (In-place DOM updates — NO modal refresh)
@@ -9683,6 +9698,9 @@ async function openGradingModal(attemptInput) {
 
     if (errorBox) errorBox.hidden = true;
 
+    clearTimeout(autoSaveTimer);
+    pendingAutoSavePayload = null;
+
     const saveBtn = document.querySelector('#modal-save-btn');
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<span>Finalizing grades…</span>';
@@ -9709,7 +9727,7 @@ async function openGradingModal(attemptInput) {
 
     closeGradingModal();
     showToast(`Grades finalized successfully for ${attempt.teacher}! Writing: ${result.manualReview.writing.level} (${result.manualReview.writing.total}/${totals.writing.max}), Speaking: ${result.manualReview.speaking.level} (${result.manualReview.speaking.total}/${totals.speaking.max}).`, 'success');
-    renderAdmin();
+    renderAdmin('results');
   };
 
   // Escape key handler

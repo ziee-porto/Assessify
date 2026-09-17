@@ -5538,23 +5538,25 @@ const server = createServer(async (request, response) => {
       });
       const updatedAttempt = await repository.getAttempt(attemptId);
       broadcastRealtime('all', 'ATTEMPT_GRADED', { attemptId, attempt: updatedAttempt });
-      await recordAuditLog({
-        actorType: 'admin',
-        actorId: currentUser(request)?.username || 'admin',
-        actorName: currentUser(request)?.name || 'Admin',
-        action: 'EVALUATE_ASSESSMENT',
-        category: 'EVALUATION',
-        target: attemptId,
-        details: {
-          teacher: attempt.teacher,
-          email: attempt.email,
-          writingLevel: manualReview.writing.level || 'Pending',
-          speakingLevel: manualReview.speaking.level || 'Pending',
-          overallBand: finalPlacement || attempt.overall
-        },
-        ip: getClientIp(request),
-        status: 'SUCCESS'
-      });
+      if (isComplete) {
+        await recordAuditLog({
+          actorType: 'admin',
+          actorId: currentUser(request)?.username || 'admin',
+          actorName: currentUser(request)?.name || 'Admin',
+          action: 'EVALUATE_ASSESSMENT',
+          category: 'EVALUATION',
+          target: attemptId,
+          details: {
+            teacher: attempt.teacher,
+            email: attempt.email,
+            writingLevel: manualReview.writing.level || 'Pending',
+            speakingLevel: manualReview.speaking.level || 'Pending',
+            overallBand: finalPlacement || attempt.overall
+          },
+          ip: getClientIp(request),
+          status: 'SUCCESS'
+        });
+      }
       return json(response, 200, { manualReview, sectionScores, overall: finalPlacement || attempt.overall });
     } catch (error) { return json(response, 400, { error: error.message }); }
   }
