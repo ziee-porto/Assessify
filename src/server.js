@@ -5229,6 +5229,10 @@ const server = createServer(async (request, response) => {
         writingSec.questions = [...topicsList];
       } else if (uploaded && Array.isArray(uploaded.sections) && uploaded.sections.length > 0) {
         newContent = uploaded;
+        const totalSecMins = uploaded.sections.reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0);
+        if (totalSecMins > 0 && (!newContent.durationMinutes || newContent.durationMinutes < totalSecMins)) {
+          newContent.durationMinutes = totalSecMins;
+        }
       } else {
         return json(response, 400, {
           error: 'Invalid format: Must be either a full question bank with "sections" or a writing template with "topics".'
@@ -6253,12 +6257,23 @@ const server = createServer(async (request, response) => {
         attempt: completedAttempt
       });
     }
-    const durationMins = Number(currentSystemSettings.durationMinutes) || Number(content.durationMinutes) || 65;
-    const gvMins = Math.max(5, Math.round(durationMins * (30 / 65)));
-    const writingMins = Math.max(5, Math.round(durationMins * (20 / 65)));
-    const speakingMins = Math.max(5, durationMins - gvMins - writingMins);
+    const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary' || s.id === 'grammar' || s.label?.toLowerCase().includes('grammar'));
+    const writingSection = (content.sections || []).find((s) => s.id === 'writing' || s.label?.toLowerCase().includes('writing'));
+    const speakingSection = (content.sections || []).find((s) => s.id === 'speaking' || s.label?.toLowerCase().includes('speaking'));
 
-    const gvSection = (content.sections || []).find((s) => s.id === 'grammar-vocabulary');
+    const gvMins = Number(gvSection?.durationMinutes) || 30;
+    const writingMins = Number(writingSection?.durationMinutes) || 20;
+    const speakingMins = Number(speakingSection?.durationMinutes) || 20;
+    const totalSectionMins = (content.sections || []).reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0) || (gvMins + writingMins + speakingMins);
+    const durationMins = totalSectionMins || Number(currentSystemSettings.durationMinutes) || Number(content.durationMinutes) || 70;
+
+    const initialSectionRemainingMs = {};
+    (content.sections || []).forEach((s, idx) => {
+      const fallback = (s.id === 'grammar-vocabulary' || s.id === 'grammar') ? 30 : (s.id === 'writing' ? 20 : 20);
+      const mins = Number(s.durationMinutes) || fallback;
+      initialSectionRemainingMs[idx] = mins * 60 * 1000;
+    });
+
     const gvQuestions = gvSection?.questions || [];
     const existingInProgress = existing.find(
       (att) => (att.email || '').toLowerCase().trim() === user.email.toLowerCase().trim() && att.status === 'In progress'
@@ -6285,7 +6300,7 @@ const server = createServer(async (request, response) => {
         updates.sectionEndTimes = existingInProgress.sectionEndTimes;
       }
       if (!existingInProgress.sectionRemainingMs) {
-        existingInProgress.sectionRemainingMs = {
+        existingInProgress.sectionRemainingMs = Object.keys(initialSectionRemainingMs).length > 0 ? initialSectionRemainingMs : {
           0: Math.max(0, (new Date(existingInProgress.startedAt).getTime() + gvMins * 60 * 1000) - Date.now()),
           1: writingMins * 60 * 1000,
           2: speakingMins * 60 * 1000
@@ -6371,7 +6386,7 @@ const server = createServer(async (request, response) => {
       sectionEndTimes: {
         0: startMs + gvMins * 60 * 1000
       },
-      sectionRemainingMs: {
+      sectionRemainingMs: Object.keys(initialSectionRemainingMs).length > 0 ? initialSectionRemainingMs : {
         0: gvMins * 60 * 1000,
         1: writingMins * 60 * 1000,
         2: speakingMins * 60 * 1000

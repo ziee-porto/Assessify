@@ -2,7 +2,7 @@
   "id": "ielts-placement-bank-2026",
   "version": "2026.3",
   "title": "KBS Comprehensive Placement Assessment",
-  "durationMinutes": 65,
+  "durationMinutes": 70,
   "audience": "Candidate Teachers / Academic Faculty & Students",
   "sourceNote": "Final Placement Test Structure: Section 1 Grammar & Vocabulary (50 questions, 30 mins), Section 2 Writing Placement Test (User selects 1 question from 5 topics to write 1 Essay, 20 mins), Section 3 Oral Placement Test (21 questions, 20 mins).",
   "sections": [
@@ -312,7 +312,7 @@
         {
           "id": "g-28",
           "type": "multiple-choice",
-          "prompt": "I promise I’ll call you as soon as I ........ .",
+          "prompt": "I promise I’ll call you as soon as ........ .",
           "options": [
             "I arrive",
             "I arrived",
@@ -587,7 +587,7 @@
         },
         {
           "id": "w-topic-2",
-          "title": "Email About Your Country",
+          "title": "Email to a Friend",
           "type": "essay",
           "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
           "guidingQuestions": [
@@ -625,7 +625,7 @@
         },
         {
           "id": "w-topic-5",
-          "title": "World Progress Discussion Article",
+          "title": "Opinion Essay",
           "type": "essay",
           "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
           "guidingQuestions": [
@@ -654,7 +654,7 @@
         },
         {
           "id": "w-topic-2",
-          "title": "Email About Your Country",
+          "title": "Email to a Friend",
           "type": "essay",
           "prompt": "Write an email to a friend from another part of the world who wants to know more about your country. You can use your own ideas, and/or you can describe some of these things:",
           "guidingQuestions": [
@@ -692,7 +692,7 @@
         },
         {
           "id": "w-topic-5",
-          "title": "World Progress Discussion Article",
+          "title": "Opinion Essay",
           "type": "essay",
           "prompt": "Write an article discussing whether you think our world is getting better or getting worse. You can use your own ideas, but you might like to include some of these issues:",
           "guidingQuestions": [
@@ -711,7 +711,7 @@
       "label": "Oral Placement Test",
       "durationMinutes": 20,
       "navigationType": "sequential_next_button",
-      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 21 questions until all prompts are completed or the 20-minute time limit is reached.",
+      "instructions": "Answer each question orally. After answering a question, click 'Next Question' to proceed to the next topic. You may continue through the 8 questions until all prompts are completed or the 20-minute time limit is reached.",
       "scoring": {
         "minScore": 1,
         "maxScore": 5
@@ -722,7 +722,7 @@
           "type": "speaking-audio",
           "level": "Elementary",
           "topic": "Personal information",
-          "prompt": "What’s your name? How do you spell it? Where do you live? What’s your phone number? What’s your email address?",
+          "prompt": "What’s your name?",
           "scoreRange": [
             1,
             2,
@@ -735,8 +735,8 @@
           "id": "s-2",
           "type": "speaking-audio",
           "level": "Elementary",
-          "topic": "Family",
-          "prompt": "How many people are there in your family? Tell me about your parents / brothers or sisters / children. What are their names, ages, etc?",
+          "topic": "Personal information",
+          "prompt": "How do you spell it?",
           "scoreRange": [
             1,
             2,
@@ -749,8 +749,8 @@
           "id": "s-3",
           "type": "speaking-audio",
           "level": "Elementary",
-          "topic": "Home",
-          "prompt": "Where are you from? What is your home town or city? Do (or did) you like living there? Is it: – big? – beautiful? – noisy? – clean?",
+          "topic": "Personal information",
+          "prompt": "Where do you live?",
           "scoreRange": [
             1,
             2,
@@ -763,8 +763,8 @@
           "id": "s-4",
           "type": "speaking-audio",
           "level": "Elementary",
-          "topic": "Studies",
-          "prompt": "What do (or did) you study? Is (or was) it: – interesting? – difficult? What will you do (or did you do) after finishing your studies?",
+          "topic": "Personal information",
+          "prompt": "What’s your phone number?",
           "scoreRange": [
             1,
             2,
@@ -777,8 +777,8 @@
           "id": "s-5",
           "type": "speaking-audio",
           "level": "Elementary",
-          "topic": "Work",
-          "prompt": "What job do you do (or want to do)? When did (or will) you start working? Why did (or do) you want to do this job?",
+          "topic": "Personal information",
+          "prompt": "What’s your email address?",
           "scoreRange": [
             1,
             2,
@@ -790,9 +790,9 @@
         {
           "id": "s-6",
           "type": "speaking-audio",
-          "level": "Pre-Intermediate",
-          "topic": "Appearance & character",
-          "prompt": "Tell me about your best friend. Describe his/her appearance (e.g. colour of hair/eyes, height) and character (e.g. kind, funny). When did you meet?",
+          "level": "Elementary",
+          "topic": "Family",
+          "prompt": "How many people are there in your family?",
           "scoreRange": [
             1,
             2,
@@ -804,9 +804,9 @@
         {
           "id": "s-7",
           "type": "speaking-audio",
-          "level": "Pre-Intermediate",
-          "topic": "Weather",
-          "prompt": "What’s the weather like today? Which is your favourite season? What is the weather like then? What weather makes you feel happy/sad/etc?",
+          "level": "Elementary",
+          "topic": "Family",
+          "prompt": "Tell me about your parents or brothers or sisters or children.",
           "scoreRange": [
             1,
             2,
@@ -818,9 +818,9 @@
         {
           "id": "s-8",
           "type": "speaking-audio",
-          "level": "Pre-Intermediate",
-          "topic": "Shopping",
-          "prompt": "Do you enjoy shopping? How often do you go shopping? Do you go shopping alone or with friends? What sort of things do you usually buy?",
+          "level": "Elementary",
+          "topic": "Family",
+          "prompt": "What are their names, ages, etc?",
           "scoreRange": [
             1,
             2,
@@ -832,9 +832,9 @@
         {
           "id": "s-9",
           "type": "speaking-audio",
-          "level": "Pre-Intermediate",
-          "topic": "Sports & exercise",
-          "prompt": "How much exercise do you do? Is exercise important? Why (not)? Do you like playing/watching sports? What sports do you like playing/watching?",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "Where are you from?",
           "scoreRange": [
             1,
             2,
@@ -846,9 +846,9 @@
         {
           "id": "s-10",
           "type": "speaking-audio",
-          "level": "Intermediate",
-          "topic": "Food",
-          "prompt": "Do you usually eat healthy meals? What is some of your favourite food? Do you like eating out (e.g. restaurants)? Why (not)? Do you like cooking?",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "What is your home town or city?",
           "scoreRange": [
             1,
             2,
@@ -860,9 +860,9 @@
         {
           "id": "s-11",
           "type": "speaking-audio",
-          "level": "Intermediate",
-          "topic": "Animals",
-          "prompt": "Do you like animals? What are some of your favourite animals? What pet(s) do you have (or would you like to have)? How do animals help people?",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "Do or did you like living there?",
           "scoreRange": [
             1,
             2,
@@ -874,9 +874,9 @@
         {
           "id": "s-12",
           "type": "speaking-audio",
-          "level": "Intermediate",
-          "topic": "Computers & gadgets",
-          "prompt": "Do you often use computers, mp3 players, games consoles, etc? What do you mainly use the Internet for? What problems can computers/etc cause?",
+          "level": "Elementary",
+          "topic": "Home",
+          "prompt": "Is it: – big? – beautiful? – noisy? – clean?",
           "scoreRange": [
             1,
             2,
@@ -888,9 +888,9 @@
         {
           "id": "s-13",
           "type": "speaking-audio",
-          "level": "Intermediate",
-          "topic": "Languages",
-          "prompt": "What languages do you speak? Is it important to speak several languages? Why (not)? Is it a good or bad thing that most people in the world learn English?",
+          "level": "Elementary",
+          "topic": "Studies",
+          "prompt": "What do or did you study?",
           "scoreRange": [
             1,
             2,
@@ -902,9 +902,9 @@
         {
           "id": "s-14",
           "type": "speaking-audio",
-          "level": "Upper Intermediate",
-          "topic": "Travel",
-          "prompt": "Do you like to travel? Why (not)? What place would you most like to visit? Why? What’s your (least) favourite way to travel? Does travel really ‘broaden the mind’?",
+          "level": "Elementary",
+          "topic": "Studies",
+          "prompt": "Is or was it: – interesting? – difficult?",
           "scoreRange": [
             1,
             2,
@@ -916,9 +916,9 @@
         {
           "id": "s-15",
           "type": "speaking-audio",
-          "level": "Upper Intermediate",
-          "topic": "Crime",
-          "prompt": "Is crime a problem in this (or your) country? What can be done to reduce crime? Are the laws in this (or your) country generally too strict, or not strict enough?",
+          "level": "Elementary",
+          "topic": "Studies",
+          "prompt": "What will you do or did you do after finishing your studies?",
           "scoreRange": [
             1,
             2,
@@ -930,9 +930,9 @@
         {
           "id": "s-16",
           "type": "speaking-audio",
-          "level": "Upper Intermediate",
-          "topic": "Careers",
-          "prompt": "What sort of career do you want? What do you want most from it (e.g. money, creativity, etc)? Should a career be the most important thing in someone’s life?",
+          "level": "Elementary",
+          "topic": "Work",
+          "prompt": "What job do you do or want to do?",
           "scoreRange": [
             1,
             2,
@@ -944,9 +944,9 @@
         {
           "id": "s-17",
           "type": "speaking-audio",
-          "level": "Upper Intermediate",
-          "topic": "Art, books, music etc.",
-          "prompt": "How often do you listen to music, read a book, visit an exhibition? Do you play an instrument/paint/write/etc? Are art/music/etc important to society? Why (not)?",
+          "level": "Elementary",
+          "topic": "Work",
+          "prompt": "When did or will you start working?",
           "scoreRange": [
             1,
             2,
@@ -958,9 +958,9 @@
         {
           "id": "s-18",
           "type": "speaking-audio",
-          "level": "Advanced",
-          "topic": "News & the media",
-          "prompt": "How closely do you follow the news? Which media (e.g. TV, newspapers, online) cover the news best? Give examples. What will news media be like in the future?",
+          "level": "Elementary",
+          "topic": "Work",
+          "prompt": "Why did or do you want to do this job?",
           "scoreRange": [
             1,
             2,
@@ -972,9 +972,9 @@
         {
           "id": "s-19",
           "type": "speaking-audio",
-          "level": "Advanced",
-          "topic": "Cities",
-          "prompt": "Why do people choose to live in cities? What are the (dis)advantages of city life, compared to living in the countryside? Which do/would you prefer?",
+          "level": "Pre-Intermediate",
+          "topic": "Appearance & character",
+          "prompt": "Tell me about your best friend.",
           "scoreRange": [
             1,
             2,
@@ -986,9 +986,9 @@
         {
           "id": "s-20",
           "type": "speaking-audio",
-          "level": "Advanced",
-          "topic": "Man & nature",
-          "prompt": "How do we affect nature (e.g. rainforests)? How does nature affect us (e.g. floods)? Will problems such as pollution or endangered species ever be solved?",
+          "level": "Pre-Intermediate",
+          "topic": "Appearance & character",
+          "prompt": "Describe his or her appearance example colour of hair or eyes, height and character example kind, funny.",
           "scoreRange": [
             1,
             2,
@@ -1000,9 +1000,821 @@
         {
           "id": "s-21",
           "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Appearance & character",
+          "prompt": "When did you meet?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-22",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "What’s the weather like today?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-23",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "Which is your favourite season?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-24",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "What is the weather like then?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-25",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Weather",
+          "prompt": "What weather makes you feel happy or sad, etc?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-26",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "Do you enjoy shopping?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-27",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "How often do you go shopping?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-28",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "Do you go shopping alone or with friends?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-29",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Shopping",
+          "prompt": "What sort of things do you usually buy?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-30",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "How much exercise do you do?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-31",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "Is exercise important?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-32",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-33",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "Do you like playing or watching sports?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-34",
+          "type": "speaking-audio",
+          "level": "Pre-Intermediate",
+          "topic": "Sports & exercise",
+          "prompt": "What sports do you like playing or watching?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-35",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Do you usually eat healthy meals?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-36",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "What is some of your favourite food?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-37",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Do you like eating out example restaurants?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-38",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-39",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Food",
+          "prompt": "Do you like cooking?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-40",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "Do you like animals?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-41",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "What are some of your favourite animals?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-42",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "What pet(s) do you have (or would you like to have)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-43",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Animals",
+          "prompt": "How do animals help people?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-44",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Computers & gadgets",
+          "prompt": "Do you often use computers, mp3 players, games consoles, etc?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-45",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Computers & gadgets",
+          "prompt": "What do you mainly use the Internet for?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-46",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Computers & gadgets",
+          "prompt": "What problems can computers or etc cause?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-47",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "What languages do you speak?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-48",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "Is it important to speak several languages?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-49",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-50",
+          "type": "speaking-audio",
+          "level": "Intermediate",
+          "topic": "Languages",
+          "prompt": "Is it a good or bad thing that most people in the world learn English?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-51",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Do you like to travel?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-52",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-53",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "What place would you most like to visit?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-54",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Why?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-55",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "What’s your (least) favourite way to travel?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-56",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Travel",
+          "prompt": "Does travel really ‘broaden the mind’?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-57",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Crime",
+          "prompt": "Is crime a problem in this (or your) country?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-58",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Crime",
+          "prompt": "What can be done to reduce crime?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-59",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Crime",
+          "prompt": "Are the laws in this (or your) country generally too strict, or not strict enough?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-60",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Careers",
+          "prompt": "What sort of career do you want?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-61",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Careers",
+          "prompt": "What do you want most from it (example money, creativity, etc)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-62",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Careers",
+          "prompt": "Should a career be the most important thing in someone’s life?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-63",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "How often do you listen to music, read a book, visit an exhibition?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-64",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "Do you play an instrument or paint or write, etc?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-65",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "Are art or music, etc important to society?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-66",
+          "type": "speaking-audio",
+          "level": "Upper Intermediate",
+          "topic": "Art, books, music etc.",
+          "prompt": "Why (not)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-67",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "How closely do you follow the news?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-68",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "Which media (example TV, newspapers, online) cover the news best?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-69",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "Give examples.",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-70",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "News & the media",
+          "prompt": "What will news media be like in the future?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-71",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Cities",
+          "prompt": "Why do people choose to live in cities?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-72",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Cities",
+          "prompt": "What are the (dis)advantages of city life, compared to living in the countryside?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-73",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Cities",
+          "prompt": "Which do or would you prefer?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-74",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Man & nature",
+          "prompt": "How do we affect nature (example rainforests)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-75",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Man & nature",
+          "prompt": "How does nature affect us (example floods)?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-76",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Man & nature",
+          "prompt": "Will problems such as pollution or endangered species ever be solved?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-77",
+          "type": "speaking-audio",
           "level": "Advanced",
           "topic": "Society & culture",
-          "prompt": "Do you often mix with people from a different culture to yours? Do you like or dislike this? What are the benefits and/or problems of a multicultural society?",
+          "prompt": "Do you often mix with people from a different culture to yours?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-78",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Society & culture",
+          "prompt": "Do you like or dislike this?",
+          "scoreRange": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "id": "s-79",
+          "type": "speaking-audio",
+          "level": "Advanced",
+          "topic": "Society & culture",
+          "prompt": "What are the benefits and or problems of a multicultural society?",
           "scoreRange": [
             1,
             2,

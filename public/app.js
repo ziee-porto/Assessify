@@ -1265,10 +1265,15 @@ async function renderTeacher(test, user) {
 
   const totalQuestions = (test.sections || []).reduce((sum, s) => sum + (s.questions ? s.questions.length : 0), 0);
   const schoolBrand = window.assessifySettings?.schoolName || 'Karya Bangsa School';
-  const totalMins = Number(window.assessifySettings?.durationMinutes) || Number(test.durationMinutes) || 65;
-  const gvMins = Math.max(5, Math.round(totalMins * (30 / 65)));
-  const writingMins = Math.max(5, Math.round(totalMins * (20 / 65)));
-  const speakingMins = Math.max(5, totalMins - gvMins - writingMins);
+
+  const gvSec = (test.sections || []).find(s => s.id === 'grammar-vocabulary' || s.id === 'grammar' || s.label?.toLowerCase().includes('grammar'));
+  const writingSec = (test.sections || []).find(s => s.id === 'writing' || s.label?.toLowerCase().includes('writing'));
+  const speakingSec = (test.sections || []).find(s => s.id === 'speaking' || s.label?.toLowerCase().includes('speaking'));
+
+  const gvMins = Number(gvSec?.durationMinutes) || 30;
+  const writingMins = Number(writingSec?.durationMinutes) || 20;
+  const speakingMins = Number(speakingSec?.durationMinutes) || 20;
+  const totalMins = (test.sections || []).reduce((sum, s) => sum + (Number(s.durationMinutes) || 0), 0) || (gvMins + writingMins + speakingMins);
   const totalHrs = Math.floor(totalMins / 60).toString().padStart(2, '0');
   const remMins = (totalMins % 60).toString().padStart(2, '0');
 
@@ -1313,7 +1318,7 @@ async function renderTeacher(test, user) {
         ${test.sections.map((section, idx) => {
           const secLabel = section.label || (section.id === 'grammar-vocabulary' ? 'Grammar & Vocabulary Placement Test' : section.id === 'writing' ? 'Writing Placement Test' : 'Oral Placement Test');
           const itemCount = (section.topics && section.topics.length) ? `${section.topics.length} topics (1 selected)` : `${section.questions ? section.questions.length : 0} items`;
-          const customDuration = section.id === 'grammar-vocabulary' ? gvMins : (section.id === 'writing' ? writingMins : (section.id === 'speaking' ? speakingMins : (section.durationMinutes || 20)));
+          const customDuration = Number(section.durationMinutes) || (section.id === 'grammar-vocabulary' ? gvMins : (section.id === 'writing' ? writingMins : (section.id === 'speaking' ? speakingMins : 20)));
           return `
             <article class="section-card">
               <div class="section-icon">${sectionIcons[secLabel] || sectionIcons[section.id] || (idx + 1)}</div>
@@ -1784,11 +1789,17 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     }
   }
 
-  const sectionDurations = {
-    'grammar-vocabulary': 30 * 60 * 1000,
-    'writing': 20 * 60 * 1000,
-    'speaking': 15 * 60 * 1000
-  };
+  const sectionDurations = {};
+  const defaultRemainingMs = {};
+  (test.sections || []).forEach((s, idx) => {
+    const fallback = (s.id === 'grammar-vocabulary' || s.id === 'grammar') ? 30 : (s.id === 'writing' ? 20 : 20);
+    const mins = Number(s.durationMinutes) || fallback;
+    const ms = mins * 60 * 1000;
+    sectionDurations[s.id] = ms;
+    if (s.alias) sectionDurations[s.alias] = ms;
+    defaultRemainingMs[idx] = ms;
+  });
+
   const sectionStartTimes = isResume
     ? Object.assign({}, attemptData?.sectionStartTimes || {}, localState?.sectionStartTimes || {})
     : { 0: new Date().toISOString() };
@@ -1796,8 +1807,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     sectionStartTimes[0] = attemptData?.startedAt || new Date().toISOString();
   }
   const sectionRemainingMs = isResume
-    ? Object.assign({}, attemptData?.sectionRemainingMs || {}, localState.sectionRemainingMs || {})
-    : { 0: 30 * 60 * 1000, 1: 20 * 60 * 1000, 2: 15 * 60 * 1000 };
+    ? Object.assign({}, defaultRemainingMs, attemptData?.sectionRemainingMs || {}, localState.sectionRemainingMs || {})
+    : Object.assign({}, defaultRemainingMs, attemptData?.sectionRemainingMs || {});
   const sectionEndTimes = isResume
     ? Object.assign({}, attemptData?.sectionEndTimes || {}, localState.sectionEndTimes || {})
     : {};
@@ -2592,7 +2603,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           ${isAutoTimeLimit ? `
             <div style="display:flex;justify-content:center;margin:0 auto 24px;width:100%">
               <span class="notice-pill notice-pill-warning">
-                ⏱ Notice: Concluded automatically at 15-minute time limit
+                ⏱ Notice: Concluded automatically at section time limit
               </span>
             </div>
           ` : ''}
@@ -2624,7 +2635,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
       recordingStartedAt = null;
     }
     if (nextSec && sectionRemainingMs[sectionIndex] === undefined) {
-      const nextDur = sectionDurations[nextSec.id] || (nextSec.durationMinutes || 15) * 60 * 1000;
+      const nextDur = (nextSec.durationMinutes ? Number(nextSec.durationMinutes) * 60 * 1000 : null) || sectionDurations[nextSec.id] || 20 * 60 * 1000;
       sectionRemainingMs[sectionIndex] = nextDur;
       sectionEndTimes[sectionIndex] = Date.now() + nextDur;
     }
@@ -2639,7 +2650,7 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
     const currSec = section();
     if (!currSec) return;
 
-    const defaultDur = sectionDurations[currSec.id] || (currSec.durationMinutes || 15) * 60 * 1000;
+    const defaultDur = (currSec.durationMinutes ? Number(currSec.durationMinutes) * 60 * 1000 : null) || sectionDurations[currSec.id] || 20 * 60 * 1000;
 
     // Check if we have remaining time saved from before (resume scenario)
     let remaining = sectionRemainingMs[sectionIndex];
@@ -2720,7 +2731,8 @@ function renderSectionFlow(test, expiresAt, attemptId, attemptData = {}, user = 
           showToast(`Time limit reached for ${secName}. Advancing to next section...`, 'info', 4500);
           advanceToNextSection();
         } else {
-          showToast('15-minute Speaking time limit reached. Concluding assessment...', 'info', 5000);
+          const spkMins = Math.round(defaultDur / 60000);
+          showToast(`${spkMins}-minute Speaking time limit reached. Concluding assessment...`, 'info', 5000);
           submitAssessment(false, true);
         }
         return;
